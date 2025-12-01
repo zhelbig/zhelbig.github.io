@@ -3,552 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Name - Resume</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #ffffff;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
-            padding: 40px 20px;
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background-color: rgba(26, 26, 26, 0.95);
-            box-shadow: 0 20px 60px rgba(255, 0, 0, 0.15), 0 0 40px rgba(0, 0, 0, 0.5);
-            border-radius: 20px;
-            overflow: hidden;
-            backdrop-filter: blur(10px);
-        }
-
-        /* Header Section */
-        header {
-            background: linear-gradient(135deg, #2d2d2d 0%, #3a3a3a 100%);
-            color: white;
-            padding: 60px 40px;
-            text-align: center;
-            border-radius: 20px 20px 0 0;
-        }
-
-        header h1 {
-            font-size: 2.8em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
-            font-weight: 300;
-            letter-spacing: 1px;
-        }
-
-        header .title {
-            font-size: 1.4em;
-            font-weight: 300;
-            margin-bottom: 25px;
-            text-shadow: 2px 2px 6px rgba(0,0,0,0.7);
-            opacity: 0.9;
-        }
-
-        .contact-info {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 30px;
-            margin-top: 25px;
-        }
-
-        .contact-info span {
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            transition: all 0.3s ease;
-        }
-
-        .contact-info span:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-2px);
-        }
-
-        .contact-info a {
-            color: white;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
-        }
-
-        .contact-info a:hover {
-            color: #ff0000;
-        }
-
-        .contact-info span {
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
-        }
-
-        /* Main Content */
-        .content {
-            padding: 40px;
-        }
-
-        section {
-            margin-bottom: 40px;
-        }
-
-        h2 {
-            color: #ff0000;
-            font-size: 2em;
-            margin-bottom: 30px;
-            padding-bottom: 15px;
-            border-bottom: 3px solid #ff0000;
-            position: relative;
-            font-weight: 300;
-            letter-spacing: 1px;
-        }
-
-        h2::after {
-            content: '';
-            position: absolute;
-            bottom: -3px;
-            left: 0;
-            width: 60px;
-            height: 3px;
-            background: #ffffff;
-            transition: width 0.3s ease;
-        }
-
-        section:hover h2::after {
-            width: 120px;
-        }
-
-        /* About Section */
-        .about p {
-            font-size: 1.1em;
-            line-height: 1.8;
-            color: #e0e0e0;
-        }
-
-        /* Experience & Education */
-        .experience-item, .education-item {
-            margin-bottom: 35px;
-            padding: 25px;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 15px;
-            border-left: 4px solid #ff0000;
-            transition: all 0.3s ease;
-        }
-
-        .experience-item:hover, .education-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            transform: translateX(5px);
-            box-shadow: 0 5px 20px rgba(255, 0, 0, 0.1);
-        }
-
-        .experience-item h3, .education-item h3 {
-            color: #ffffff;
-            font-size: 1.3em;
-            margin-bottom: 5px;
-        }
-
-        .company, .school {
-            color: #ff0000;
-            font-weight: 600;
-            font-size: 1.1em;
-        }
-
-        .date {
-            color: #999;
-            font-style: italic;
-            margin-bottom: 10px;
-        }
-
-        .experience-item ul, .education-item ul {
-            margin-left: 20px;
-            margin-top: 10px;
-        }
-
-        .experience-item li, .education-item li {
-            margin-bottom: 8px;
-            color: #d0d0d0;
-        }
-
-        /* Skills Section */
-        .skills-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 25px;
-        }
-
-        .skill-category {
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 15px;
-            transition: all 0.3s ease;
-            border: 1px solid rgba(255, 0, 0, 0.1);
-        }
-
-        .skill-category:hover {
-            background: rgba(255, 255, 255, 0.05);
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(255, 0, 0, 0.1);
-            border-color: rgba(255, 0, 0, 0.3);
-        }
-
-        .skill-category h3 {
-            color: #ffffff;
-            font-size: 1.2em;
-            margin-bottom: 10px;
-        }
-
-        .skill-category ul {
-            list-style: none;
-        }
-
-        .skill-category li {
-            padding: 8px 0;
-            color: #d0d0d0;
-        }
-
-        .skill-category li:before {
-            content: "▸ ";
-            color: #ff0000;
-            font-weight: bold;
-        }
-
-        .skill-category ul ul {
-            margin-left: 20px;
-            margin-top: 5px;
-        }
-
-        .skill-category ul ul li {
-            padding: 4px 0;
-            font-size: 0.95em;
-        }
-
-        .skill-category ul ul li:before {
-            content: "• ";
-            color: #ff0000;
-            font-weight: normal;
-        }
-
-        /* Projects Section */
-        .project {
-            margin-bottom: 30px;
-            padding: 25px;
-            background: rgba(37, 37, 37, 0.6);
-            border-left: 4px solid #ff0000;
-            border-radius: 15px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .project:hover {
-            background: rgba(37, 37, 37, 0.8);
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(255, 0, 0, 0.15);
-        }
-
-        .project h3 {
-            color: #ffffff;
-            margin-bottom: 10px;
-        }
-
-        .project p {
-            color: #d0d0d0;
-            margin-bottom: 10px;
-        }
-
-        .project a {
-            color: #ff0000;
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .project a:hover {
-            text-decoration: underline;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            header {
-                padding: 40px 20px;
-            }
-
-            header h1 {
-                font-size: 2em;
-            }
-
-            .content {
-                padding: 20px;
-            }
-
-            .contact-info {
-                flex-direction: column;
-                gap: 10px;
-            }
-        }
-
-        /* Print Styles */
-        @media print {
-            body {
-                background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%) !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                color-adjust: exact !important;
-            }
-
-            .container {
-                box-shadow: none;
-                background-color: rgba(26, 26, 26, 0.95) !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-
-            header {
-                background: linear-gradient(135deg, #2d2d2d 0%, #3a3a3a 100%) !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                page-break-after: avoid;
-            }
-            
-            h2 {
-                color: #ff0000 !important;
-                page-break-after: avoid;
-            }
-            
-            .experience-item, .education-item, .project, .skill-category {
-                page-break-inside: avoid;
-                background: rgba(255, 255, 255, 0.03) !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-
-            .project {
-                background: rgba(37, 37, 37, 0.6) !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-
-            section {
-                page-break-inside: avoid;
-            }
-
-            .about p, .experience-item li, .education-item li, .skill-category li, .project p {
-                color: #d0d0d0 !important;
-            }
-
-            * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-        }
-    </style>
+    <title>Zachary Helbig - IT Operations & Infrastructure Specialist</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Header with Contact Info -->
-        <header>
-            <h1>Zachary J. Helbig</h1>
-            <div class="title">IT Operations & Secure Infrastructure Specialist</div>
-            <div class="contact-info">
-                <span>📧 <a href="mailto:ZacharyHelbig@gmail.com">ZacharyHelbig@gmail.com</a></span>
-                <span>💼 <a href="mailto:Zachary@HelbigTech.com">Zachary@HelbigTech.com</a></span>
-                <span>📱 <a href="tel:+15616027355">(561) 602-7355</a></span>
-                <span>🔗 <a href="https://linkedin.com/in/zacharyhelbig" target="_blank">LinkedIn</a></span>
-                <span>📍 Orlando, FL 32822</span>
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <div class="content">
-            <!-- About Section -->
-            <section class="about">
-                <h2>About Me</h2>
-                <p>
-                    I am an IT professional with a unique background spanning banking and financial services before 
-                    discovering my passion in information technology. My tech journey began with the Google IT Support 
-                    Professional Certificate, leading to my current role at i-Tech Support inc. Since beginning my career 
-                    in IT, I've earned multiple certifications including CompTIA A+, CompTIA Network+, CompTIA Security+, 
-                    Microsoft Azure Fundamentals (AZ-900), and Microsoft 365 Fundamentals (MS-900). I'm currently pursuing 
-                    the Microsoft Azure Administrator (AZ-104) certification as I work toward my goal of becoming a cloud engineer.
-                </p>
-            </section>
-
-            <!-- Experience Section -->
-            <section class="experience">
-                <h2>Professional Experience</h2>
-                
-                <div class="experience-item">
-                    <h3>i-Tech Support inc. – Orlando, FL</h3>
-                    <div class="date">April 2024 - Present</div>
-                    <div class="company">Help Desk Technician Level 1</div>
-                    <div class="date">April 2024 - Present</div>
-                    <ul>
-                        <li>Diagnosed and resolved escalated technical problems using advanced troubleshooting methodologies and root cause analysis while managing high-priority incidents from escalation through complete resolution, maintaining SLA compliance and coordinating cross-functional teams and external vendors to minimize business impact.</li>
-                        <li>Identified and implemented automation opportunities and workflow improvements that reduced average resolution time, enhanced operational efficiency, and increased customer satisfaction scores.</li>
-                        <li>Developed and maintained comprehensive documentation, troubleshooting guides, and knowledge base articles that improved first-call resolution rates and enabled efficient self-service support capabilities while providing technical training and mentoring to support staff to strengthen overall team capabilities.</li>
-                        <li>Provided specialized technical knowledge across multiple systems including Windows, MacOS, Windows servers with domain controllers, DHCP, DNS, Active Directory, and cloud environments while continuously developing expertise in emerging technologies and industry best practices to support evolving business needs.</li>
-                        <li>Delivered expert support for diverse applications including Office365, Google Workspace, printer software, and industry-specific applications across various sectors, ensuring seamless user productivity and business operations.</li>
-                        <li>Diagnosed and resolved network connectivity issues by analyzing TCP/IP configurations, VLAN settings, switch and router configurations, VPN configuration and troubleshooting, wireless network problems, and bandwidth utilization while implementing network monitoring tools to maintain optimal performance and connectivity.</li>
-                        <li>Implemented and maintained security protocols including user access controls, endpoint protection, firewall configurations, vulnerability assessments, and incident response procedures while ensuring compliance with security policies and conducting security awareness training for end users.</li>
-                        <li>Conducted detailed root cause investigations for recurring issues and led cross-team collaboration with engineering teams to implement systematic improvements that reduced incident frequency by identifying underlying system vulnerabilities.</li>
-                    </ul>
-                </div>
-
-                <div class="experience-item">
-                    <h3>Branch Banker (DMLO)</h3>
-                    <div class="company">PNC Bank, Financial Services Group – Orlando, FL</div>
-                    <div class="date">July 2022 - April 2024</div>
-                    <ul>
-                        <li>Provided technical support and digital literacy education to clients, guiding them through online tools and resources to achieve their goals and improve overall service experience.</li>
-                        <li>Delivered inbound call support using advanced problem-solving techniques and technical knowledge to resolve diverse client issues efficiently across multiple platforms and systems.</li>
-                        <li>Applied security protocols and fraud prevention knowledge to protect clients against cyber threats while maintaining compliance with organizational policies and procedures.</li>
-                        <li>Performed rapid desktop computer and application troubleshooting to maintain operational continuity and minimize business disruption.</li>
-                        <li>Leveraged comprehensive knowledge of banking products and services including deposits, credit, lending, debt consolidation, and retirement planning to meet diverse customer financial needs.</li>
-                        <li>Demonstrated effective communication skills to translate complex technical concepts and financial information to clients and colleagues with varying levels of expertise.</li>
-                        <li>Managed multiple concurrent projects and priorities through strategic time management and task prioritization to meet deadlines and service level expectations.</li>
-                        <li>Recognized and adapted to diverse customer perspectives and needs to deliver personalized solutions and maintain high levels of customer satisfaction.</li>
-                    </ul>
-                </div>
-
-                <div class="experience-item">
-                    <h3>Financial Advisor</h3>
-                    <div class="company">Coastal Wealth, LLC, a MassMutual Firm – Fort Lauderdale, FL</div>
-                    <div class="date">January 2021 - July 2022</div>
-                    <ul>
-                        <li>Provided comprehensive financial guidance and insurance solutions to clients seeking retirement and life insurance coverage while actively prospecting new business through networking, community events, referrals, and strategic partnerships.</li>
-                        <li>Conducted sales activities across multiple channels (in-person, phone, virtual) and managed the full application process for various insurance and retirement products to meet diverse customer financial security needs.</li>
-                        <li>Maintained daily client account monitoring and retention strategies while collaborating with financial professionals to deepen relationships and identify cross-selling opportunities.</li>
-                        <li>Analyzed clients' financial positions and developed customized plans for retirement, education, and other financial goals while leveraging product knowledge to optimize their financial security.</li>
-                    </ul>
-                </div>
-
-                <div class="experience-item">
-                    <h3>Operations and Logistics Manager</h3>
-                    <div class="company">Fluorotek USA, Inc – Riviera Beach, FL</div>
-                    <div class="date">May 2019 - June 2021</div>
-                    <ul>
-                        <li>Innovated manufacturing systems, processes, and procedures to create a more efficient and safer workplace while supervising and managing a team of up to 50 manufacturing employees daily.</li>
-                        <li>Proactively managed employee operations including timecard accuracy, punctuality, and overtime restrictions while assisting the human resources director with hiring, disciplining, and terminating employees.</li>
-                        <li>Coordinated with vendors to maintain sufficient raw material inventory and collaborated with customers to ensure production schedules and shipments met delivery requirements.</li>
-                        <li>Tracked production goals and worked with management team to consistently meet customer expectations and maintain operational efficiency.</li>
-                    </ul>
-                </div>
-            </section>
-
-            <!-- Skills Section -->
-            <section class="skills">
-                <h2>Technical Skills</h2>
-                <div class="skills-grid">
-                    <div class="skill-category">
-                        <h3>Systems & Platforms</h3>
-                        <ul>
-                            <li>Microsoft 365 / Azure AD</li>
-                            <li>Microsoft Intune</li>
-                            <li>Active Directory / Exchange</li>
-                            <li>Windows Server (DHCP, DNS, Domain Controllers)</li>
-                            <li>NinjaRMM</li>
-                            <li>Google Workspace</li>
-                            <li>Jamf Pro</li>
-                        </ul>
-                    </div>
-                    <div class="skill-category">
-                        <h3>Networking</h3>
-                        <ul>
-                            <li>Network Hardware
-                                <ul>
-                                    <li>Cisco</li>
-                                    <li>Cisco Meraki</li>
-                                    <li>Fortinet</li>
-                                    <li>Palo Alto</li>
-                                </ul>
-                            </li>
-                            <li>TCP/IP, VLANs, VPN</li>
-                            <li>DNS/DHCP/Subnets</li>
-                            <li>Cloud Network Management
-                                <ul>
-                                    <li>Cisco Meraki</li>
-                                    <li>RUCKUS</li>
-                                    <li>Ubiquiti</li>
-                                </ul>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="skill-category">
-                        <h3>Security & Tools</h3>
-                        <ul>
-                            <li>Huntress EDR / ITDR</li>
-                            <li>Webroot</li>
-                            <li>Datto Backup Solutions</li>
-                            <li>AppRiver Security</li>
-                            <li>BitLocker / LAPS</li>
-                            <li>Vulnerability Assessment</li>
-                            <li>Incident Response</li>
-                        </ul>
-                    </div>
-                    <div class="skill-category">
-                        <h3>Automation & Scripting</h3>
-                        <ul>
-                            <li>PowerShell Scripting</li>
-                            <li>Group Policy Objects (GPO)</li>
-                            <li>Process Automation</li>
-                            <li>Win32 App Packaging</li>
-                            <li>Software Deployment</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Education Section -->
-            <section class="education">
-                <h2>Certifications</h2>
-                
-                <div class="education-item">
-                    <h3>Professional Certifications</h3>
-                    <ul>
-                        <li>Microsoft 365 Fundamentals (MS-900) - November 2025</li>
-                        <li>CompTIA Security+ - July 2025</li>
-                        <li>CompTIA Network+ - April 2025</li>
-                        <li>Microsoft Azure Fundamentals (AZ-900) - February 2025</li>
-                        <li>CompTIA A+ - June 2024</li>
-                        <li>Google Professional IT Support Certification - October 2023</li>
-                    </ul>
-                </div>
-            </section>
-
-            <!-- Projects Section (Optional) -->
-            <section class="projects">
-                <h2>Notable Projects & Achievements</h2>
-                
-                <div class="project">
-                    <h3>Microsoft 365 Tenant & Domain Infrastructure Build</h3>
-                    <p>Purchased and configured custom domain (helbigtech.com) through GoDaddy and established Microsoft 365 Business tenant with full licensing. Successfully linked custom domain to Microsoft tenant through DNS verification and configuration. Managed comprehensive domain services within Microsoft 365 admin center including email routing, DNS records, and domain authentication protocols. Integrated tenant with Microsoft Identity for user authentication and access management, implemented Security and Purview for compliance and data governance, and connected Azure services for cloud resource management and hybrid infrastructure capabilities.</p>
-                </div>
-
-                <div class="project">
-                    <h3>Automated Software Deployment System</h3>
-                    <p>Developed comprehensive PowerShell scripts for automated software deployment across enterprise environment. Implemented silent installation with embedded license keys, timeout handling, and removal scripts for residual files. Achieved zero-touch deployment capability for multiple devices simultaneously, reducing manual installation time by 75% and improving consistency across the organization.</p>
-                </div>
-
-                <div class="project">
-                    <h3>Microsoft Intune Enterprise Management</h3>
-                    <p>Configured and deployed Win32 application packages through Microsoft Intune with dependency management for enterprise-wide distribution. Created detection rules, installation commands, and assignment policies for targeted device groups. Implemented Windows Update enforcement policies with update rings, deadlines, and compliance monitoring. Managed configuration policies across Windows, Android, and iOS platforms for device settings, security baselines, and compliance requirements. Administered user and group management with role-based access controls and conditional access policies. Deployed devices through Windows Autopilot for zero-touch provisioning and streamlined onboarding experiences. Configured security policies including endpoint protection, BitLocker encryption, password requirements, and mobile threat defense integration.</p>
-                </div>
-
-                <div class="project">
-                    <h3>Network Infrastructure Configuration & Security Hardening</h3>
-                    <p>Managed network infrastructure including firewall rules, DNS/DHCP configuration, VLAN settings, and wireless access point deployment. Implemented security protocols across multiple platforms including EDR solutions, enterprise firewalls, and endpoint protection. Configured enterprise printers with SMB scan-to-folder and SMTP email functionality with domain authentication across multiple brands.</p>
-                </div>
-
-                <div class="project">
-                    <h3>Microsoft Identity & Security Implementation</h3>
-                    <p>Created comprehensive LAPS (Local Administrator Password Solution) configuration guides for Microsoft Identity management. Developed Microsoft Exchange transport rules for email filtering and security. Created and reconfigured conditional access policies for user authentication, device compliance, and risk-based access controls across enterprise environment. Utilized Microsoft Purview for eDiscovery investigations and content searches to support compliance requirements and security incident response. Implemented security compliance measures across enterprise environment.</p>
-                </div>
-            </section>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">Zachary Helbig</div>
+            <ul class="nav-menu">
+                <li><a href="index.html" class="active">Home</a></li>
+                <li><a href="about.html">About</a></li>
+                <li><a href="resume.html">Resume</a></li>
+                <li><a href="projects.html">Projects</a></li>
+            </ul>
         </div>
-    </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">Hi, I'm Zachary Helbig</h1>
+            <p class="hero-subtitle">IT Operations & Secure Infrastructure Specialist</p>
+            <p class="hero-description">
+                Transforming IT infrastructure through automation, cloud solutions, and robust security implementations. 
+                Passionate about building scalable systems and optimizing enterprise environments.
+            </p>
+            <div class="hero-buttons">
+                <a href="resume.html" class="btn btn-primary">View Resume</a>
+                <a href="projects.html" class="btn btn-secondary">See Projects</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Info Section -->
+    <section class="quick-info">
+        <div class="container">
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-icon">🎓</div>
+                    <h3>6+ Certifications</h3>
+                    <p>CompTIA, Microsoft Azure, Microsoft 365</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">💼</div>
+                    <h3>IT Professional</h3>
+                    <p>Help Desk Technician Level 2 at i-Tech Support</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">🔧</div>
+                    <h3>Technical Expertise</h3>
+                    <p>Cloud, Networking, Security, Automation</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">🎯</div>
+                    <h3>Career Goal</h3>
+                    <p>Pursuing Cloud Engineer certification</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact-section">
+        <div class="container">
+            <h2>Let's Connect</h2>
+            <div class="contact-links">
+                <a href="mailto:ZacharyHelbig@gmail.com" class="contact-btn">
+                    <span>📧</span> Email Me
+                </a>
+                <a href="mailto:Zachary@HelbigTech.com" class="contact-btn">
+                    <span>💼</span> Professional Email
+                </a>
+                <a href="https://linkedin.com/in/zacharyhelbig" target="_blank" class="contact-btn">
+                    <span>🔗</span> LinkedIn
+                </a>
+                <a href="tel:+15616027355" class="contact-btn">
+                    <span>📱</span> Call Me
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Zachary J. Helbig. All rights reserved.</p>
+            <p>Orlando, FL | <a href="mailto:Zachary@HelbigTech.com">Zachary@HelbigTech.com</a></p>
+        </div>
+    </footer>
 </body>
 </html>
