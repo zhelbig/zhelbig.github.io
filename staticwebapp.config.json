@@ -1,36 +1,5 @@
 {
   "platform": {
     "apiRuntime": "node:18"
-  },
-  "routes": [
-    {
-      "route": "/index.html",
-      "serve": "/index.html"
-    },
-    {
-      "route": "/about.html",
-      "serve": "/about.html"
-    },
-    {
-      "route": "/resume.html",
-      "serve": "/resume.html"
-    },
-    {
-      "route": "/projects.html",
-      "serve": "/projects.html"
-    },
-    {
-      "route": "/tools.html",
-      "serve": "/tools.html"
-    },
-    {
-      "route": "/network-mapper.html",
-      "serve": "/network-mapper.html"
-    }
-  ],
-  "responseOverrides": {
-    "404": {
-      "rewrite": "/index.html"
-    }
   }
 }
