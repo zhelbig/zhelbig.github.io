@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetMap Pro - Network Infrastructure Mapper</title>
+    <style>
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #0f1419;
+            --bg-tertiary: #1a1f26;
+            --bg-card: #141920;
+            --border-color: #2a3140;
+            --border-highlight: #3d4a5c;
+            --text-primary: #e6e6e6;
+            --text-secondary: #8b949e;
+            --text-muted: #5c6370;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-orange: #d29922;
+            --accent-red: #f85149;
+            --accent-purple: #a371f7;
+            --accent-cyan: #39c5cf;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); overflow: hidden; height: 100vh; }
+        .app { display: grid; grid-template-columns: 260px 1fr 300px; grid-template-rows: 50px 1fr 40px; height: 100vh; }
+        .header { grid-column: 1 / -1; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 16px; gap: 16px; }
+        .logo { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+        .logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .header-actions { display: flex; gap: 8px; margin-left: auto; }
+        .btn { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+        .btn:hover { background: var(--bg-card); border-color: var(--border-highlight); }
+        .btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #000; }
+        .btn-danger { border-color: var(--accent-red); color: var(--accent-red); }
+        .sidebar { background: var(--bg-secondary); border-right: 1px solid var(--border-color); overflow-y: auto; padding: 12px; }
+        .sidebar-section { margin-bottom: 20px; }
+        .sidebar-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 10px; }
+        .device-palette { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .device-item { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 8px; cursor: grab; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 10px; color: var(--text-secondary); transition: all 0.15s; }
+        .device-item:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
+        .device-item .icon { font-size: 20px; }
+        .canvas-area { position: relative; overflow: hidden; background: var(--bg-primary); }
+        .canvas-grid { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(88,166,255,0.1) 1px, transparent 1px); background-size: 20px 20px; pointer-events: none; }
+        #canvas { width: 100%; height: 100%; position: relative; transform-origin: top left; }
+        #connections { position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: visible; }
+        .conn-wired { stroke: var(--accent-blue); stroke-width: 2; fill: none; }
+        .conn-wireless { stroke: var(--accent-purple); stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
+        .controls { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; background: var(--bg-secondary); padding: 6px; border-radius: 8px; border: 1px solid var(--border-color); z-index: 100; }
+        .network-device { position: absolute; background: var(--bg-card); border: 2px solid var(--border-color); border-radius: 10px; padding: 10px; min-width: 120px; cursor: move; user-select: none; z-index: 10; }
+        .network-device:hover { border-color: var(--border-highlight); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .network-device.selected { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(88,166,255,0.2); }
+        .network-device.connecting { border-color: var(--accent-green); box-shadow: 0 0 0 3px rgba(63,185,80,0.2); }
+        .device-status { width: 8px; height: 8px; border-radius: 50%; position: absolute; top: 8px; right: 8px; }
+        .status-online { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+        .status-offline { background: #6e7681; }
+        .status-warning { background: var(--accent-orange); box-shadow: 0 0 6px var(--accent-orange); }
+        .status-retired { background: #6e7681; opacity: 0.5; }
+        .status-decommissioned { background: #6e7681; }
+        .device-icon { font-size: 24px; margin-bottom: 4px; }
+        .device-name { font-size: 12px; font-weight: 600; margin-bottom: 2px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .device-ip { font-size: 10px; color: var(--text-muted); font-family: monospace; }
+        .device-badge { font-size: 9px; padding: 2px 6px; background: var(--bg-tertiary); border-radius: 4px; color: var(--text-muted); margin-top: 6px; display: inline-block; }
+        .conn-point { position: absolute; width: 14px; height: 14px; background: var(--bg-card); border: 2px solid var(--accent-blue); border-radius: 50%; cursor: crosshair; z-index: 20; opacity: 0; transition: opacity 0.15s, transform 0.15s; }
+        .network-device:hover .conn-point, .network-device.connecting .conn-point { opacity: 1; }
+        .conn-point:hover { background: var(--accent-blue); transform: scale(1.2); }
+        .conn-point.top { top: -7px; left: 50%; margin-left: -7px; }
+        .conn-point.bottom { bottom: -7px; left: 50%; margin-left: -7px; }
+        .conn-point.left { left: -7px; top: 50%; margin-top: -7px; }
+        .conn-point.right { right: -7px; top: 50%; margin-top: -7px; }
+        .props-panel { background: var(--bg-secondary); border-left: 1px solid var(--border-color); overflow-y: auto; padding: 12px; }
+        .panel-title { font-size: 13px; font-weight: 600; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+        .form-group { margin-bottom: 14px; }
+        .form-label { display: block; font-size: 10px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; }
+        .form-input, .form-select, .form-textarea { width: 100%; padding: 8px 10px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px; font-family: monospace; }
+        .form-input:focus, .form-select:focus { outline: none; border-color: var(--accent-blue); }
+        .form-textarea { min-height: 60px; resize: vertical; font-family: inherit; }
+        .status-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+        .status-btn { flex: 1; min-width: 50px; padding: 6px 4px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; text-align: center; font-size: 9px; color: var(--text-secondary); }
+        .status-btn.active { border-color: var(--accent-blue); background: rgba(88,166,255,0.1); color: var(--text-primary); }
+        .status-btn .dot { width: 8px; height: 8px; border-radius: 50%; margin: 0 auto 4px; }
+        .conn-toggle { display: flex; background: var(--bg-card); border-radius: 6px; padding: 3px; margin-bottom: 10px; }
+        .conn-toggle button { flex: 1; padding: 6px; background: none; border: none; border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 10px; }
+        .conn-toggle button.active { background: var(--bg-tertiary); color: var(--text-primary); }
+        .conn-toggle button.wired.active { color: var(--accent-blue); }
+        .conn-toggle button.wireless.active { color: var(--accent-purple); }
+        .statusbar { grid-column: 1 / -1; background: var(--bg-secondary); border-top: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 16px; font-size: 11px; color: var(--text-muted); gap: 20px; }
+        .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.2s; }
+        .modal-bg.active { opacity: 1; visibility: visible; }
+        .modal { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; width: 450px; max-height: 80vh; overflow-y: auto; }
+        .modal-header { padding: 14px 16px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { font-size: 14px; }
+        .modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; }
+        .modal-body { padding: 16px; }
+        .modal-footer { padding: 12px 16px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 8px; }
+        .config-section { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+        .config-title { font-size: 11px; font-weight: 600; margin-bottom: 10px; color: var(--accent-blue); }
+        .vlan-item { display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 6px; font-size: 11px; margin-bottom: 6px; }
+        .vlan-id { font-weight: 600; color: var(--accent-cyan); min-width: 60px; font-family: monospace; }
+        .vlan-subnet { color: var(--text-secondary); font-family: monospace; }
+        .vlan-name { color: var(--text-muted); flex: 1; }
+        .vlan-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; }
+        .vlan-del:hover { color: var(--accent-red); }
+        .add-btn { width: 100%; padding: 8px; background: none; border: 1px dashed var(--border-color); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-size: 11px; }
+        .add-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+        .vm-host { min-width: 180px; background: rgba(163,113,247,0.05); border-style: dashed; border-color: var(--accent-purple); }
+        .vm-list { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color); display: flex; flex-wrap: wrap; gap: 4px; }
+        .hosted-vm { background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; font-size: 9px; display: flex; align-items: center; gap: 4px; }
+        .hosted-vm .dot { width: 6px; height: 6px; border-radius: 50%; }
+        .empty-state { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; color: var(--text-muted); }
+        .empty-state h3 { font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
+        .empty-state p { font-size: 12px; }
+        .conn-hint { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: var(--accent-green); color: #000; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 500; z-index: 1000; display: none; }
+        .conn-hint.active { display: block; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="logo"><div class="logo-icon">⬡</div> NetMap Pro</div>
+            <div class="header-actions">
+                <button class="btn" id="exportBtn">📥 Export</button>
+                <button class="btn" id="importBtn">📤 Import</button>
+                <button class="btn" id="configBtn">⚙️ Config</button>
+                <button class="btn btn-danger" id="clearBtn">🗑️ Clear</button>
+            </div>
+        </header>
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">Endpoints</div>
+                <div class="device-palette">
+                    <div class="device-item" draggable="true" data-type="windows"><span class="icon">🪟</span>Windows</div>
+                    <div class="device-item" draggable="true" data-type="mac"><span class="icon">🍎</span>macOS</div>
+                    <div class="device-item" draggable="true" data-type="linux"><span class="icon">🐧</span>Linux</div>
+                    <div class="device-item" draggable="true" data-type="mobile"><span class="icon">📱</span>Mobile</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Servers & Storage</div>
+                <div class="device-palette">
+                    <div class="device-item" draggable="true" data-type="server"><span class="icon">🖥️</span>Server</div>
+                    <div class="device-item" draggable="true" data-type="nas"><span class="icon">💾</span>NAS</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Network Equipment</div>
+                <div class="device-palette">
+                    <div class="device-item" draggable="true" data-type="router"><span class="icon">📡</span>Router</div>
+                    <div class="device-item" draggable="true" data-type="switch"><span class="icon">🔀</span>Switch</div>
+                    <div class="device-item" draggable="true" data-type="firewall"><span class="icon">🛡️</span>Firewall</div>
+                    <div class="device-item" draggable="true" data-type="ap"><span class="icon">📶</span>Access Point</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Virtualization & Cloud</div>
+                <div class="device-palette">
+                    <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">🏢</span>VM Host</div>
+                    <div class="device-item" draggable="true" data-type="vm"><span class="icon">📦</span>VM</div>
+                    <div class="device-item" draggable="true" data-type="cloud"><span class="icon">☁️</span>Cloud</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Other</div>
+                <div class="device-palette">
+                    <div class="device-item" draggable="true" data-type="printer"><span class="icon">🖨️</span>Printer</div>
+                    <div class="device-item" draggable="true" data-type="iot"><span class="icon">🌐</span>IoT</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Connection Type</div>
+                <div class="conn-toggle">
+                    <button class="wired active" id="wiredBtn">― Wired</button>
+                    <button class="wireless" id="wirelessBtn">┅ Wireless</button>
+                </div>
+                <p style="font-size:10px;color:var(--text-muted);">Click the circles on devices to draw connections. Press Esc to cancel.</p>
+            </div>
+        </aside>
+        <main class="canvas-area">
+            <div class="canvas-grid"></div>
+            <svg id="connections" width="100%" height="100%"></svg>
+            <div id="canvas">
+                <div class="empty-state" id="emptyState">
+                    <h3>Start Building Your Network</h3>
+                    <p>Drag devices from the sidebar onto the canvas</p>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn" id="zoomInBtn">🔍+</button>
+                <button class="btn" id="zoomOutBtn">🔍-</button>
+                <button class="btn" id="resetBtn">🏠</button>
+            </div>
+        </main>
+        <aside class="props-panel">
+            <div class="panel-title">Properties</div>
+            <div id="noSelect" style="text-align:center;padding:30px;color:var(--text-muted);">
+                <p style="font-size:12px;">Select a device to edit</p>
+            </div>
+            <div id="deviceProps" style="display:none;">
+                <div class="form-group">
+                    <label class="form-label">Device Name</label>
+                    <input type="text" class="form-input" id="propName">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">IP Address</label>
+                    <input type="text" class="form-input" id="propIP" placeholder="192.168.1.1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">MAC Address</label>
+                    <input type="text" class="form-input" id="propMAC" placeholder="00:00:00:00:00:00">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <div class="status-btns">
+                        <div class="status-btn" data-status="online"><div class="dot status-online"></div>Online</div>
+                        <div class="status-btn" data-status="offline"><div class="dot status-offline"></div>Offline</div>
+                        <div class="status-btn" data-status="warning"><div class="dot status-warning"></div>Warning</div>
+                        <div class="status-btn" data-status="retired"><div class="dot status-retired"></div>Retired</div>
+                        <div class="status-btn" data-status="decommissioned"><div class="dot status-decommissioned"></div>Decom.</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">VLAN</label>
+                    <select class="form-select" id="propVLAN"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-textarea" id="propNotes"></textarea>
+                </div>
+                <div id="vmSection" style="display:none;">
+                    <div class="form-label">Hosted VMs</div>
+                    <div id="vmList"></div>
+                    <button class="add-btn" id="addVMBtn" style="margin-top:8px;">+ Add VM</button>
+                </div>
+                <button class="btn btn-danger" style="width:100%;margin-top:16px;" id="deleteBtn">🗑️ Delete Device</button>
+            </div>
+        </aside>
+        <footer class="statusbar">
+            <span id="deviceCount">0 devices</span>
+            <span id="connCount">0 connections</span>
+            <span style="margin-left:auto;" id="zoomLevel">100%</span>
+        </footer>
+    </div>
+    <div class="conn-hint" id="connHint">Click another device's connection point to complete</div>
+    <!-- Modals -->
+    <div class="modal-bg" id="configModal">
+        <div class="modal">
+            <div class="modal-header"><h3>Network Configuration</h3><button class="modal-close" onclick="closeModal('configModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="config-section">
+                    <div class="config-title">🌐 DNS Configuration</div>
+                    <div class="form-group">
+                        <label class="form-label">DNS Provider</label>
+                        <select class="form-select" id="dnsProvider" onchange="updateDnsFields()">
+                            <option value="dnsfilter">DNS Filter</option>
+                            <option value="umbrella">Cisco Umbrella</option>
+                            <option value="server">Server Hosted</option>
+                            <option value="cloudflare">Cloudflare</option>
+                            <option value="google">Google DNS</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="dnsServerGroup" style="display:none;">
+                        <label class="form-label">DNS Server</label>
+                        <select class="form-select" id="dnsServerDevice"></select>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <div class="form-group" style="flex:1;"><label class="form-label">Primary DNS</label><input type="text" class="form-input" id="dnsPrimary" value="8.8.8.8"></div>
+                        <div class="form-group" style="flex:1;"><label class="form-label">Secondary DNS</label><input type="text" class="form-input" id="dnsSecondary" value="8.8.4.4"></div>
+                    </div>
+                </div>
+                <div class="config-section">
+                    <div class="config-title">📋 DHCP Configuration</div>
+                    <div class="form-group">
+                        <label class="form-label">DHCP Server Type</label>
+                        <select class="form-select" id="dhcpType" onchange="updateDhcpDevices()">
+                            <option value="router">Router</option>
+                            <option value="server">Dedicated Server</option>
+                            <option value="firewall">Firewall</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label class="form-label">DHCP Device</label><select class="form-select" id="dhcpDevice"></select></div>
+                </div>
+                <div class="config-section">
+                    <div class="config-title">🏷️ VLANs & Subnets</div>
+                    <div id="vlanList"></div>
+                    <button class="add-btn" onclick="openModal('vlanModal')">+ Add VLAN</button>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeModal('configModal')">Close</button></div>
+        </div>
+    </div>
+    <div class="modal-bg" id="vlanModal">
+        <div class="modal" style="width:350px;">
+            <div class="modal-header"><h3>Add VLAN</h3><button class="modal-close" onclick="closeModal('vlanModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">VLAN ID</label><input type="number" class="form-input" id="newVlanID"></div>
+                <div class="form-group"><label class="form-label">Name</label><input type="text" class="form-input" id="newVlanName"></div>
+                <div class="form-group"><label class="form-label">Subnet</label><input type="text" class="form-input" id="newVlanSubnet" placeholder="192.168.10.0/24"></div>
+                <div class="form-group"><label class="form-label">Gateway</label><input type="text" class="form-input" id="newVlanGateway" placeholder="192.168.10.1"></div>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeModal('vlanModal')">Cancel</button><button class="btn btn-primary" onclick="saveVlan()">Add</button></div>
+        </div>
+    </div>
+    <div class="modal-bg" id="vmModal">
+        <div class="modal" style="width:350px;">
+            <div class="modal-header"><h3>Add VM</h3><button class="modal-close" onclick="closeModal('vmModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">VM Name</label><input type="text" class="form-input" id="newVMName"></div>
+                <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="newVMStatus"><option value="online">Online</option><option value="offline">Offline</option><option value="warning">Warning</option></select></div>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeModal('vmModal')">Cancel</button><button class="btn btn-primary" onclick="saveVM()">Add</button></div>
+        </div>
+    </div>
+
+    <script>
+        // Global State
+        const state = {
+            devices: [],
+            connections: [],
+            vlans: [
+                { id: 1, name: 'Default', subnet: '192.168.1.0/24', gateway: '192.168.1.1' },
+                { id: 10, name: 'Management', subnet: '192.168.10.0/24', gateway: '192.168.10.1' },
+                { id: 20, name: 'Servers', subnet: '192.168.20.0/24', gateway: '192.168.20.1' }
+            ],
+            selected: null,
+            connType: 'wired',
+            connecting: null,
+            zoom: 1,
+            counter: 0
+        };
+
+        const types = {
+            windows: { name: 'Windows PC', icon: '🪟' },
+            mac: { name: 'Mac', icon: '🍎' },
+            linux: { name: 'Linux', icon: '🐧' },
+            mobile: { name: 'Mobile', icon: '📱' },
+            server: { name: 'Server', icon: '🖥️' },
+            nas: { name: 'NAS', icon: '💾' },
+            router: { name: 'Router', icon: '📡' },
+            switch: { name: 'Switch', icon: '🔀' },
+            firewall: { name: 'Firewall', icon: '🛡️' },
+            ap: { name: 'Access Point', icon: '📶' },
+            vmhost: { name: 'VM Host', icon: '🏢' },
+            vm: { name: 'VM', icon: '📦' },
+            cloud: { name: 'Cloud', icon: '☁️' },
+            printer: { name: 'Printer', icon: '🖨️' },
+            iot: { name: 'IoT', icon: '🌐' }
+        };
+
+        const canvas = document.getElementById('canvas');
+        const svg = document.getElementById('connections');
+        const connHint = document.getElementById('connHint');
+
+        // Modals
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Drag and drop
+            document.querySelectorAll('.device-item').forEach(item => {
+                item.addEventListener('dragstart', e => e.dataTransfer.setData('type', item.dataset.type));
+            });
+            canvas.addEventListener('dragover', e => e.preventDefault());
+            canvas.addEventListener('drop', function(e) {
+                e.preventDefault();
+                const type = e.dataTransfer.getData('type');
+                if (type) {
+                    const rect = canvas.getBoundingClientRect();
+                    createDevice(type, (e.clientX - rect.left) / state.zoom - 60, (e.clientY - rect.top) / state.zoom - 40);
+                }
+            });
+
+            // Buttons
+            document.getElementById('zoomInBtn').onclick = function() { state.zoom = Math.min(2, state.zoom + 0.1); applyZoom(); };
+            document.getElementById('zoomOutBtn').onclick = function() { state.zoom = Math.max(0.5, state.zoom - 0.1); applyZoom(); };
+            document.getElementById('resetBtn').onclick = function() { state.zoom = 1; applyZoom(); };
+            document.getElementById('wiredBtn').onclick = function() { setConnType('wired'); };
+            document.getElementById('wirelessBtn').onclick = function() { setConnType('wireless'); };
+            document.getElementById('configBtn').onclick = openConfig;
+            document.getElementById('clearBtn').onclick = clearAll;
+            document.getElementById('exportBtn').onclick = exportData;
+            document.getElementById('importBtn').onclick = importData;
+            document.getElementById('deleteBtn').onclick = deleteSelected;
+            document.getElementById('addVMBtn').onclick = function() { openModal('vmModal'); };
+
+            // Status buttons
+            document.querySelectorAll('.status-btn').forEach(btn => {
+                btn.onclick = function() { setStatus(btn.dataset.status); };
+            });
+
+            // Property inputs
+            document.getElementById('propName').oninput = function(e) { updateDeviceProp('name', e.target.value); };
+            document.getElementById('propIP').oninput = function(e) { updateDeviceProp('ip', e.target.value); };
+            document.getElementById('propMAC').oninput = function(e) { updateDeviceProp('mac', e.target.value); };
+            document.getElementById('propVLAN').onchange = function(e) { updateDeviceProp('vlan', e.target.value); };
+            document.getElementById('propNotes').oninput = function(e) { updateDeviceProp('notes', e.target.value); };
+
+            // Canvas click to deselect
+            canvas.addEventListener('click', function(e) {
+                if (e.target === canvas || e.target.id === 'emptyState') {
+                    deselectAll();
+                }
+            });
+
+            // Keyboard
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    cancelConnect();
+                    deselectAll();
+                }
+                if (e.key === 'Delete' && state.selected) deleteSelected();
+            });
+
+            updateVlanSelect();
+        });
+
+        function applyZoom() {
+            canvas.style.transform = 'scale(' + state.zoom + ')';
+            document.getElementById('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
+            drawConnections();
+        }
+
+        function setConnType(type) {
+            state.connType = type;
+            document.getElementById('wiredBtn').className = 'wired' + (type === 'wired' ? ' active' : '');
+            document.getElementById('wirelessBtn').className = 'wireless' + (type === 'wireless' ? ' active' : '');
+        }
+
+        function createDevice(type, x, y) {
+            state.counter++;
+            const cfg = types[type];
+            const device = {
+                id: 'dev' + Date.now(),
+                type: type,
+                name: cfg.name + ' ' + state.counter,
+                ip: '',
+                mac: '',
+                status: 'online',
+                vlan: '',
+                notes: '',
+                x: x,
+                y: y,
+                vms: type === 'vmhost' ? [] : null
+            };
+            state.devices.push(device);
+            renderDevice(device);
+            updateCounts();
+            document.getElementById('emptyState').style.display = 'none';
+        }
+
+        function renderDevice(d) {
+            const cfg = types[d.type];
+            const el = document.createElement('div');
+            el.id = d.id;
+            el.className = 'network-device' + (d.type === 'vmhost' ? ' vm-host' : '');
+            el.style.left = d.x + 'px';
+            el.style.top = d.y + 'px';
+            
+            let html = '<div class="device-status status-' + d.status + '"></div>';
+            html += '<div class="device-icon">' + cfg.icon + '</div>';
+            html += '<div class="device-name">' + d.name + '</div>';
+            html += '<div class="device-ip">' + (d.ip || 'No IP') + '</div>';
+            html += '<div class="device-badge">' + cfg.name + '</div>';
+            if (d.type === 'vmhost') html += '<div class="vm-list" id="vms' + d.id + '"></div>';
+            html += '<div class="conn-point top" data-pos="top"></div>';
+            html += '<div class="conn-point bottom" data-pos="bottom"></div>';
+            html += '<div class="conn-point left" data-pos="left"></div>';
+            html += '<div class="conn-point right" data-pos="right"></div>';
+            el.innerHTML = html;
+
+            // Drag to move
+            el.addEventListener('mousedown', function(e) {
+                if (e.target.classList.contains('conn-point')) return;
+                startDrag(e, d);
+            });
+
+            // Click to select
+            el.addEventListener('click', function(e) {
+                if (e.target.classList.contains('conn-point')) return;
+                e.stopPropagation();
+                selectDevice(d);
+            });
+
+            // Connection points
+            el.querySelectorAll('.conn-point').forEach(function(point) {
+                point.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleConnectionClick(d, point.dataset.pos);
+                });
+            });
+
+            canvas.appendChild(el);
+            if (d.type === 'vmhost' && d.vms) renderVMsOnDevice(d);
+        }
+
+        function renderVMsOnDevice(d) {
+            const container = document.getElementById('vms' + d.id);
+            if (!container) return;
+            container.innerHTML = d.vms.map(function(vm) {
+                return '<div class="hosted-vm"><div class="dot status-' + vm.status + '"></div>' + vm.name + '</div>';
+            }).join('');
+        }
+
+        // Drag functionality
+        let dragging = null;
+        let dragOffset = { x: 0, y: 0 };
+
+        function startDrag(e, d) {
+            dragging = d;
+            const el = document.getElementById(d.id);
+            dragOffset.x = e.clientX / state.zoom - d.x;
+            dragOffset.y = e.clientY / state.zoom - d.y;
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', stopDrag);
+        }
+
+        function onDrag(e) {
+            if (!dragging) return;
+            const el = document.getElementById(dragging.id);
+            dragging.x = e.clientX / state.zoom - dragOffset.x;
+            dragging.y = e.clientY / state.zoom - dragOffset.y;
+            el.style.left = dragging.x + 'px';
+            el.style.top = dragging.y + 'px';
+            drawConnections();
+        }
+
+        function stopDrag() {
+            dragging = null;
+            document.removeEventListener('mousemove', onDrag);
+            document.removeEventListener('mouseup', stopDrag);
+        }
+        // Connection handling - THE KEY FIX
+        function handleConnectionClick(device, position) {
+            console.log('Connection click:', device.id, position, 'Current connecting:', state.connecting);
+            
+            if (state.connecting === null) {
+                // Start new connection
+                state.connecting = { device: device, pos: position };
+                document.getElementById(device.id).classList.add('connecting');
+                connHint.classList.add('active');
+                console.log('Started connection from:', device.id);
+            } else {
+                // Complete connection
+                if (state.connecting.device.id !== device.id) {
+                    // Check if connection already exists
+                    const exists = state.connections.some(function(c) {
+                        return (c.from === state.connecting.device.id && c.to === device.id) ||
+                               (c.from === device.id && c.to === state.connecting.device.id);
+                    });
+                    
+                    if (!exists) {
+                        const newConn = {
+                            id: 'conn' + Date.now(),
+                            from: state.connecting.device.id,
+                            fromPos: state.connecting.pos,
+                            to: device.id,
+                            toPos: position,
+                            type: state.connType
+                        };
+                        state.connections.push(newConn);
+                        console.log('Created connection:', newConn);
+                        drawConnections();
+                        updateCounts();
+                    }
+                }
+                cancelConnect();
+            }
+        }
+
+        function cancelConnect() {
+            if (state.connecting) {
+                const el = document.getElementById(state.connecting.device.id);
+                if (el) el.classList.remove('connecting');
+            }
+            state.connecting = null;
+            connHint.classList.remove('active');
+        }
+
+        function getConnectionPoint(deviceId, position) {
+            const el = document.getElementById(deviceId);
+            if (!el) return { x: 0, y: 0 };
+            
+            const rect = el.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+            
+            // Get center of device relative to canvas
+            const centerX = (rect.left - canvasRect.left + rect.width / 2) / state.zoom;
+            const centerY = (rect.top - canvasRect.top + rect.height / 2) / state.zoom;
+            
+            // Get edge points
+            const top = (rect.top - canvasRect.top) / state.zoom;
+            const bottom = (rect.bottom - canvasRect.top) / state.zoom;
+            const left = (rect.left - canvasRect.left) / state.zoom;
+            const right = (rect.right - canvasRect.left) / state.zoom;
+            
+            switch (position) {
+                case 'top': return { x: centerX, y: top };
+                case 'bottom': return { x: centerX, y: bottom };
+                case 'left': return { x: left, y: centerY };
+                case 'right': return { x: right, y: centerY };
+                default: return { x: centerX, y: centerY };
+            }
+        }
+
+        function drawConnections() {
+            let paths = '';
+            state.connections.forEach(function(conn) {
+                const from = getConnectionPoint(conn.from, conn.fromPos);
+                const to = getConnectionPoint(conn.to, conn.toPos);
+                
+                // Create curved path
+                const midX = (from.x + to.x) / 2;
+                const midY = (from.y + to.y) / 2;
+                
+                let path;
+                if (conn.fromPos === 'top' || conn.fromPos === 'bottom') {
+                    path = 'M' + from.x + ',' + from.y + ' C' + from.x + ',' + midY + ' ' + to.x + ',' + midY + ' ' + to.x + ',' + to.y;
+                } else {
+                    path = 'M' + from.x + ',' + from.y + ' C' + midX + ',' + from.y + ' ' + midX + ',' + to.y + ' ' + to.x + ',' + to.y;
+                }
+                
+                paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
+            });
+            svg.innerHTML = paths;
+        }
+
+        // Selection
+        function selectDevice(d) {
+            deselectAll();
+            state.selected = d;
+            document.getElementById(d.id).classList.add('selected');
+            showProps(d);
+        }
+
+        function deselectAll() {
+            if (state.selected) {
+                const el = document.getElementById(state.selected.id);
+                if (el) el.classList.remove('selected');
+            }
+            state.selected = null;
+            document.getElementById('noSelect').style.display = 'block';
+            document.getElementById('deviceProps').style.display = 'none';
+        }
+
+        function showProps(d) {
+            document.getElementById('noSelect').style.display = 'none';
+            document.getElementById('deviceProps').style.display = 'block';
+            document.getElementById('propName').value = d.name;
+            document.getElementById('propIP').value = d.ip;
+            document.getElementById('propMAC').value = d.mac;
+            document.getElementById('propVLAN').value = d.vlan;
+            document.getElementById('propNotes').value = d.notes;
+            
+            document.querySelectorAll('.status-btn').forEach(function(btn) {
+                btn.classList.toggle('active', btn.dataset.status === d.status);
+            });
+            
+            if (d.type === 'vmhost') {
+                document.getElementById('vmSection').style.display = 'block';
+                renderVMList(d);
+            } else {
+                document.getElementById('vmSection').style.display = 'none';
+            }
+        }
+
+        function renderVMList(d) {
+            const list = document.getElementById('vmList');
+            if (!d.vms || d.vms.length === 0) {
+                list.innerHTML = '<p style="font-size:10px;color:var(--text-muted);text-align:center;">No VMs</p>';
+                return;
+            }
+            list.innerHTML = d.vms.map(function(vm, i) {
+                return '<div class="vlan-item"><div class="dot status-' + vm.status + '" style="width:8px;height:8px;border-radius:50%;"></div><span style="flex:1">' + vm.name + '</span><button class="vlan-del" onclick="removeVM(' + i + ')">&times;</button></div>';
+            }).join('');
+        }
+
+        function removeVM(index) {
+            if (state.selected && state.selected.vms) {
+                state.selected.vms.splice(index, 1);
+                renderVMsOnDevice(state.selected);
+                renderVMList(state.selected);
+            }
+        }
+
+        function updateDeviceProp(key, value) {
+            if (!state.selected) return;
+            state.selected[key] = value;
+            const el = document.getElementById(state.selected.id);
+            if (key === 'name') el.querySelector('.device-name').textContent = value;
+            if (key === 'ip') el.querySelector('.device-ip').textContent = value || 'No IP';
+        }
+
+        function setStatus(status) {
+            if (!state.selected) return;
+            state.selected.status = status;
+            document.getElementById(state.selected.id).querySelector('.device-status').className = 'device-status status-' + status;
+            document.querySelectorAll('.status-btn').forEach(function(btn) {
+                btn.classList.toggle('active', btn.dataset.status === status);
+            });
+        }
+
+        function deleteSelected() {
+            if (!state.selected) return;
+            const id = state.selected.id;
+            state.connections = state.connections.filter(function(c) { return c.from !== id && c.to !== id; });
+            state.devices = state.devices.filter(function(d) { return d.id !== id; });
+            document.getElementById(id).remove();
+            deselectAll();
+            drawConnections();
+            updateCounts();
+            if (state.devices.length === 0) document.getElementById('emptyState').style.display = 'block';
+        }
+
+        function updateCounts() {
+            document.getElementById('deviceCount').textContent = state.devices.length + ' device' + (state.devices.length !== 1 ? 's' : '');
+            document.getElementById('connCount').textContent = state.connections.length + ' connection' + (state.connections.length !== 1 ? 's' : '');
+        }
+
+        function updateVlanSelect() {
+            const sel = document.getElementById('propVLAN');
+            sel.innerHTML = '<option value="">Select VLAN</option>' + state.vlans.map(function(v) {
+                return '<option value="' + v.id + '">VLAN ' + v.id + ' - ' + v.name + '</option>';
+            }).join('');
+        }
+
+        // Config modal
+        function openConfig() {
+            openModal('configModal');
+            renderVlanList();
+            updateDnsFields();
+            updateDhcpDevices();
+        }
+
+        function renderVlanList() {
+            document.getElementById('vlanList').innerHTML = state.vlans.map(function(v, i) {
+                return '<div class="vlan-item"><span class="vlan-id">VLAN ' + v.id + '</span><span class="vlan-name">' + v.name + '</span><span class="vlan-subnet">' + v.subnet + '</span><button class="vlan-del" onclick="deleteVlan(' + i + ')">&times;</button></div>';
+            }).join('');
+        }
+
+        function deleteVlan(index) {
+            state.vlans.splice(index, 1);
+            renderVlanList();
+            updateVlanSelect();
+        }
+
+        function saveVlan() {
+            const id = parseInt(document.getElementById('newVlanID').value);
+            const name = document.getElementById('newVlanName').value;
+            const subnet = document.getElementById('newVlanSubnet').value;
+            const gateway = document.getElementById('newVlanGateway').value;
+            if (id && name && subnet) {
+                state.vlans.push({ id: id, name: name, subnet: subnet, gateway: gateway });
+                renderVlanList();
+                updateVlanSelect();
+                closeModal('vlanModal');
+                document.getElementById('newVlanID').value = '';
+                document.getElementById('newVlanName').value = '';
+                document.getElementById('newVlanSubnet').value = '';
+                document.getElementById('newVlanGateway').value = '';
+            }
+        }
+
+        function updateDnsFields() {
+            const prov = document.getElementById('dnsProvider').value;
+            document.getElementById('dnsServerGroup').style.display = prov === 'server' ? 'block' : 'none';
+            if (prov === 'server') {
+                document.getElementById('dnsServerDevice').innerHTML = '<option value="">Select...</option>' +
+                    state.devices.filter(function(d) { return d.type === 'server'; }).map(function(d) {
+                        return '<option value="' + d.id + '">' + d.name + '</option>';
+                    }).join('');
+            }
+        }
+
+        function updateDhcpDevices() {
+            const type = document.getElementById('dhcpType').value;
+            const typeMap = { router: 'router', server: 'server', firewall: 'firewall' };
+            const devices = state.devices.filter(function(d) { return d.type === typeMap[type]; });
+            document.getElementById('dhcpDevice').innerHTML = '<option value="">Select...</option>' +
+                devices.map(function(d) { return '<option value="' + d.id + '">' + d.name + '</option>'; }).join('');
+        }
+
+        function saveVM() {
+            if (!state.selected || state.selected.type !== 'vmhost') return;
+            const name = document.getElementById('newVMName').value;
+            const status = document.getElementById('newVMStatus').value;
+            if (name) {
+                state.selected.vms.push({ name: name, status: status });
+                renderVMsOnDevice(state.selected);
+                renderVMList(state.selected);
+                closeModal('vmModal');
+                document.getElementById('newVMName').value = '';
+            }
+        }
+
+        function clearAll() {
+            if (confirm('Clear all devices and connections?')) {
+                state.devices = [];
+                state.connections = [];
+                state.counter = 0;
+                document.querySelectorAll('.network-device').forEach(function(el) { el.remove(); });
+                svg.innerHTML = '';
+                deselectAll();
+                updateCounts();
+                document.getElementById('emptyState').style.display = 'block';
+            }
+        }
+
+        function exportData() {
+            const data = { devices: state.devices, connections: state.connections, vlans: state.vlans };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'network-diagram-' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(evt) {
+                        try {
+                            const data = JSON.parse(evt.target.result);
+                            state.devices = data.devices || [];
+                            state.connections = data.connections || [];
+                            state.vlans = data.vlans || state.vlans;
+                            document.querySelectorAll('.network-device').forEach(function(el) { el.remove(); });
+                            state.devices.forEach(function(d) { renderDevice(d); });
+                            drawConnections();
+                            updateVlanSelect();
+                            updateCounts();
+                            if (state.devices.length > 0) document.getElementById('emptyState').style.display = 'none';
+                        } catch (err) {
+                            alert('Error: ' + err.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+    </script>
+</body>
+</html>
