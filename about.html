@@ -3,158 +3,360 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About - Zachary Helbig</title>
+    <title>About | Zachary Helbig</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         :root {
-            --primary-color: #ff3b3b;
-            --secondary-color: #ff6b6b;
-            --accent-color: #cc0000;
-            --bg-dark: #0a0a0a;
-            --bg-card: #1a1a1a;
-            --text-primary: #ffffff;
-            --text-secondary: #b0b0b0;
+            --primary: #ff3b3b;
+            --secondary: #ff6b6b;
+            --accent: #cc0000;
+            --dark: #0a0a0a;
+            --darker: #050505;
+            --grey: #1a1a1a;
+            --grey-light: #2d2d2d;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text: #e4e4e7;
+            --text-muted: #a1a1a1;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        html { scroll-behavior: smooth; }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            background: var(--darker);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
             line-height: 1.6;
         }
 
-        header {
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            padding: 2rem 0;
-            box-shadow: 0 2px 10px rgba(255, 59, 59, 0.1);
+        /* Animated Grid Background */
+        .grid-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-image:
+                linear-gradient(rgba(255, 59, 59, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 59, 59, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: -2;
+            animation: gridMove 20s linear infinite;
         }
 
-        nav {
-            max-width: 1200px;
-            margin: 0 auto;
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(60px, 60px); }
+        }
+
+        /* Floating Orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .orb-1 {
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(255, 59, 59, 0.12) 0%, transparent 70%);
+            top: -200px; right: -200px;
+        }
+
+        .orb-2 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(204, 0, 0, 0.08) 0%, transparent 70%);
+            bottom: -150px; left: -150px;
+            animation-delay: -10s;
+        }
+
+        .orb-3 {
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(255, 107, 107, 0.08) 0%, transparent 70%);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: -5s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -30px) scale(1.05); }
+            50% { transform: translate(-20px, 20px) scale(0.95); }
+            75% { transform: translate(20px, 30px) scale(1.02); }
+        }
+
+        /* Navigation */
+        .nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            padding: 1.5rem 3rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 2rem;
+            z-index: 1000;
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
         }
 
         .logo {
             font-size: 1.5rem;
-            font-weight: bold;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
-        nav ul {
-            list-style: none;
+        .nav-links {
             display: flex;
-            gap: 2rem;
+            gap: 2.5rem;
+            list-style: none;
         }
 
-        nav a {
-            color: var(--text-primary);
+        .nav-links a {
+            color: var(--text-muted);
             text-decoration: none;
-            transition: color 0.3s;
             font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            position: relative;
         }
 
-        nav a:hover {
-            color: var(--primary-color);
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -5px; left: 0;
+            width: 0; height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transition: width 0.3s ease;
         }
 
-        .container {
+        .nav-links a:hover,
+        .nav-links a.active { color: var(--text); }
+
+        .nav-links a:hover::after,
+        .nav-links a.active::after { width: 100%; }
+
+        .mobile-menu-btn {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .mobile-menu-btn span {
+            width: 25px; height: 2px;
+            background: var(--text);
+            transition: all 0.3s ease;
+        }
+
+        /* Page Header */
+        .page-header {
+            padding: 10rem 3rem 4rem;
+            text-align: center;
+        }
+
+        .page-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            font-size: 0.85rem;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 0.6s ease forwards;
+        }
+
+        .page-badge svg { width: 16px; height: 16px; }
+
+        .page-title {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            animation: fadeInUp 0.6s ease 0.1s forwards;
+            opacity: 0;
+        }
+
+        .page-title .gradient {
+            background: linear-gradient(135deg, var(--primary), var(--secondary), #ff8a8a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .page-subtitle {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            max-width: 650px;
+            margin: 0 auto;
+            animation: fadeInUp 0.6s ease 0.2s forwards;
+            opacity: 0;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Content Sections */
+        .content-section {
+            padding: 0 3rem 4rem;
             max-width: 1200px;
             margin: 0 auto;
-            padding: 4rem 2rem;
         }
 
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        /* Journey Card */
+        .journey-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2.5rem;
+            margin-bottom: 3rem;
+            animation: fadeInUp 0.6s ease 0.3s forwards;
+            opacity: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .journey-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+        }
+
+        .journey-card h2 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--text);
+        }
+
+        .journey-card h2 .gradient {
+            background: linear-gradient(135deg, var(--primary), var(--secondary), #ff8a8a);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
-        h2 {
-            font-size: 2rem;
-            margin: 3rem 0 1.5rem 0;
-            color: var(--primary-color);
-        }
-
-        h3 {
-            font-size: 1.5rem;
-            margin: 2rem 0 1rem 0;
-            color: var(--secondary-color);
-        }
-
-        .intro {
-            font-size: 1.2rem;
-            color: var(--text-secondary);
-            margin-bottom: 3rem;
+        .journey-card p {
+            color: var(--text-muted);
+            font-size: 1.05rem;
             line-height: 1.8;
+            margin-bottom: 1.5rem;
         }
 
-        .journey {
-            background: var(--bg-card);
-            padding: 2rem;
-            border-radius: 10px;
-            margin-bottom: 2rem;
-            border-left: 4px solid var(--primary-color);
+        .journey-card p:last-child {
+            margin-bottom: 0;
         }
 
+        /* Role Highlight */
         .role-highlight {
-            background: linear-gradient(135deg, rgba(255, 59, 59, 0.1), rgba(255, 107, 107, 0.05));
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin: 1.5rem 0;
-            border: 1px solid rgba(255, 59, 59, 0.3);
+            background: linear-gradient(135deg, rgba(255, 59, 59, 0.08), rgba(204, 0, 0, 0.05));
+            border: 1px solid rgba(255, 59, 59, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
         }
 
         .role-highlight h4 {
-            color: var(--primary-color);
             font-size: 1.3rem;
-            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.25rem;
         }
 
         .role-highlight .date {
-            color: var(--secondary-color);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--secondary);
             margin-bottom: 1rem;
         }
 
-        .competencies {
+        .role-highlight p {
+            color: var(--text-muted);
+            font-size: 1rem;
+            line-height: 1.8;
+            margin-bottom: 0;
+        }
+
+        /* Section Title */
+        .section-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            text-align: center;
+            animation: fadeInUp 0.6s ease 0.4s forwards;
+            opacity: 0;
+        }
+
+        /* Competencies Grid */
+        .competencies-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-top: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            animation: fadeInUp 0.6s ease 0.5s forwards;
+            opacity: 0;
         }
 
         .competency-card {
-            background: var(--bg-card);
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
             padding: 2rem;
-            border-radius: 10px;
-            transition: transform 0.3s, box-shadow 0.3s;
-            border: 1px solid rgba(255, 59, 59, 0.2);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .competency-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
         }
 
         .competency-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(255, 59, 59, 0.3);
+            transform: translateY(-8px);
+            border-color: rgba(255, 59, 59, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 60px rgba(255, 59, 59, 0.1);
         }
 
-        .competency-card h4 {
-            color: var(--primary-color);
-            margin-bottom: 1rem;
+        .competency-card:hover::before { transform: scaleX(1); }
+
+        .competency-icon {
+            width: 50px; height: 50px;
+            background: linear-gradient(135deg, rgba(255, 59, 59, 0.2), rgba(204, 0, 0, 0.2));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.25rem;
+            font-size: 1.5rem;
+        }
+
+        .competency-card h3 {
             font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text);
         }
 
         .competency-card ul {
@@ -162,111 +364,145 @@
         }
 
         .competency-card li {
-            padding: 0.5rem 0;
-            color: var(--text-secondary);
             position: relative;
-            padding-left: 1.5rem;
+            padding-left: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
         }
 
-        .competency-card li:before {
-            content: "▹";
-            color: var(--primary-color);
+        .competency-card li::before {
+            content: '▹';
             position: absolute;
             left: 0;
+            color: var(--primary);
+            font-weight: bold;
         }
 
+        /* Footer */
         footer {
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
             text-align: center;
-            padding: 2rem;
-            margin-top: 4rem;
+            padding: 3rem;
+            border-top: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 2rem;
         }
 
+        /* Responsive */
         @media (max-width: 768px) {
-            h1 {
-                font-size: 2rem;
-            }
+            .nav { padding: 1rem 1.5rem; }
 
-            nav ul {
+            .mobile-menu-btn { display: flex; }
+
+            .nav-links {
+                position: fixed;
+                top: 70px; left: 0; right: 0;
+                background: rgba(5, 5, 5, 0.98);
+                backdrop-filter: blur(20px);
                 flex-direction: column;
-                gap: 1rem;
+                padding: 2rem;
+                gap: 1.5rem;
+                transform: translateY(-150%);
+                transition: transform 0.3s ease;
             }
 
-            .competencies {
-                grid-template-columns: 1fr;
-            }
+            .nav-links.active { transform: translateY(0); }
+
+            .page-header { padding: 8rem 1.5rem 3rem; }
+
+            .content-section { padding: 0 1.5rem 3rem; }
+
+            .journey-card { padding: 1.5rem; }
+
+            .competencies-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <header>
-        <nav>
-            <div class="logo">Zachary Helbig</div>
-            <ul>
-                <li><a href="index.html">Home</a></li>
-                <li><a href="about.html">About</a></li>
-                <li><a href="resume.html">Resume</a></li>
-                <li><a href="tools.html">Tools</a></li>
-            </ul>
-        </nav>
+    <div class="grid-bg"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <nav class="nav">
+        <div class="logo">ZH</div>
+        <button class="mobile-menu-btn" onclick="toggleMenu()">
+            <span></span><span></span><span></span>
+        </button>
+        <ul class="nav-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="about.html" class="active">About</a></li>
+            <li><a href="resume.html">Resume</a></li>
+            <li><a href="projects.html">Projects</a></li>
+            <li><a href="tools.html">Tools</a></li>
+        </ul>
+    </nav>
+
+    <header class="page-header">
+        <div class="page-badge">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            IT Operations & Secure Infrastructure
+        </div>
+        <h1 class="page-title">About <span class="gradient">Me</span></h1>
+        <p class="page-subtitle">
+            IT Operations & Secure Infrastructure Specialist with a proven track record in banking, financial services, and managed service provider environments.
+        </p>
     </header>
 
-    <div class="container">
-        <h1>About Me</h1>
-        <p class="intro">
-            IT Operations & Secure Infrastructure Specialist with a proven track record in banking, financial services, 
-            and managed service provider environments. Passionate about building secure, efficient infrastructure 
-            solutions and leveraging cutting-edge technology to solve complex business challenges.
-        </p>
-
-        <div class="journey">
-            <h2>Professional Journey</h2>
+    <section class="content-section">
+        <div class="journey-card">
+            <h2>Professional <span class="gradient">Journey</span></h2>
             <p>
-                My career began in the banking and financial services sector, where I developed a strong foundation 
-                in customer service excellence and operational efficiency. This experience taught me the critical 
-                importance of security, reliability, and attention to detail—principles that continue to guide my 
+                My career began in the banking and financial services sector, where I developed a strong foundation
+                in customer service excellence and operational efficiency. This experience taught me the critical
+                importance of security, reliability, and attention to detail—principles that continue to guide my
                 work in IT infrastructure today.
             </p>
 
             <div class="role-highlight">
                 <h4>Level 2 Help Desk Engineer</h4>
-                <div class="date">December 2025 - Present</div>
+                <div class="date">December 2025 – Present</div>
                 <p>
-                    Currently serving as a Level 2 Help Desk Engineer at i-Tech Support inc., a leading MSP in Orlando, FL. 
-                    In this advanced role, I handle escalated technical issues, mentor Level 1 technicians, and take 
-                    ownership of complex infrastructure projects. My responsibilities include managing enterprise-level 
-                    Microsoft 365 environments, deploying security solutions, and implementing automation tools to 
+                    Currently serving as a Level 2 Help Desk Engineer at i-Tech Support inc., a leading MSP in Orlando, FL.
+                    In this advanced role, I handle escalated technical issues, mentor Level 1 technicians, and take
+                    ownership of complex infrastructure projects. My responsibilities include managing enterprise-level
+                    Microsoft 365 environments, deploying security solutions, and implementing automation tools to
                     improve operational efficiency.
                 </p>
             </div>
 
             <p>
-                The transition into IT was driven by my passion for technology and problem-solving. I invested in 
-                building a comprehensive certification portfolio, earning CompTIA A+, Network+, and Security+ 
-                certifications, followed by Microsoft Azure Fundamentals (AZ-900) and Microsoft 365 Fundamentals (MS-900). 
+                The transition into IT was driven by my passion for technology and problem-solving. I invested in
+                building a comprehensive certification portfolio, earning CompTIA A+, Network+, and Security+
+                certifications, followed by Microsoft Azure Fundamentals (AZ-900) and Microsoft 365 Fundamentals (MS-900).
                 These certifications provided the technical foundation to excel in modern IT infrastructure roles.
             </p>
 
             <p>
-                At i-Tech Support inc., I work daily with Microsoft 365, Azure AD, Intune, Cisco Meraki networking 
-                equipment, and Huntress EDR security tools. I've been at the forefront of innovative implementations, 
-                including deploying Thread AI for automated ticketing systems and creating custom Microsoft Teams 
-                apps for streamlined client deployments. These projects demonstrate my commitment to staying current 
+                At i-Tech Support inc., I work daily with Microsoft 365, Azure AD, Intune, Cisco Meraki networking
+                equipment, and Huntress EDR security tools. I've been at the forefront of innovative implementations,
+                including deploying Thread AI for automated ticketing systems and creating custom Microsoft Teams
+                apps for streamlined client deployments. These projects demonstrate my commitment to staying current
                 with emerging technologies while maintaining operational excellence.
             </p>
 
             <p>
-                Beyond day-to-day operations, I'm passionate about continuous learning and professional development. 
-                I believe in documentation, automation, and building systems that scale. This portfolio itself is a 
-                reflection of that philosophy—a platform to showcase not just what I've done, but what I'm capable 
+                Beyond day-to-day operations, I'm passionate about continuous learning and professional development.
+                I believe in documentation, automation, and building systems that scale. This portfolio itself is a
+                reflection of that philosophy—a platform to showcase not just what I've done, but what I'm capable
                 of building.
             </p>
         </div>
 
-        <h2>Core Competencies</h2>
-        <div class="competencies">
+        <h2 class="section-title">Core <span class="gradient">Competencies</span></h2>
+        <div class="competencies-grid">
             <div class="competency-card">
-                <h4>Microsoft 365 & Azure</h4>
+                <div class="competency-icon">☁️</div>
+                <h3>Microsoft 365 & Azure</h3>
                 <ul>
                     <li>Microsoft 365 Administration</li>
                     <li>Azure Active Directory (Azure AD)</li>
@@ -277,7 +513,8 @@
             </div>
 
             <div class="competency-card">
-                <h4>Network Infrastructure</h4>
+                <div class="competency-icon">🌐</div>
+                <h3>Network Infrastructure</h3>
                 <ul>
                     <li>Cisco Meraki Configuration</li>
                     <li>Network Design & Implementation</li>
@@ -288,7 +525,8 @@
             </div>
 
             <div class="competency-card">
-                <h4>Security & Compliance</h4>
+                <div class="competency-icon">🔒</div>
+                <h3>Security & Compliance</h3>
                 <ul>
                     <li>Huntress EDR Security Tools</li>
                     <li>Endpoint Protection & Response</li>
@@ -299,7 +537,8 @@
             </div>
 
             <div class="competency-card">
-                <h4>Automation & Innovation</h4>
+                <div class="competency-icon">⚙️</div>
+                <h3>Automation & Innovation</h3>
                 <ul>
                     <li>Thread AI Ticketing System</li>
                     <li>PowerShell Scripting</li>
@@ -309,10 +548,16 @@
                 </ul>
             </div>
         </div>
-    </div>
+    </section>
 
     <footer>
         <p>&copy; 2025 Zachary Helbig. All rights reserved.</p>
     </footer>
+
+    <script>
+        function toggleMenu() {
+            document.querySelector('.nav-links').classList.toggle('active');
+        }
+    </script>
 </body>
 </html>
