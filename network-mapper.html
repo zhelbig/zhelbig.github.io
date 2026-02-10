@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NetMap Pro - Network Infrastructure Mapper</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
             --bg-primary: #0a0e14;
@@ -42,8 +44,24 @@
         .device-item .icon { font-size: 20px; }
         .canvas-area { position: relative; overflow: hidden; background: var(--bg-primary); }
         .canvas-grid { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(88,166,255,0.1) 1px, transparent 1px); background-size: 20px 20px; pointer-events: none; }
-        #canvas { width: 100%; height: 100%; position: relative; transform-origin: top left; }
-        #connections { position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: visible; }
+        
+        /* Canvas wrapper for zooming */
+        #canvasWrapper {
+            position: absolute;
+            inset: 0;
+            transform-origin: 0 0;
+        }
+        #canvas { 
+            position: absolute;
+            inset: 0;
+        }
+        #connections { 
+            position: absolute; 
+            inset: 0; 
+            pointer-events: none; 
+            z-index: 5; 
+            overflow: visible; 
+        }
         .conn-wired { stroke: var(--accent-blue); stroke-width: 2; fill: none; }
         .conn-wireless { stroke: var(--accent-purple); stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
         .controls { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; background: var(--bg-secondary); padding: 6px; border-radius: 8px; border: 1px solid var(--border-color); z-index: 100; }
@@ -115,6 +133,39 @@
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-primary); }
         ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        
+        .network-info-box {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px;
+            min-width: 220px;
+            max-width: 280px;
+            z-index: 100;
+            font-size: 11px;
+        }
+        .network-info-box h4 {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+        .info-section { margin-bottom: 12px; }
+        .info-section:last-child { margin-bottom: 0; }
+        .info-section-title { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 6px; }
+        .info-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+        .info-label { color: var(--text-secondary); }
+        .info-value { font-family: monospace; color: var(--text-primary); font-weight: 500; }
+        .info-value.dns-filter { color: var(--accent-cyan); }
+        .info-value.umbrella { color: var(--accent-blue); }
+        .info-value.server { color: var(--accent-green); }
+        .vlan-tag { display: inline-block; padding: 2px 6px; background: var(--bg-tertiary); border-radius: 4px; margin: 2px; font-family: monospace; font-size: 10px; }
+        .vlan-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -122,8 +173,9 @@
         <header class="header">
             <div class="logo"><div class="logo-icon">⬡</div> NetMap Pro</div>
             <div class="header-actions">
-                <button class="btn" id="exportBtn">📥 Export</button>
-                <button class="btn" id="importBtn">📤 Import</button>
+                <button class="btn" id="exportPdfBtn">📄 Export PDF</button>
+                <button class="btn" id="exportJsonBtn">💾 Save Project</button>
+                <button class="btn" id="importBtn">📂 Load Project</button>
                 <button class="btn" id="configBtn">⚙️ Config</button>
                 <button class="btn btn-danger" id="clearBtn">🗑️ Clear</button>
             </div>
@@ -175,16 +227,36 @@
                     <button class="wired active" id="wiredBtn">― Wired</button>
                     <button class="wireless" id="wirelessBtn">┅ Wireless</button>
                 </div>
-                <p style="font-size:10px;color:var(--text-muted);">Click the circles on devices to draw connections. Press Esc to cancel.</p>
+                <p style="font-size:10px;color:var(--text-muted);">Click circles on devices to connect.</p>
             </div>
         </aside>
-        <main class="canvas-area">
+        <main class="canvas-area" id="canvasArea">
             <div class="canvas-grid"></div>
-            <svg id="connections" width="100%" height="100%"></svg>
-            <div id="canvas">
-                <div class="empty-state" id="emptyState">
-                    <h3>Start Building Your Network</h3>
-                    <p>Drag devices from the sidebar onto the canvas</p>
+            <!-- Wrapper for zoom - contains both SVG and devices -->
+            <div id="canvasWrapper">
+                <svg id="connections" width="4000" height="4000"></svg>
+                <div id="canvas">
+                    <div class="empty-state" id="emptyState">
+                        <h3>Start Building Your Network</h3>
+                        <p>Drag devices from the sidebar onto the canvas</p>
+                    </div>
+                </div>
+            </div>
+            <div class="network-info-box" id="networkInfoBox">
+                <h4>⚙️ Network Configuration</h4>
+                <div class="info-section">
+                    <div class="info-section-title">DNS</div>
+                    <div class="info-row"><span class="info-label">Provider:</span><span class="info-value" id="infoDnsProvider">DNS Filter</span></div>
+                    <div class="info-row"><span class="info-label">Primary:</span><span class="info-value" id="infoDnsPrimary">8.8.8.8</span></div>
+                    <div class="info-row"><span class="info-label">Secondary:</span><span class="info-value" id="infoDnsSecondary">8.8.4.4</span></div>
+                </div>
+                <div class="info-section">
+                    <div class="info-section-title">DHCP</div>
+                    <div class="info-row"><span class="info-label">Managed by:</span><span class="info-value" id="infoDhcp">Router</span></div>
+                </div>
+                <div class="info-section">
+                    <div class="info-section-title">VLANs</div>
+                    <div class="vlan-tags" id="infoVlans"></div>
                 </div>
             </div>
             <div class="controls">
@@ -195,22 +267,11 @@
         </main>
         <aside class="props-panel">
             <div class="panel-title">Properties</div>
-            <div id="noSelect" style="text-align:center;padding:30px;color:var(--text-muted);">
-                <p style="font-size:12px;">Select a device to edit</p>
-            </div>
+            <div id="noSelect" style="text-align:center;padding:30px;color:var(--text-muted);"><p style="font-size:12px;">Select a device to edit</p></div>
             <div id="deviceProps" style="display:none;">
-                <div class="form-group">
-                    <label class="form-label">Device Name</label>
-                    <input type="text" class="form-input" id="propName">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">IP Address</label>
-                    <input type="text" class="form-input" id="propIP" placeholder="192.168.1.1">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">MAC Address</label>
-                    <input type="text" class="form-input" id="propMAC" placeholder="00:00:00:00:00:00">
-                </div>
+                <div class="form-group"><label class="form-label">Device Name</label><input type="text" class="form-input" id="propName"></div>
+                <div class="form-group"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propIP" placeholder="192.168.1.1"></div>
+                <div class="form-group"><label class="form-label">MAC Address</label><input type="text" class="form-input" id="propMAC" placeholder="00:00:00:00:00:00"></div>
                 <div class="form-group">
                     <label class="form-label">Status</label>
                     <div class="status-btns">
@@ -221,14 +282,8 @@
                         <div class="status-btn" data-status="decommissioned"><div class="dot status-decommissioned"></div>Decom.</div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">VLAN</label>
-                    <select class="form-select" id="propVLAN"></select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Notes</label>
-                    <textarea class="form-textarea" id="propNotes"></textarea>
-                </div>
+                <div class="form-group"><label class="form-label">VLAN</label><select class="form-select" id="propVLAN"></select></div>
+                <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="propNotes"></textarea></div>
                 <div id="vmSection" style="display:none;">
                     <div class="form-label">Hosted VMs</div>
                     <div id="vmList"></div>
@@ -243,28 +298,24 @@
             <span style="margin-left:auto;" id="zoomLevel">100%</span>
         </footer>
     </div>
-    <div class="conn-hint" id="connHint">Click another device's connection point to complete</div>
-    <!-- Modals -->
+    <div class="conn-hint" id="connHint">Click another device to complete connection</div>
+
     <div class="modal-bg" id="configModal">
         <div class="modal">
             <div class="modal-header"><h3>Network Configuration</h3><button class="modal-close" onclick="closeModal('configModal')">&times;</button></div>
             <div class="modal-body">
                 <div class="config-section">
                     <div class="config-title">🌐 DNS Configuration</div>
-                    <div class="form-group">
-                        <label class="form-label">DNS Provider</label>
+                    <div class="form-group"><label class="form-label">DNS Provider</label>
                         <select class="form-select" id="dnsProvider" onchange="updateDnsFields()">
-                            <option value="dnsfilter">DNS Filter</option>
-                            <option value="umbrella">Cisco Umbrella</option>
-                            <option value="server">Server Hosted</option>
-                            <option value="cloudflare">Cloudflare</option>
-                            <option value="google">Google DNS</option>
+                            <option value="DNS Filter">DNS Filter</option>
+                            <option value="Cisco Umbrella">Cisco Umbrella</option>
+                            <option value="Server Hosted">Server Hosted</option>
+                            <option value="Cloudflare">Cloudflare</option>
+                            <option value="Google DNS">Google DNS</option>
                         </select>
                     </div>
-                    <div class="form-group" id="dnsServerGroup" style="display:none;">
-                        <label class="form-label">DNS Server</label>
-                        <select class="form-select" id="dnsServerDevice"></select>
-                    </div>
+                    <div class="form-group" id="dnsServerGroup" style="display:none;"><label class="form-label">DNS Server</label><select class="form-select" id="dnsServerDevice"></select></div>
                     <div style="display:flex;gap:8px;">
                         <div class="form-group" style="flex:1;"><label class="form-label">Primary DNS</label><input type="text" class="form-input" id="dnsPrimary" value="8.8.8.8"></div>
                         <div class="form-group" style="flex:1;"><label class="form-label">Secondary DNS</label><input type="text" class="form-input" id="dnsSecondary" value="8.8.4.4"></div>
@@ -272,12 +323,11 @@
                 </div>
                 <div class="config-section">
                     <div class="config-title">📋 DHCP Configuration</div>
-                    <div class="form-group">
-                        <label class="form-label">DHCP Server Type</label>
+                    <div class="form-group"><label class="form-label">DHCP Server Type</label>
                         <select class="form-select" id="dhcpType" onchange="updateDhcpDevices()">
-                            <option value="router">Router</option>
-                            <option value="server">Dedicated Server</option>
-                            <option value="firewall">Firewall</option>
+                            <option value="Router">Router</option>
+                            <option value="Dedicated Server">Dedicated Server</option>
+                            <option value="Firewall">Firewall</option>
                         </select>
                     </div>
                     <div class="form-group"><label class="form-label">DHCP Device</label><select class="form-select" id="dhcpDevice"></select></div>
@@ -288,7 +338,7 @@
                     <button class="add-btn" onclick="openModal('vlanModal')">+ Add VLAN</button>
                 </div>
             </div>
-            <div class="modal-footer"><button class="btn" onclick="closeModal('configModal')">Close</button></div>
+            <div class="modal-footer"><button class="btn btn-primary" onclick="saveConfig()">Save & Close</button></div>
         </div>
     </div>
     <div class="modal-bg" id="vlanModal">
@@ -313,9 +363,20 @@
             <div class="modal-footer"><button class="btn" onclick="closeModal('vmModal')">Cancel</button><button class="btn btn-primary" onclick="saveVM()">Add</button></div>
         </div>
     </div>
-
+    <div class="modal-bg" id="exportModal">
+        <div class="modal" style="width:350px;">
+            <div class="modal-header"><h3>Export PDF</h3><button class="modal-close" onclick="closeModal('exportModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">Document Title</label><input type="text" class="form-input" id="pdfTitle" value="Network Diagram"></div>
+                <div class="form-group"><label class="form-label">Client Name</label><input type="text" class="form-input" id="pdfClient" placeholder="Client Name"></div>
+                <div class="form-group"><label class="form-label">Orientation</label>
+                    <select class="form-select" id="pdfOrientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeModal('exportModal')">Cancel</button><button class="btn btn-primary" onclick="generatePDF()">Generate PDF</button></div>
+        </div>
+    </div>
     <script>
-        // Global State
         const state = {
             devices: [],
             connections: [],
@@ -324,6 +385,7 @@
                 { id: 10, name: 'Management', subnet: '192.168.10.0/24', gateway: '192.168.10.1' },
                 { id: 20, name: 'Servers', subnet: '192.168.20.0/24', gateway: '192.168.20.1' }
             ],
+            config: { dnsProvider: 'DNS Filter', dnsServer: '', dnsPrimary: '8.8.8.8', dnsSecondary: '8.8.4.4', dhcpType: 'Router', dhcpDevice: '' },
             selected: null,
             connType: 'wired',
             connecting: null,
@@ -349,77 +411,82 @@
             iot: { name: 'IoT', icon: '🌐' }
         };
 
+        const canvasWrapper = document.getElementById('canvasWrapper');
         const canvas = document.getElementById('canvas');
         const svg = document.getElementById('connections');
         const connHint = document.getElementById('connHint');
 
-        // Modals
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-        // Initialize
+        function updateNetworkInfoBox() {
+            document.getElementById('infoDnsProvider').textContent = state.config.dnsProvider;
+            document.getElementById('infoDnsPrimary').textContent = state.config.dnsPrimary;
+            document.getElementById('infoDnsSecondary').textContent = state.config.dnsSecondary;
+            document.getElementById('infoDhcp').textContent = state.config.dhcpType;
+            document.getElementById('infoVlans').innerHTML = state.vlans.map(v => '<span class="vlan-tag">VLAN ' + v.id + ' - ' + v.subnet + '</span>').join('');
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
-            // Drag and drop
             document.querySelectorAll('.device-item').forEach(item => {
                 item.addEventListener('dragstart', e => e.dataTransfer.setData('type', item.dataset.type));
             });
-            canvas.addEventListener('dragover', e => e.preventDefault());
-            canvas.addEventListener('drop', function(e) {
+            
+            const canvasArea = document.getElementById('canvasArea');
+            canvasArea.addEventListener('dragover', e => e.preventDefault());
+            canvasArea.addEventListener('drop', function(e) {
                 e.preventDefault();
                 const type = e.dataTransfer.getData('type');
                 if (type) {
-                    const rect = canvas.getBoundingClientRect();
-                    createDevice(type, (e.clientX - rect.left) / state.zoom - 60, (e.clientY - rect.top) / state.zoom - 40);
+                    const rect = canvasArea.getBoundingClientRect();
+                    // Account for zoom when calculating drop position
+                    const x = (e.clientX - rect.left) / state.zoom - 60;
+                    const y = (e.clientY - rect.top) / state.zoom - 40;
+                    createDevice(type, x, y);
                 }
             });
 
-            // Buttons
-            document.getElementById('zoomInBtn').onclick = function() { state.zoom = Math.min(2, state.zoom + 0.1); applyZoom(); };
-            document.getElementById('zoomOutBtn').onclick = function() { state.zoom = Math.max(0.5, state.zoom - 0.1); applyZoom(); };
-            document.getElementById('resetBtn').onclick = function() { state.zoom = 1; applyZoom(); };
-            document.getElementById('wiredBtn').onclick = function() { setConnType('wired'); };
-            document.getElementById('wirelessBtn').onclick = function() { setConnType('wireless'); };
+            document.getElementById('zoomInBtn').onclick = () => { state.zoom = Math.min(2, state.zoom + 0.1); applyZoom(); };
+            document.getElementById('zoomOutBtn').onclick = () => { state.zoom = Math.max(0.5, state.zoom - 0.1); applyZoom(); };
+            document.getElementById('resetBtn').onclick = () => { state.zoom = 1; applyZoom(); };
+            document.getElementById('wiredBtn').onclick = () => setConnType('wired');
+            document.getElementById('wirelessBtn').onclick = () => setConnType('wireless');
             document.getElementById('configBtn').onclick = openConfig;
             document.getElementById('clearBtn').onclick = clearAll;
-            document.getElementById('exportBtn').onclick = exportData;
+            document.getElementById('exportPdfBtn').onclick = () => openModal('exportModal');
+            document.getElementById('exportJsonBtn').onclick = exportJson;
             document.getElementById('importBtn').onclick = importData;
             document.getElementById('deleteBtn').onclick = deleteSelected;
-            document.getElementById('addVMBtn').onclick = function() { openModal('vmModal'); };
+            document.getElementById('addVMBtn').onclick = () => openModal('vmModal');
 
-            // Status buttons
             document.querySelectorAll('.status-btn').forEach(btn => {
-                btn.onclick = function() { setStatus(btn.dataset.status); };
+                btn.onclick = () => setStatus(btn.dataset.status);
             });
 
-            // Property inputs
-            document.getElementById('propName').oninput = function(e) { updateDeviceProp('name', e.target.value); };
-            document.getElementById('propIP').oninput = function(e) { updateDeviceProp('ip', e.target.value); };
-            document.getElementById('propMAC').oninput = function(e) { updateDeviceProp('mac', e.target.value); };
-            document.getElementById('propVLAN').onchange = function(e) { updateDeviceProp('vlan', e.target.value); };
-            document.getElementById('propNotes').oninput = function(e) { updateDeviceProp('notes', e.target.value); };
+            document.getElementById('propName').oninput = e => updateDeviceProp('name', e.target.value);
+            document.getElementById('propIP').oninput = e => updateDeviceProp('ip', e.target.value);
+            document.getElementById('propMAC').oninput = e => updateDeviceProp('mac', e.target.value);
+            document.getElementById('propVLAN').onchange = e => updateDeviceProp('vlan', e.target.value);
+            document.getElementById('propNotes').oninput = e => updateDeviceProp('notes', e.target.value);
 
-            // Canvas click to deselect
-            canvas.addEventListener('click', function(e) {
-                if (e.target === canvas || e.target.id === 'emptyState') {
-                    deselectAll();
-                }
+            canvas.addEventListener('click', e => {
+                if (e.target === canvas || e.target.id === 'emptyState') deselectAll();
             });
 
-            // Keyboard
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    cancelConnect();
-                    deselectAll();
-                }
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') { cancelConnect(); deselectAll(); }
                 if (e.key === 'Delete' && state.selected) deleteSelected();
             });
 
             updateVlanSelect();
+            updateNetworkInfoBox();
         });
 
         function applyZoom() {
-            canvas.style.transform = 'scale(' + state.zoom + ')';
+            // Apply zoom to the wrapper containing both SVG and devices
+            canvasWrapper.style.transform = 'scale(' + state.zoom + ')';
             document.getElementById('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
+            // Redraw connections - they now use device positions directly since everything scales together
             drawConnections();
         }
 
@@ -436,13 +503,8 @@
                 id: 'dev' + Date.now(),
                 type: type,
                 name: cfg.name + ' ' + state.counter,
-                ip: '',
-                mac: '',
-                status: 'online',
-                vlan: '',
-                notes: '',
-                x: x,
-                y: y,
+                ip: '', mac: '', status: 'online', vlan: '', notes: '',
+                x: x, y: y,
                 vms: type === 'vmhost' ? [] : null
             };
             state.devices.push(device);
@@ -459,34 +521,28 @@
             el.style.left = d.x + 'px';
             el.style.top = d.y + 'px';
             
-            let html = '<div class="device-status status-' + d.status + '"></div>';
-            html += '<div class="device-icon">' + cfg.icon + '</div>';
-            html += '<div class="device-name">' + d.name + '</div>';
-            html += '<div class="device-ip">' + (d.ip || 'No IP') + '</div>';
-            html += '<div class="device-badge">' + cfg.name + '</div>';
-            if (d.type === 'vmhost') html += '<div class="vm-list" id="vms' + d.id + '"></div>';
-            html += '<div class="conn-point top" data-pos="top"></div>';
-            html += '<div class="conn-point bottom" data-pos="bottom"></div>';
-            html += '<div class="conn-point left" data-pos="left"></div>';
-            html += '<div class="conn-point right" data-pos="right"></div>';
-            el.innerHTML = html;
+            el.innerHTML = '<div class="device-status status-' + d.status + '"></div>' +
+                '<div class="device-icon">' + cfg.icon + '</div>' +
+                '<div class="device-name">' + d.name + '</div>' +
+                '<div class="device-ip">' + (d.ip || 'No IP') + '</div>' +
+                '<div class="device-badge">' + cfg.name + '</div>' +
+                (d.type === 'vmhost' ? '<div class="vm-list" id="vms' + d.id + '"></div>' : '') +
+                '<div class="conn-point top" data-pos="top"></div>' +
+                '<div class="conn-point bottom" data-pos="bottom"></div>' +
+                '<div class="conn-point left" data-pos="left"></div>' +
+                '<div class="conn-point right" data-pos="right"></div>';
 
-            // Drag to move
-            el.addEventListener('mousedown', function(e) {
+            el.addEventListener('mousedown', e => {
                 if (e.target.classList.contains('conn-point')) return;
                 startDrag(e, d);
             });
-
-            // Click to select
-            el.addEventListener('click', function(e) {
+            el.addEventListener('click', e => {
                 if (e.target.classList.contains('conn-point')) return;
                 e.stopPropagation();
                 selectDevice(d);
             });
-
-            // Connection points
-            el.querySelectorAll('.conn-point').forEach(function(point) {
-                point.addEventListener('click', function(e) {
+            el.querySelectorAll('.conn-point').forEach(point => {
+                point.addEventListener('click', e => {
                     e.stopPropagation();
                     e.preventDefault();
                     handleConnectionClick(d, point.dataset.pos);
@@ -500,69 +556,57 @@
         function renderVMsOnDevice(d) {
             const container = document.getElementById('vms' + d.id);
             if (!container) return;
-            container.innerHTML = d.vms.map(function(vm) {
-                return '<div class="hosted-vm"><div class="dot status-' + vm.status + '"></div>' + vm.name + '</div>';
-            }).join('');
+            container.innerHTML = d.vms.map(vm => '<div class="hosted-vm"><div class="dot status-' + vm.status + '"></div>' + vm.name + '</div>').join('');
         }
 
-        // Drag functionality
-        let dragging = null;
-        let dragOffset = { x: 0, y: 0 };
-
+        let dragging = null, dragStart = { x: 0, y: 0 }, deviceStart = { x: 0, y: 0 };
+        
         function startDrag(e, d) {
             dragging = d;
-            const el = document.getElementById(d.id);
-            dragOffset.x = e.clientX / state.zoom - d.x;
-            dragOffset.y = e.clientY / state.zoom - d.y;
+            dragStart.x = e.clientX;
+            dragStart.y = e.clientY;
+            deviceStart.x = d.x;
+            deviceStart.y = d.y;
             document.addEventListener('mousemove', onDrag);
             document.addEventListener('mouseup', stopDrag);
         }
-
+        
         function onDrag(e) {
             if (!dragging) return;
             const el = document.getElementById(dragging.id);
-            dragging.x = e.clientX / state.zoom - dragOffset.x;
-            dragging.y = e.clientY / state.zoom - dragOffset.y;
+            // Calculate delta and account for zoom
+            const dx = (e.clientX - dragStart.x) / state.zoom;
+            const dy = (e.clientY - dragStart.y) / state.zoom;
+            dragging.x = deviceStart.x + dx;
+            dragging.y = deviceStart.y + dy;
             el.style.left = dragging.x + 'px';
             el.style.top = dragging.y + 'px';
             drawConnections();
         }
-
+        
         function stopDrag() {
             dragging = null;
             document.removeEventListener('mousemove', onDrag);
             document.removeEventListener('mouseup', stopDrag);
         }
-        // Connection handling - THE KEY FIX
+
         function handleConnectionClick(device, position) {
-            console.log('Connection click:', device.id, position, 'Current connecting:', state.connecting);
-            
             if (state.connecting === null) {
-                // Start new connection
                 state.connecting = { device: device, pos: position };
                 document.getElementById(device.id).classList.add('connecting');
                 connHint.classList.add('active');
-                console.log('Started connection from:', device.id);
             } else {
-                // Complete connection
                 if (state.connecting.device.id !== device.id) {
-                    // Check if connection already exists
-                    const exists = state.connections.some(function(c) {
-                        return (c.from === state.connecting.device.id && c.to === device.id) ||
-                               (c.from === device.id && c.to === state.connecting.device.id);
-                    });
-                    
+                    const exists = state.connections.some(c =>
+                        (c.from === state.connecting.device.id && c.to === device.id) ||
+                        (c.from === device.id && c.to === state.connecting.device.id)
+                    );
                     if (!exists) {
-                        const newConn = {
+                        state.connections.push({
                             id: 'conn' + Date.now(),
-                            from: state.connecting.device.id,
-                            fromPos: state.connecting.pos,
-                            to: device.id,
-                            toPos: position,
-                            type: state.connType
-                        };
-                        state.connections.push(newConn);
-                        console.log('Created connection:', newConn);
+                            from: state.connecting.device.id, fromPos: state.connecting.pos,
+                            to: device.id, toPos: position, type: state.connType
+                        });
                         drawConnections();
                         updateCounts();
                     }
@@ -580,39 +624,34 @@
             connHint.classList.remove('active');
         }
 
+        // Get connection point using stored device positions (not DOM)
         function getConnectionPoint(deviceId, position) {
+            const device = state.devices.find(d => d.id === deviceId);
+            if (!device) return { x: 0, y: 0 };
+            
             const el = document.getElementById(deviceId);
             if (!el) return { x: 0, y: 0 };
             
-            const rect = el.getBoundingClientRect();
-            const canvasRect = canvas.getBoundingClientRect();
+            const width = el.offsetWidth;
+            const height = el.offsetHeight;
             
-            // Get center of device relative to canvas
-            const centerX = (rect.left - canvasRect.left + rect.width / 2) / state.zoom;
-            const centerY = (rect.top - canvasRect.top + rect.height / 2) / state.zoom;
-            
-            // Get edge points
-            const top = (rect.top - canvasRect.top) / state.zoom;
-            const bottom = (rect.bottom - canvasRect.top) / state.zoom;
-            const left = (rect.left - canvasRect.left) / state.zoom;
-            const right = (rect.right - canvasRect.left) / state.zoom;
+            const centerX = device.x + width / 2;
+            const centerY = device.y + height / 2;
             
             switch (position) {
-                case 'top': return { x: centerX, y: top };
-                case 'bottom': return { x: centerX, y: bottom };
-                case 'left': return { x: left, y: centerY };
-                case 'right': return { x: right, y: centerY };
+                case 'top': return { x: centerX, y: device.y };
+                case 'bottom': return { x: centerX, y: device.y + height };
+                case 'left': return { x: device.x, y: centerY };
+                case 'right': return { x: device.x + width, y: centerY };
                 default: return { x: centerX, y: centerY };
             }
         }
 
         function drawConnections() {
             let paths = '';
-            state.connections.forEach(function(conn) {
+            state.connections.forEach(conn => {
                 const from = getConnectionPoint(conn.from, conn.fromPos);
                 const to = getConnectionPoint(conn.to, conn.toPos);
-                
-                // Create curved path
                 const midX = (from.x + to.x) / 2;
                 const midY = (from.y + to.y) / 2;
                 
@@ -622,13 +661,10 @@
                 } else {
                     path = 'M' + from.x + ',' + from.y + ' C' + midX + ',' + from.y + ' ' + midX + ',' + to.y + ' ' + to.x + ',' + to.y;
                 }
-                
                 paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
             });
             svg.innerHTML = paths;
         }
-
-        // Selection
         function selectDevice(d) {
             deselectAll();
             state.selected = d;
@@ -654,28 +690,16 @@
             document.getElementById('propMAC').value = d.mac;
             document.getElementById('propVLAN').value = d.vlan;
             document.getElementById('propNotes').value = d.notes;
-            
-            document.querySelectorAll('.status-btn').forEach(function(btn) {
-                btn.classList.toggle('active', btn.dataset.status === d.status);
-            });
-            
-            if (d.type === 'vmhost') {
-                document.getElementById('vmSection').style.display = 'block';
-                renderVMList(d);
-            } else {
-                document.getElementById('vmSection').style.display = 'none';
-            }
+            document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === d.status));
+            document.getElementById('vmSection').style.display = d.type === 'vmhost' ? 'block' : 'none';
+            if (d.type === 'vmhost') renderVMList(d);
         }
 
         function renderVMList(d) {
             const list = document.getElementById('vmList');
-            if (!d.vms || d.vms.length === 0) {
-                list.innerHTML = '<p style="font-size:10px;color:var(--text-muted);text-align:center;">No VMs</p>';
-                return;
-            }
-            list.innerHTML = d.vms.map(function(vm, i) {
-                return '<div class="vlan-item"><div class="dot status-' + vm.status + '" style="width:8px;height:8px;border-radius:50%;"></div><span style="flex:1">' + vm.name + '</span><button class="vlan-del" onclick="removeVM(' + i + ')">&times;</button></div>';
-            }).join('');
+            list.innerHTML = (!d.vms || d.vms.length === 0) 
+                ? '<p style="font-size:10px;color:var(--text-muted);text-align:center;">No VMs</p>'
+                : d.vms.map((vm, i) => '<div class="vlan-item"><div class="dot status-' + vm.status + '" style="width:8px;height:8px;border-radius:50%;"></div><span style="flex:1">' + vm.name + '</span><button class="vlan-del" onclick="removeVM(' + i + ')">&times;</button></div>').join('');
         }
 
         function removeVM(index) {
@@ -698,16 +722,14 @@
             if (!state.selected) return;
             state.selected.status = status;
             document.getElementById(state.selected.id).querySelector('.device-status').className = 'device-status status-' + status;
-            document.querySelectorAll('.status-btn').forEach(function(btn) {
-                btn.classList.toggle('active', btn.dataset.status === status);
-            });
+            document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === status));
         }
 
         function deleteSelected() {
             if (!state.selected) return;
             const id = state.selected.id;
-            state.connections = state.connections.filter(function(c) { return c.from !== id && c.to !== id; });
-            state.devices = state.devices.filter(function(d) { return d.id !== id; });
+            state.connections = state.connections.filter(c => c.from !== id && c.to !== id);
+            state.devices = state.devices.filter(d => d.id !== id);
             document.getElementById(id).remove();
             deselectAll();
             drawConnections();
@@ -721,30 +743,32 @@
         }
 
         function updateVlanSelect() {
-            const sel = document.getElementById('propVLAN');
-            sel.innerHTML = '<option value="">Select VLAN</option>' + state.vlans.map(function(v) {
-                return '<option value="' + v.id + '">VLAN ' + v.id + ' - ' + v.name + '</option>';
-            }).join('');
+            document.getElementById('propVLAN').innerHTML = '<option value="">Select VLAN</option>' + 
+                state.vlans.map(v => '<option value="' + v.id + '">VLAN ' + v.id + ' - ' + v.name + '</option>').join('');
         }
 
-        // Config modal
         function openConfig() {
             openModal('configModal');
+            document.getElementById('dnsProvider').value = state.config.dnsProvider;
+            document.getElementById('dnsPrimary').value = state.config.dnsPrimary;
+            document.getElementById('dnsSecondary').value = state.config.dnsSecondary;
+            document.getElementById('dhcpType').value = state.config.dhcpType;
             renderVlanList();
             updateDnsFields();
             updateDhcpDevices();
         }
 
         function renderVlanList() {
-            document.getElementById('vlanList').innerHTML = state.vlans.map(function(v, i) {
-                return '<div class="vlan-item"><span class="vlan-id">VLAN ' + v.id + '</span><span class="vlan-name">' + v.name + '</span><span class="vlan-subnet">' + v.subnet + '</span><button class="vlan-del" onclick="deleteVlan(' + i + ')">&times;</button></div>';
-            }).join('');
+            document.getElementById('vlanList').innerHTML = state.vlans.map((v, i) => 
+                '<div class="vlan-item"><span class="vlan-id">VLAN ' + v.id + '</span><span class="vlan-name">' + v.name + '</span><span class="vlan-subnet">' + v.subnet + '</span><button class="vlan-del" onclick="deleteVlan(' + i + ')">&times;</button></div>'
+            ).join('');
         }
 
         function deleteVlan(index) {
             state.vlans.splice(index, 1);
             renderVlanList();
             updateVlanSelect();
+            updateNetworkInfoBox();
         }
 
         function saveVlan() {
@@ -753,9 +777,10 @@
             const subnet = document.getElementById('newVlanSubnet').value;
             const gateway = document.getElementById('newVlanGateway').value;
             if (id && name && subnet) {
-                state.vlans.push({ id: id, name: name, subnet: subnet, gateway: gateway });
+                state.vlans.push({ id, name, subnet, gateway });
                 renderVlanList();
                 updateVlanSelect();
+                updateNetworkInfoBox();
                 closeModal('vlanModal');
                 document.getElementById('newVlanID').value = '';
                 document.getElementById('newVlanName').value = '';
@@ -766,21 +791,29 @@
 
         function updateDnsFields() {
             const prov = document.getElementById('dnsProvider').value;
-            document.getElementById('dnsServerGroup').style.display = prov === 'server' ? 'block' : 'none';
-            if (prov === 'server') {
+            document.getElementById('dnsServerGroup').style.display = prov === 'Server Hosted' ? 'block' : 'none';
+            if (prov === 'Server Hosted') {
                 document.getElementById('dnsServerDevice').innerHTML = '<option value="">Select...</option>' +
-                    state.devices.filter(function(d) { return d.type === 'server'; }).map(function(d) {
-                        return '<option value="' + d.id + '">' + d.name + '</option>';
-                    }).join('');
+                    state.devices.filter(d => d.type === 'server').map(d => '<option value="' + d.id + '">' + d.name + '</option>').join('');
             }
         }
 
         function updateDhcpDevices() {
             const type = document.getElementById('dhcpType').value;
-            const typeMap = { router: 'router', server: 'server', firewall: 'firewall' };
-            const devices = state.devices.filter(function(d) { return d.type === typeMap[type]; });
+            const typeMap = { 'Router': 'router', 'Dedicated Server': 'server', 'Firewall': 'firewall' };
+            const devices = state.devices.filter(d => d.type === typeMap[type]);
             document.getElementById('dhcpDevice').innerHTML = '<option value="">Select...</option>' +
-                devices.map(function(d) { return '<option value="' + d.id + '">' + d.name + '</option>'; }).join('');
+                devices.map(d => '<option value="' + d.id + '">' + d.name + '</option>').join('');
+        }
+
+        function saveConfig() {
+            state.config.dnsProvider = document.getElementById('dnsProvider').value;
+            state.config.dnsPrimary = document.getElementById('dnsPrimary').value;
+            state.config.dnsSecondary = document.getElementById('dnsSecondary').value;
+            state.config.dhcpType = document.getElementById('dhcpType').value;
+            state.config.dhcpDevice = document.getElementById('dhcpDevice').value;
+            updateNetworkInfoBox();
+            closeModal('configModal');
         }
 
         function saveVM() {
@@ -788,7 +821,7 @@
             const name = document.getElementById('newVMName').value;
             const status = document.getElementById('newVMStatus').value;
             if (name) {
-                state.selected.vms.push({ name: name, status: status });
+                state.selected.vms.push({ name, status });
                 renderVMsOnDevice(state.selected);
                 renderVMList(state.selected);
                 closeModal('vmModal');
@@ -801,7 +834,7 @@
                 state.devices = [];
                 state.connections = [];
                 state.counter = 0;
-                document.querySelectorAll('.network-device').forEach(function(el) { el.remove(); });
+                document.querySelectorAll('.network-device').forEach(el => el.remove());
                 svg.innerHTML = '';
                 deselectAll();
                 updateCounts();
@@ -809,12 +842,77 @@
             }
         }
 
-        function exportData() {
-            const data = { devices: state.devices, connections: state.connections, vlans: state.vlans };
+        function generatePDF() {
+            const title = document.getElementById('pdfTitle').value || 'Network Diagram';
+            const client = document.getElementById('pdfClient').value || '';
+            const orientation = document.getElementById('pdfOrientation').value;
+            closeModal('exportModal');
+            
+            // Temporarily reset zoom for capture
+            const originalZoom = state.zoom;
+            state.zoom = 1;
+            canvasWrapper.style.transform = 'scale(1)';
+            
+            document.querySelector('.controls').style.display = 'none';
+            connHint.style.display = 'none';
+            document.querySelectorAll('.network-device').forEach(el => el.classList.remove('selected', 'connecting'));
+            document.querySelectorAll('.conn-point').forEach(el => el.style.visibility = 'hidden');
+            
+            const canvasArea = document.getElementById('canvasArea');
+            
+            html2canvas(canvasArea, { backgroundColor: '#0a0e14', scale: 2, useCORS: true, logging: false }).then(canvasImg => {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                
+                pdf.setFillColor(15, 20, 25);
+                pdf.rect(0, 0, pageWidth, 25, 'F');
+                pdf.setTextColor(230, 230, 230);
+                pdf.setFontSize(18);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(title, 10, 12);
+                if (client) {
+                    pdf.setFontSize(11);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setTextColor(139, 148, 158);
+                    pdf.text('Client: ' + client, 10, 20);
+                }
+                pdf.setFontSize(10);
+                pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 12, { align: 'right' });
+                
+                const imgData = canvasImg.toDataURL('image/png');
+                const imgWidth = pageWidth - 20;
+                const imgHeight = (canvasImg.height * imgWidth) / canvasImg.width;
+                const maxImgHeight = pageHeight - 45;
+                let finalWidth = imgWidth, finalHeight = imgHeight;
+                if (imgHeight > maxImgHeight) {
+                    finalHeight = maxImgHeight;
+                    finalWidth = (canvasImg.width * finalHeight) / canvasImg.height;
+                }
+                pdf.addImage(imgData, 'PNG', (pageWidth - finalWidth) / 2, 30, finalWidth, finalHeight);
+                
+                pdf.setFontSize(8);
+                pdf.setTextColor(92, 99, 112);
+                pdf.text('Generated by NetMap Pro', 10, pageHeight - 5);
+                pdf.text('Page 1 of 1', pageWidth - 10, pageHeight - 5, { align: 'right' });
+                
+                pdf.save(title.toLowerCase().replace(/\s+/g, '-') + '-' + new Date().toISOString().split('T')[0] + '.pdf');
+                
+                // Restore zoom
+                state.zoom = originalZoom;
+                canvasWrapper.style.transform = 'scale(' + state.zoom + ')';
+                document.querySelector('.controls').style.display = 'flex';
+                document.querySelectorAll('.conn-point').forEach(el => el.style.visibility = '');
+            });
+        }
+
+        function exportJson() {
+            const data = { devices: state.devices, connections: state.connections, vlans: state.vlans, config: state.config };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = 'network-diagram-' + new Date().toISOString().split('T')[0] + '.json';
+            a.download = 'network-project-' + new Date().toISOString().split('T')[0] + '.json';
             a.click();
         }
 
@@ -822,24 +920,26 @@
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = '.json';
-            input.onchange = function(e) {
+            input.onchange = e => {
                 const file = e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
-                    reader.onload = function(evt) {
+                    reader.onload = evt => {
                         try {
                             const data = JSON.parse(evt.target.result);
                             state.devices = data.devices || [];
                             state.connections = data.connections || [];
                             state.vlans = data.vlans || state.vlans;
-                            document.querySelectorAll('.network-device').forEach(function(el) { el.remove(); });
-                            state.devices.forEach(function(d) { renderDevice(d); });
+                            state.config = data.config || state.config;
+                            document.querySelectorAll('.network-device').forEach(el => el.remove());
+                            state.devices.forEach(d => renderDevice(d));
                             drawConnections();
                             updateVlanSelect();
+                            updateNetworkInfoBox();
                             updateCounts();
                             if (state.devices.length > 0) document.getElementById('emptyState').style.display = 'none';
                         } catch (err) {
-                            alert('Error: ' + err.message);
+                            alert('Error loading project: ' + err.message);
                         }
                     };
                     reader.readAsText(file);
