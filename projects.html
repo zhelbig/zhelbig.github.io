@@ -42,6 +42,8 @@
         .project-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem}
         .project-title{font-size:1.5rem;font-weight:600}
         .project-badge{display:inline-flex;align-items:center;gap:0.5rem;padding:0.5rem 1rem;background:linear-gradient(135deg,rgba(255,59,59,0.1),rgba(204,0,0,0.1));border:1px solid rgba(255,59,59,0.2);border-radius:20px;font-size:0.85rem;color:var(--primary)}
+        .project-badge-logo{display:inline-flex;align-items:center;justify-content:center;padding:0.5rem 1rem;background:#ffffff;border:1px solid rgba(255,255,255,0.3);border-radius:20px;box-shadow:0 2px 12px rgba(255,255,255,0.1)}
+        .project-badge-logo img{height:28px;width:auto;display:block}
         .project-desc{color:var(--text-muted);font-size:1.05rem;line-height:1.8;margin-bottom:1.5rem}
         .project-tech{display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1.5rem}
         .tech-tag{padding:0.35rem 0.75rem;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:20px;font-size:0.8rem;font-family:'JetBrains Mono',monospace;color:var(--secondary)}
@@ -78,58 +80,73 @@
     <section class="projects-section">
         <article class="project-card">
             <div class="project-header">
-                <h2 class="project-title">Thread AI Ticketing Implementation</h2>
-                <span class="project-badge">🤖 AI Integration</span>
+                <h2 class="project-title">Thread AI Ticketing & Teams App Deployment</h2>
+                <span class="project-badge-logo">
+                    <img src="SCN_Thread_LOGO_RGB.png" alt="Thread AI Logo">
+                </span>
             </div>
-            <p class="project-desc">Led the implementation of Thread AI to automate ticketing workflows at i-Tech Support inc. This AI-driven solution analyzes incoming support requests, categorizes tickets, and routes them to appropriate technicians, significantly improving response times and operational efficiency.</p>
+            <p class="project-desc">Led the end-to-end implementation of Thread AI at i-Tech Support inc., deploying it as a custom Microsoft Teams application across client environments. This AI-driven solution analyzes incoming support requests, categorizes tickets, and routes them to appropriate technicians — all accessible directly within the Teams interface for seamless adoption and enhanced collaboration.</p>
             <div class="project-tech">
                 <span class="tech-tag">Thread AI</span>
+                <span class="tech-tag">Microsoft Teams</span>
                 <span class="tech-tag">API Integration</span>
+                <span class="tech-tag">Azure AD</span>
                 <span class="tech-tag">Workflow Automation</span>
                 <span class="tech-tag">MSP Operations</span>
             </div>
             <ul class="project-highlights">
                 <li>Reduced average ticket triage time through AI-powered categorization</li>
                 <li>Implemented intelligent routing based on technician expertise and workload</li>
+                <li>Deployed custom Teams app across multiple client tenants using Azure AD integration</li>
                 <li>Integrated with existing ticketing systems for seamless adoption</li>
-            </ul>
-        </article>
-
-        <article class="project-card">
-            <div class="project-header">
-                <h2 class="project-title">Microsoft Teams App Development</h2>
-                <span class="project-badge">📱 Custom Development</span>
-            </div>
-            <p class="project-desc">Designed and deployed custom Microsoft Teams applications for client environments, enabling enhanced collaboration and streamlined access to internal tools and resources directly within the Teams interface.</p>
-            <div class="project-tech">
-                <span class="tech-tag">Microsoft Teams</span>
-                <span class="tech-tag">Power Platform</span>
-                <span class="tech-tag">Azure AD</span>
-                <span class="tech-tag">Client Deployment</span>
-            </div>
-            <ul class="project-highlights">
-                <li>Created custom apps tailored to specific client business processes</li>
-                <li>Deployed across multiple client tenants using Azure AD integration</li>
                 <li>Provided training and documentation for end-user adoption</li>
             </ul>
         </article>
 
         <article class="project-card">
             <div class="project-header">
-                <h2 class="project-title">Security & Endpoint Management</h2>
-                <span class="project-badge">🔒 Security Operations</span>
+                <h2 class="project-title">HIPAA Compliance in Microsoft 365</h2>
+                <span class="project-badge">🛡️ Compliance & Governance</span>
             </div>
-            <p class="project-desc">Implemented comprehensive security monitoring and endpoint management solutions across multiple client environments, combining Huntress EDR with Microsoft Intune for proactive threat detection and unified device management.</p>
+            <p class="project-desc">Conducted a comprehensive deep dive into HIPAA compliance requirements for Microsoft 365 environments, researching and implementing policies across Microsoft Purview and Microsoft Teams Admin to ensure the protection of electronic protected health information (ePHI). This initiative covered data loss prevention, retention, encryption, sensitivity labeling, and communication controls to align client environments with HIPAA safeguards.</p>
             <div class="project-tech">
-                <span class="tech-tag">Huntress EDR</span>
-                <span class="tech-tag">Microsoft Intune</span>
-                <span class="tech-tag">NinjaRMM</span>
-                <span class="tech-tag">PowerShell</span>
+                <span class="tech-tag">Microsoft Purview</span>
+                <span class="tech-tag">Teams Admin</span>
+                <span class="tech-tag">Data Loss Prevention</span>
+                <span class="tech-tag">Sensitivity Labels</span>
+                <span class="tech-tag">Encryption</span>
+                <span class="tech-tag">Microsoft 365</span>
             </div>
             <ul class="project-highlights">
-                <li>Deployed Huntress EDR for 24/7 threat monitoring and incident response</li>
-                <li>Configured Intune policies for device compliance and application deployment</li>
-                <li>Developed PowerShell automation scripts for routine maintenance tasks</li>
+                <li>Configured Data Loss Prevention policies in Microsoft Purview to detect and restrict sharing of ePHI</li>
+                <li>Established data retention policies to meet HIPAA-required record-keeping obligations</li>
+                <li>Implemented encryption standards for emails and documents containing sensitive health data</li>
+                <li>Created and deployed sensitivity labels for classifying and protecting HIPAA-regulated content</li>
+                <li>Hardened Microsoft Teams settings through Teams Admin to control external sharing, guest access, and meeting policies</li>
+            </ul>
+        </article>
+
+        <article class="project-card">
+            <div class="project-header">
+                <h2 class="project-title">Microsoft Intune Policies & Autopilot</h2>
+                <span class="project-badge">⚙️ Device Management</span>
+            </div>
+            <p class="project-desc">Configured and managed Microsoft Intune for a client environment, creating application packages for deployment to company devices based on group-based policies, assisting with device configuration policies for both Windows and iOS platforms, and reconfiguring Windows Autopilot profiles for streamlined new device provisioning and ongoing device management.</p>
+            <div class="project-tech">
+                <span class="tech-tag">Microsoft Intune</span>
+                <span class="tech-tag">Windows Autopilot</span>
+                <span class="tech-tag">Win32 Apps</span>
+                <span class="tech-tag">Group Policy</span>
+                <span class="tech-tag">Windows</span>
+                <span class="tech-tag">iOS</span>
+            </div>
+            <ul class="project-highlights">
+                <li>Created and deployed Win32 application packages through Intune with detection rules and installation commands</li>
+                <li>Configured assignment policies targeting specific device groups for controlled app distribution</li>
+                <li>Assisted in configuring Intune device configuration and compliance policies for Windows and iOS devices</li>
+                <li>Implemented Windows Update enforcement policies with update rings and compliance deadlines</li>
+                <li>Reconfigured Windows Autopilot deployment profiles for zero-touch provisioning of new devices</li>
+                <li>Managed device lifecycle through Autopilot including enrollment, configuration, and ongoing management</li>
             </ul>
         </article>
     </section>
