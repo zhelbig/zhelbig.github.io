@@ -210,23 +210,26 @@
                 <div class="sidebar-title">Network Equipment</div>
                 <div class="device-palette">
                     <div class="device-item" draggable="true" data-type="router"><span class="icon">&#x1F4E1;</span>Router</div>
-                    <div class="device-item" draggable="true" data-type="switch"><span class="icon">&#x1F500;</span>Switch</div>
                     <div class="device-item" draggable="true" data-type="firewall"><span class="icon">&#x1F6E1;&#xFE0F;</span>Firewall</div>
+                    <div class="device-item" draggable="true" data-type="switch"><span class="icon">&#x1F500;</span>Switch</div>
                     <div class="device-item" draggable="true" data-type="ap"><span class="icon">&#x1F4F6;</span>Access Point</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Virtualization &amp; Cloud</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">&#x1F3E2;</span>VM Host</div>
-                    <div class="device-item" draggable="true" data-type="vm"><span class="icon">&#x1F4E6;</span>VM</div>
                     <div class="device-item" draggable="true" data-type="cloud"><span class="icon">&#x2601;&#xFE0F;</span>Cloud</div>
+                    <div class="device-item" draggable="true" data-type="onprem"><span class="icon">&#x1F3E2;</span>On-Prem</div>
+                    <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">&#x1F5A5;&#xFE0F;</span>VM Host</div>
+                    <div class="device-item" draggable="true" data-type="vm"><span class="icon">&#x1F4E6;</span>VM</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Other</div>
                 <div class="device-palette">
                     <div class="device-item" draggable="true" data-type="printer"><span class="icon">&#x1F5A8;&#xFE0F;</span>Printer</div>
+                    <div class="device-item" draggable="true" data-type="phone"><span class="icon">&#x260E;&#xFE0F;</span>Desk Phone</div>
+                    <div class="device-item" draggable="true" data-type="camera"><span class="icon">&#x1F4F9;</span>Security Cam</div>
                     <div class="device-item" draggable="true" data-type="iot"><span class="icon">&#x1F310;</span>IoT</div>
                 </div>
             </div>
@@ -409,9 +412,10 @@
             server: { name: 'Server', icon: '🖥️' }, nas: { name: 'NAS', icon: '💾' },
             router: { name: 'Router', icon: '📡' }, switch: { name: 'Switch', icon: '🔀' },
             firewall: { name: 'Firewall', icon: '🛡️' }, ap: { name: 'Access Point', icon: '📶' },
-            vmhost: { name: 'VM Host', icon: '🏢' }, vm: { name: 'VM', icon: '📦' },
-            cloud: { name: 'Cloud', icon: '☁️' }, printer: { name: 'Printer', icon: '🖨️' },
-            iot: { name: 'IoT', icon: '🌐' }
+            vmhost: { name: 'VM Host', icon: '🖥️' }, vm: { name: 'VM', icon: '📦' },
+            cloud: { name: 'Cloud', icon: '☁️' }, onprem: { name: 'On-Prem', icon: '🏢' }, printer: { name: 'Printer', icon: '🖨️' },
+            iot: { name: 'IoT', icon: '🌐' }, phone: { name: 'Desk Phone', icon: '☎️' },
+            camera: { name: 'Security Camera', icon: '📹' }
         };
 
         const canvasArea = document.getElementById('canvasArea');
