@@ -6,198 +6,237 @@
     <title>NetMap Pro - Network Infrastructure Mapper</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-primary: #0a0e14;
-            --bg-secondary: #0f1419;
-            --bg-tertiary: #1a1f26;
-            --bg-card: #141920;
-            --border-color: #2a3140;
-            --border-highlight: #3d4a5c;
-            --text-primary: #e6e6e6;
-            --text-secondary: #8b949e;
-            --text-muted: #5c6370;
-            --accent-blue: #58a6ff;
-            --accent-green: #3fb950;
-            --accent-orange: #d29922;
-            --accent-red: #f85149;
-            --accent-purple: #a371f7;
-            --accent-cyan: #39c5cf;
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --primary:#ff3b3b;--secondary:#ff6b6b;--accent:#cc0000;
+            --dark:#0a0a0a;--darker:#050505;
+            --grey:#1a1a1a;--grey-light:#2d2d2d;
+            --glass:rgba(255,255,255,0.03);--glass-border:rgba(255,255,255,0.08);
+            --text:#e4e4e7;--text-secondary:#a1a1a1;--text-muted:#666;
+            --green:#22c55e;--yellow:#eab308;--orange:#f97316;--red-soft:#ef4444;
+            --accent-purple:#c084fc;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); overflow: hidden; height: 100vh; }
-        .app { display: grid; grid-template-columns: 260px 1fr 300px; grid-template-rows: 50px 1fr 40px; height: 100vh; }
-        .header { grid-column: 1 / -1; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 16px; gap: 16px; }
-        .logo { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-        .logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-        .header-actions { display: flex; gap: 8px; margin-left: auto; }
-        .btn { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; }
-        .btn:hover { background: var(--bg-card); border-color: var(--border-highlight); }
-        .btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #000; }
-        .btn-danger { border-color: var(--accent-red); color: var(--accent-red); }
-        .sidebar { background: var(--bg-secondary); border-right: 1px solid var(--border-color); overflow-y: auto; padding: 12px; }
-        .sidebar-section { margin-bottom: 20px; }
-        .sidebar-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 10px; }
-        .device-palette { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-        .device-item { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 8px; cursor: grab; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 10px; color: var(--text-secondary); transition: all 0.15s; }
-        .device-item:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
-        .device-item .icon { font-size: 20px; }
-        .canvas-area { position: relative; overflow: hidden; background: var(--bg-primary); cursor: grab; }
-        .canvas-area.panning { cursor: grabbing; }
-        .canvas-area.dragging-device { cursor: move; }
-        .canvas-grid { position: absolute; width: 8000px; height: 8000px; left: -4000px; top: -4000px; background-image: radial-gradient(circle, rgba(88,166,255,0.1) 1px, transparent 1px); background-size: 20px 20px; pointer-events: none; }
-        #canvasWrapper { position: absolute; width: 8000px; height: 8000px; left: -4000px; top: -4000px; transform-origin: center center; }
-        #canvas { position: absolute; width: 100%; height: 100%; }
-        #connections { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: visible; }
-        .conn-wired { stroke: var(--accent-blue); stroke-width: 2; fill: none; }
-        .conn-wireless { stroke: var(--accent-purple); stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
-        .controls { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; background: var(--bg-secondary); padding: 6px; border-radius: 8px; border: 1px solid var(--border-color); z-index: 100; }
-        .network-device { position: absolute; background: var(--bg-card); border: 2px solid var(--border-color); border-radius: 10px; padding: 10px; min-width: 120px; cursor: move; user-select: none; z-index: 10; }
-        .network-device:hover { border-color: var(--border-highlight); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .network-device.selected { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(88,166,255,0.2); }
-        .network-device.connecting { border-color: var(--accent-green); box-shadow: 0 0 0 3px rgba(63,185,80,0.2); }
-        .device-status { width: 8px; height: 8px; border-radius: 50%; position: absolute; top: 8px; right: 8px; }
-        .status-online { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
-        .status-offline { background: #6e7681; }
-        .status-warning { background: var(--accent-orange); box-shadow: 0 0 6px var(--accent-orange); }
-        .status-retired { background: #6e7681; opacity: 0.5; }
-        .status-decommissioned { background: #6e7681; }
-        .device-icon { font-size: 24px; margin-bottom: 4px; }
-        .device-name { font-size: 12px; font-weight: 600; margin-bottom: 2px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .device-ip { font-size: 10px; color: var(--text-muted); font-family: monospace; }
-        .device-badge { font-size: 9px; padding: 2px 6px; background: var(--bg-tertiary); border-radius: 4px; color: var(--text-muted); margin-top: 6px; display: inline-block; }
-        .conn-point { position: absolute; width: 14px; height: 14px; background: var(--bg-card); border: 2px solid var(--accent-blue); border-radius: 50%; cursor: crosshair; z-index: 20; opacity: 0; transition: opacity 0.15s, transform 0.15s; }
-        .network-device:hover .conn-point, .network-device.connecting .conn-point { opacity: 1; }
-        .conn-point:hover { background: var(--accent-blue); transform: scale(1.2); }
-        .conn-point.top { top: -7px; left: 50%; margin-left: -7px; }
-        .conn-point.bottom { bottom: -7px; left: 50%; margin-left: -7px; }
-        .conn-point.left { left: -7px; top: 50%; margin-top: -7px; }
-        .conn-point.right { right: -7px; top: 50%; margin-top: -7px; }
-        .props-panel { background: var(--bg-secondary); border-left: 1px solid var(--border-color); overflow-y: auto; padding: 12px; }
-        .panel-title { font-size: 13px; font-weight: 600; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
-        .form-group { margin-bottom: 14px; }
-        .form-label { display: block; font-size: 10px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; }
-        .form-input, .form-select, .form-textarea { width: 100%; padding: 8px 10px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px; font-family: monospace; }
-        .form-input:focus, .form-select:focus { outline: none; border-color: var(--accent-blue); }
-        .form-textarea { min-height: 60px; resize: vertical; font-family: inherit; }
-        .status-btns { display: flex; gap: 4px; flex-wrap: wrap; }
-        .status-btn { flex: 1; min-width: 50px; padding: 6px 4px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; text-align: center; font-size: 9px; color: var(--text-secondary); }
-        .status-btn.active { border-color: var(--accent-blue); background: rgba(88,166,255,0.1); color: var(--text-primary); }
-        .status-btn .dot { width: 8px; height: 8px; border-radius: 50%; margin: 0 auto 4px; }
-        .conn-toggle { display: flex; background: var(--bg-card); border-radius: 6px; padding: 3px; margin-bottom: 10px; }
-        .conn-toggle button { flex: 1; padding: 6px; background: none; border: none; border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 10px; }
-        .conn-toggle button.active { background: var(--bg-tertiary); color: var(--text-primary); }
-        .conn-toggle button.wired.active { color: var(--accent-blue); }
-        .conn-toggle button.wireless.active { color: var(--accent-purple); }
-        .statusbar { grid-column: 1 / -1; background: var(--bg-secondary); border-top: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 16px; font-size: 11px; color: var(--text-muted); gap: 20px; }
-        .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.2s; }
-        .modal-bg.active { opacity: 1; visibility: visible; }
-        .modal { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; width: 450px; max-height: 80vh; overflow-y: auto; }
-        .modal-header { padding: 14px 16px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-        .modal-header h3 { font-size: 14px; }
-        .modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; }
-        .modal-body { padding: 16px; }
-        .modal-footer { padding: 12px 16px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 8px; }
-        .config-section { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
-        .config-title { font-size: 11px; font-weight: 600; margin-bottom: 10px; color: var(--accent-blue); }
-        .vlan-item { display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 6px; font-size: 11px; margin-bottom: 6px; }
-        .vlan-id { font-weight: 600; color: var(--accent-cyan); min-width: 60px; font-family: monospace; }
-        .vlan-subnet { color: var(--text-secondary); font-family: monospace; }
-        .vlan-name { color: var(--text-muted); flex: 1; }
-        .vlan-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; }
-        .vlan-del:hover { color: var(--accent-red); }
-        .add-btn { width: 100%; padding: 8px; background: none; border: 1px dashed var(--border-color); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-size: 11px; }
-        .add-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
-        .vm-host { min-width: 180px; background: rgba(163,113,247,0.05); border-style: dashed; border-color: var(--accent-purple); }
-        .vm-list { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color); display: flex; flex-wrap: wrap; gap: 4px; }
-        .hosted-vm { background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; font-size: 9px; display: flex; align-items: center; gap: 4px; }
-        .hosted-vm .dot { width: 6px; height: 6px; border-radius: 50%; }
-        .empty-state { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; color: var(--text-muted); pointer-events: none; }
-        .empty-state h3 { font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
-        .empty-state p { font-size: 12px; }
-        .conn-hint { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: var(--accent-green); color: #000; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 500; z-index: 1000; display: none; }
-        .conn-hint.active { display: block; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: var(--bg-primary); }
-        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
-        
-        .network-info-box {
-            position: absolute; top: 16px; right: 16px;
-            background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px;
-            padding: 14px; min-width: 220px; max-width: 280px; z-index: 100; font-size: 11px;
-        }
-        .network-info-box h4 { font-size: 12px; font-weight: 600; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
-        .info-section { margin-bottom: 12px; }
-        .info-section:last-child { margin-bottom: 0; }
-        .info-section-title { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 6px; }
-        .info-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
-        .info-label { color: var(--text-secondary); }
-        .info-value { font-family: monospace; color: var(--text-primary); font-weight: 500; }
-        .vlan-tag { display: inline-block; padding: 2px 6px; background: var(--bg-tertiary); border-radius: 4px; margin: 2px; font-family: monospace; font-size: 10px; }
-        .vlan-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-        .pan-hint { position: absolute; bottom: 60px; left: 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px; font-size: 10px; color: var(--text-muted); z-index: 100; }
+        body{font-family:'Outfit',sans-serif;background:var(--darker);color:var(--text);overflow:hidden;height:100vh;line-height:1.6}
+
+        /* Animated background */
+        .grid-bg{position:fixed;top:0;left:0;width:100%;height:100%;background-image:linear-gradient(rgba(255,59,59,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,59,59,0.03) 1px,transparent 1px);background-size:60px 60px;z-index:0;animation:gridMove 20s linear infinite;pointer-events:none}
+        @keyframes gridMove{0%{transform:translate(0,0)}100%{transform:translate(60px,60px)}}
+        .orb{position:fixed;border-radius:50%;filter:blur(80px);z-index:0;animation:float 20s ease-in-out infinite;pointer-events:none}
+        .orb-1{width:600px;height:600px;background:radial-gradient(circle,rgba(255,59,59,0.10) 0%,transparent 70%);top:-200px;right:-200px}
+        .orb-2{width:500px;height:500px;background:radial-gradient(circle,rgba(204,0,0,0.07) 0%,transparent 70%);bottom:-150px;left:-150px;animation-delay:-10s}
+        .orb-3{width:400px;height:400px;background:radial-gradient(circle,rgba(255,107,107,0.06) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:-5s}
+        @keyframes float{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(30px,-30px) scale(1.05)}50%{transform:translate(-20px,20px) scale(0.95)}75%{transform:translate(20px,30px) scale(1.02)}}
+
+        /* Layout */
+        .app{display:grid;grid-template-columns:260px 1fr 300px;grid-template-rows:56px 1fr 40px;height:100vh;position:relative;z-index:1}
+
+        /* Header */
+        .header{grid-column:1/-1;background:rgba(5,5,5,0.8);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-border);display:flex;align-items:center;padding:0 1.5rem;gap:16px;z-index:100}
+        .logo{font-weight:700;font-size:1.25rem;display:flex;align-items:center;gap:10px}
+        .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--primary),var(--secondary));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 20px rgba(255,59,59,0.2)}
+        .logo-label{background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .header-actions{display:flex;gap:8px;margin-left:auto}
+
+        /* Buttons */
+        .btn{padding:8px 14px;border-radius:12px;border:1px solid var(--glass-border);background:var(--glass);color:var(--text-secondary);cursor:pointer;font-size:0.8rem;font-family:'Outfit',sans-serif;font-weight:500;display:flex;align-items:center;gap:6px;transition:all 0.3s ease;backdrop-filter:blur(10px)}
+        .btn:hover{color:var(--text);border-color:rgba(255,59,59,0.3);box-shadow:0 0 15px rgba(255,59,59,0.08)}
+        .btn-primary{background:linear-gradient(135deg,var(--primary),var(--accent));border-color:transparent;color:white;font-weight:600}
+        .btn-primary:hover{box-shadow:0 4px 20px rgba(255,59,59,0.3);transform:translateY(-1px)}
+        .btn-danger{border-color:rgba(239,68,68,0.3);color:var(--red-soft)}
+        .btn-danger:hover{background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.5);box-shadow:0 0 15px rgba(239,68,68,0.1)}
+
+        /* Sidebar */
+        .sidebar{background:rgba(5,5,5,0.8);backdrop-filter:blur(20px);border-right:1px solid var(--glass-border);overflow-y:auto;padding:14px}
+        .sidebar-section{margin-bottom:20px}
+        .sidebar-title{font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--primary);margin-bottom:10px}
+        .device-palette{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+        .device-item{background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:10px 8px;cursor:grab;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:0.7rem;font-weight:500;color:var(--text-secondary);transition:all 0.3s ease}
+        .device-item:hover{border-color:rgba(255,59,59,0.4);background:rgba(255,59,59,0.06);transform:translateY(-2px);box-shadow:0 4px 15px rgba(255,59,59,0.08)}
+        .device-item .icon{font-size:20px}
+
+        /* Canvas */
+        .canvas-area{position:relative;overflow:hidden;background:transparent;cursor:grab}
+        .canvas-area.panning{cursor:grabbing}
+        .canvas-area.dragging-device{cursor:move}
+        .canvas-grid{position:absolute;width:8000px;height:8000px;left:-4000px;top:-4000px;background-image:radial-gradient(circle,rgba(255,59,59,0.06) 1px,transparent 1px);background-size:20px 20px;pointer-events:none}
+        #canvasWrapper{position:absolute;width:8000px;height:8000px;left:-4000px;top:-4000px;transform-origin:center center}
+        #canvas{position:absolute;width:100%;height:100%}
+        #connections{position:absolute;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
+        .conn-wired{stroke:var(--primary);stroke-width:2;fill:none}
+        .conn-wireless{stroke:var(--accent-purple);stroke-width:2;fill:none;stroke-dasharray:8,4}
+        .controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(5,5,5,0.9);backdrop-filter:blur(20px);padding:8px;border-radius:14px;border:1px solid var(--glass-border);z-index:100}
+
+        /* Network devices */
+        .network-device{position:absolute;background:rgba(10,10,10,0.9);backdrop-filter:blur(10px);border:2px solid var(--glass-border);border-radius:14px;padding:12px;min-width:120px;cursor:move;user-select:none;z-index:10;transition:border-color 0.3s,box-shadow 0.3s}
+        .network-device:hover{border-color:rgba(255,255,255,0.15);box-shadow:0 4px 20px rgba(0,0,0,0.4)}
+        .network-device.selected{border-color:var(--primary);box-shadow:0 0 0 3px rgba(255,59,59,0.15),0 4px 30px rgba(255,59,59,0.1)}
+        .network-device.connecting{border-color:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,0.15)}
+        .device-status{width:8px;height:8px;border-radius:50%;position:absolute;top:10px;right:10px}
+        .status-online{background:var(--green);box-shadow:0 0 8px var(--green)}
+        .status-offline{background:#555}
+        .status-warning{background:var(--orange);box-shadow:0 0 8px var(--orange)}
+        .status-retired{background:#555;opacity:0.5}
+        .status-decommissioned{background:#555}
+        .device-icon{font-size:24px;margin-bottom:4px}
+        .device-name{font-size:0.75rem;font-weight:600;margin-bottom:2px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .device-ip{font-size:0.65rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace}
+        .device-badge{font-size:0.6rem;padding:3px 8px;background:rgba(255,59,59,0.08);border:1px solid rgba(255,59,59,0.15);border-radius:6px;color:var(--secondary);margin-top:6px;display:inline-block;font-weight:500}
+        .conn-point{position:absolute;width:14px;height:14px;background:rgba(10,10,10,0.9);border:2px solid var(--primary);border-radius:50%;cursor:crosshair;z-index:20;opacity:0;transition:opacity 0.2s,transform 0.2s}
+        .network-device:hover .conn-point,.network-device.connecting .conn-point{opacity:1}
+        .conn-point:hover{background:var(--primary);transform:scale(1.2)}
+        .conn-point.top{top:-7px;left:50%;margin-left:-7px}
+        .conn-point.bottom{bottom:-7px;left:50%;margin-left:-7px}
+        .conn-point.left{left:-7px;top:50%;margin-top:-7px}
+        .conn-point.right{right:-7px;top:50%;margin-top:-7px}
+
+        /* Properties panel */
+        .props-panel{background:rgba(5,5,5,0.8);backdrop-filter:blur(20px);border-left:1px solid var(--glass-border);overflow-y:auto;padding:14px}
+        .panel-title{font-size:0.85rem;font-weight:600;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--glass-border);background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .form-group{margin-bottom:14px}
+        .form-label{display:block;font-size:0.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+        .form-input,.form-select,.form-textarea{width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);border-radius:10px;color:var(--text);font-size:0.8rem;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color 0.3s,box-shadow 0.3s}
+        .form-input:focus,.form-select:focus,.form-textarea:focus{border-color:rgba(255,59,59,0.4);box-shadow:0 0 0 3px rgba(255,59,59,0.08)}
+        .form-textarea{min-height:60px;resize:vertical;font-family:'Outfit',sans-serif}
+        .status-btns{display:flex;gap:4px;flex-wrap:wrap}
+        .status-btn{flex:1;min-width:50px;padding:8px 4px;background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;cursor:pointer;text-align:center;font-size:0.6rem;font-weight:500;color:var(--text-secondary);font-family:'Outfit',sans-serif;transition:all 0.3s}
+        .status-btn.active{border-color:rgba(255,59,59,0.4);background:rgba(255,59,59,0.06);color:var(--text)}
+        .status-btn .dot{width:8px;height:8px;border-radius:50%;margin:0 auto 4px}
+        .conn-toggle{display:flex;background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);border-radius:10px;padding:3px;margin-bottom:10px}
+        .conn-toggle button{flex:1;padding:7px;background:none;border:none;border-radius:8px;color:var(--text-secondary);cursor:pointer;font-size:0.7rem;font-weight:500;font-family:'Outfit',sans-serif;transition:all 0.3s}
+        .conn-toggle button.active{background:var(--glass);color:var(--text)}
+        .conn-toggle button.wired.active{color:var(--primary)}
+        .conn-toggle button.wireless.active{color:var(--accent-purple)}
+
+        /* Status bar */
+        .statusbar{grid-column:1/-1;background:rgba(5,5,5,0.8);backdrop-filter:blur(20px);border-top:1px solid var(--glass-border);display:flex;align-items:center;padding:0 1.5rem;font-size:0.7rem;font-weight:500;color:var(--text-muted);gap:20px}
+
+        /* Modals */
+        .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;visibility:hidden;transition:all 0.3s}
+        .modal-bg.active{opacity:1;visibility:visible}
+        .modal{background:rgba(10,10,10,0.95);backdrop-filter:blur(20px);border:1px solid var(--glass-border);border-radius:20px;width:450px;max-height:80vh;overflow-y:auto;position:relative}
+        .modal::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--secondary));border-radius:20px 20px 0 0;opacity:0.8}
+        .modal-header{padding:18px 20px;border-bottom:1px solid var(--glass-border);display:flex;justify-content:space-between;align-items:center}
+        .modal-header h3{font-size:0.95rem;font-weight:600;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .modal-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;transition:color 0.3s}
+        .modal-close:hover{color:var(--primary)}
+        .modal-body{padding:20px}
+        .modal-footer{padding:14px 20px;border-top:1px solid var(--glass-border);display:flex;justify-content:flex-end;gap:8px}
+
+        /* Config */
+        .config-section{background:var(--glass);border:1px solid var(--glass-border);border-radius:14px;padding:16px;margin-bottom:12px}
+        .config-title{font-size:0.75rem;font-weight:600;margin-bottom:12px;color:var(--primary)}
+        .vlan-item{display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);border-radius:10px;font-size:0.7rem;margin-bottom:6px;transition:border-color 0.3s}
+        .vlan-item:hover{border-color:rgba(255,255,255,0.15)}
+        .vlan-id{font-weight:600;color:var(--secondary);min-width:60px;font-family:'JetBrains Mono',monospace}
+        .vlan-subnet{color:var(--text-secondary);font-family:'JetBrains Mono',monospace}
+        .vlan-name{color:var(--text-muted);flex:1}
+        .vlan-del{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;transition:color 0.3s}
+        .vlan-del:hover{color:var(--red-soft)}
+        .add-btn{width:100%;padding:10px;background:none;border:1px dashed rgba(255,59,59,0.3);border-radius:10px;color:var(--text-muted);cursor:pointer;font-size:0.7rem;font-weight:500;font-family:'Outfit',sans-serif;transition:all 0.3s}
+        .add-btn:hover{border-color:var(--primary);color:var(--primary)}
+
+        /* VM */
+        .vm-host{min-width:180px;background:rgba(192,132,252,0.04);border-style:dashed;border-color:var(--accent-purple)}
+        .vm-list{margin-top:8px;padding-top:8px;border-top:1px solid var(--glass-border);display:flex;flex-wrap:wrap;gap:4px}
+        .hosted-vm{background:var(--glass);border:1px solid var(--glass-border);border-radius:6px;padding:4px 6px;font-size:0.6rem;display:flex;align-items:center;gap:4px}
+        .hosted-vm .dot{width:6px;height:6px;border-radius:50%}
+
+        /* Misc */
+        .empty-state{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-muted);pointer-events:none}
+        .empty-state h3{font-size:1.1rem;font-weight:600;margin-bottom:8px;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .empty-state p{font-size:0.8rem}
+        .conn-hint{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--primary),var(--accent));color:white;padding:10px 20px;border-radius:12px;font-size:0.8rem;font-weight:600;z-index:1000;display:none;box-shadow:0 4px 20px rgba(255,59,59,0.3)}
+        .conn-hint.active{display:block}
+
+        /* Network info box */
+        .network-info-box{position:absolute;top:16px;right:16px;background:rgba(10,10,10,0.9);backdrop-filter:blur(20px);border:1px solid var(--glass-border);border-radius:14px;padding:16px;min-width:220px;max-width:280px;z-index:100;font-size:0.7rem}
+        .network-info-box h4{font-size:0.8rem;font-weight:600;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--glass-border);background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .info-section{margin-bottom:12px}
+        .info-section:last-child{margin-bottom:0}
+        .info-section-title{font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--primary);margin-bottom:6px}
+        .info-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
+        .info-label{color:var(--text-secondary)}
+        .info-value{font-family:'JetBrains Mono',monospace;color:var(--text);font-weight:500}
+        .vlan-tag{display:inline-block;padding:3px 8px;background:rgba(255,59,59,0.06);border:1px solid rgba(255,59,59,0.15);border-radius:6px;margin:2px;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--secondary)}
+        .vlan-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+        .pan-hint{position:absolute;bottom:60px;left:16px;background:rgba(5,5,5,0.9);backdrop-filter:blur(20px);border:1px solid var(--glass-border);padding:8px 12px;border-radius:10px;font-size:0.65rem;color:var(--text-muted);z-index:100}
+
+        /* Scrollbar */
+        ::-webkit-scrollbar{width:6px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:var(--grey-light);border-radius:3px}
+        ::-webkit-scrollbar-thumb:hover{background:rgba(255,59,59,0.3)}
     </style>
 </head>
 <body>
+    <div class="grid-bg"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
     <div class="app">
         <header class="header">
-            <div class="logo"><div class="logo-icon">⬡</div> NetMap Pro</div>
+            <div class="logo"><div class="logo-icon">&#x2B21;</div> <span class="logo-label">NetMap Pro</span></div>
             <div class="header-actions">
-                <button class="btn" id="exportPdfBtn">📄 Export PDF</button>
-                <button class="btn" id="exportJsonBtn">💾 Save Project</button>
-                <button class="btn" id="importBtn">📂 Load Project</button>
-                <button class="btn" id="configBtn">⚙️ Config</button>
-                <button class="btn btn-danger" id="clearBtn">🗑️ Clear</button>
+                <button class="btn" id="exportPdfBtn">&#x1F4C4; Export PDF</button>
+                <button class="btn" id="exportJsonBtn">&#x1F4BE; Save Project</button>
+                <button class="btn" id="importBtn">&#x1F4C2; Load Project</button>
+                <button class="btn" id="configBtn">&#x2699;&#xFE0F; Config</button>
+                <button class="btn btn-danger" id="clearBtn">&#x1F5D1;&#xFE0F; Clear</button>
             </div>
         </header>
         <aside class="sidebar">
             <div class="sidebar-section">
                 <div class="sidebar-title">Endpoints</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="windows"><span class="icon">🪟</span>Windows</div>
-                    <div class="device-item" draggable="true" data-type="mac"><span class="icon">🍎</span>macOS</div>
-                    <div class="device-item" draggable="true" data-type="linux"><span class="icon">🐧</span>Linux</div>
-                    <div class="device-item" draggable="true" data-type="mobile"><span class="icon">📱</span>Mobile</div>
+                    <div class="device-item" draggable="true" data-type="windows"><span class="icon">&#x1FA9F;</span>Windows</div>
+                    <div class="device-item" draggable="true" data-type="mac"><span class="icon">&#x1F34E;</span>macOS</div>
+                    <div class="device-item" draggable="true" data-type="linux"><span class="icon">&#x1F427;</span>Linux</div>
+                    <div class="device-item" draggable="true" data-type="mobile"><span class="icon">&#x1F4F1;</span>Mobile</div>
                 </div>
             </div>
             <div class="sidebar-section">
-                <div class="sidebar-title">Servers & Storage</div>
+                <div class="sidebar-title">Servers &amp; Storage</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="server"><span class="icon">🖥️</span>Server</div>
-                    <div class="device-item" draggable="true" data-type="nas"><span class="icon">💾</span>NAS</div>
+                    <div class="device-item" draggable="true" data-type="server"><span class="icon">&#x1F5A5;&#xFE0F;</span>Server</div>
+                    <div class="device-item" draggable="true" data-type="nas"><span class="icon">&#x1F4BE;</span>NAS</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Network Equipment</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="router"><span class="icon">📡</span>Router</div>
-                    <div class="device-item" draggable="true" data-type="switch"><span class="icon">🔀</span>Switch</div>
-                    <div class="device-item" draggable="true" data-type="firewall"><span class="icon">🛡️</span>Firewall</div>
-                    <div class="device-item" draggable="true" data-type="ap"><span class="icon">📶</span>Access Point</div>
+                    <div class="device-item" draggable="true" data-type="router"><span class="icon">&#x1F4E1;</span>Router</div>
+                    <div class="device-item" draggable="true" data-type="switch"><span class="icon">&#x1F500;</span>Switch</div>
+                    <div class="device-item" draggable="true" data-type="firewall"><span class="icon">&#x1F6E1;&#xFE0F;</span>Firewall</div>
+                    <div class="device-item" draggable="true" data-type="ap"><span class="icon">&#x1F4F6;</span>Access Point</div>
                 </div>
             </div>
             <div class="sidebar-section">
-                <div class="sidebar-title">Virtualization & Cloud</div>
+                <div class="sidebar-title">Virtualization &amp; Cloud</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">🏢</span>VM Host</div>
-                    <div class="device-item" draggable="true" data-type="vm"><span class="icon">📦</span>VM</div>
-                    <div class="device-item" draggable="true" data-type="cloud"><span class="icon">☁️</span>Cloud</div>
+                    <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">&#x1F3E2;</span>VM Host</div>
+                    <div class="device-item" draggable="true" data-type="vm"><span class="icon">&#x1F4E6;</span>VM</div>
+                    <div class="device-item" draggable="true" data-type="cloud"><span class="icon">&#x2601;&#xFE0F;</span>Cloud</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Other</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="printer"><span class="icon">🖨️</span>Printer</div>
-                    <div class="device-item" draggable="true" data-type="iot"><span class="icon">🌐</span>IoT</div>
+                    <div class="device-item" draggable="true" data-type="printer"><span class="icon">&#x1F5A8;&#xFE0F;</span>Printer</div>
+                    <div class="device-item" draggable="true" data-type="iot"><span class="icon">&#x1F310;</span>IoT</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Connection Type</div>
                 <div class="conn-toggle">
-                    <button class="wired active" id="wiredBtn">― Wired</button>
-                    <button class="wireless" id="wirelessBtn">┅ Wireless</button>
+                    <button class="wired active" id="wiredBtn">&#x2015; Wired</button>
+                    <button class="wireless" id="wirelessBtn">&#x2505; Wireless</button>
                 </div>
-                <p style="font-size:10px;color:var(--text-muted);">Click circles on devices to connect.</p>
+                <p style="font-size:0.65rem;color:var(--text-muted);">Click circles on devices to connect.</p>
             </div>
         </aside>
         <main class="canvas-area" id="canvasArea">
@@ -211,7 +250,7 @@
                 <p>Drag devices from the sidebar onto the canvas</p>
             </div>
             <div class="network-info-box" id="networkInfoBox">
-                <h4>⚙️ Network Configuration</h4>
+                <h4>&#x2699;&#xFE0F; Network Configuration</h4>
                 <div class="info-section">
                     <div class="info-section-title">DNS</div>
                     <div class="info-row"><span class="info-label">Provider:</span><span class="info-value" id="infoDnsProvider">DNS Filter</span></div>
@@ -227,16 +266,16 @@
                     <div class="vlan-tags" id="infoVlans"></div>
                 </div>
             </div>
-            <div class="pan-hint">Drag empty space to pan • Scroll to zoom</div>
+            <div class="pan-hint">Drag empty space to pan &#x2022; Scroll to zoom</div>
             <div class="controls">
-                <button class="btn" id="zoomInBtn">🔍+</button>
-                <button class="btn" id="zoomOutBtn">🔍-</button>
-                <button class="btn" id="resetBtn">🏠 Reset View</button>
+                <button class="btn" id="zoomInBtn">&#x1F50D;+</button>
+                <button class="btn" id="zoomOutBtn">&#x1F50D;-</button>
+                <button class="btn" id="resetBtn">&#x1F3E0; Reset View</button>
             </div>
         </main>
         <aside class="props-panel">
             <div class="panel-title">Properties</div>
-            <div id="noSelect" style="text-align:center;padding:30px;color:var(--text-muted);"><p style="font-size:12px;">Select a device to edit</p></div>
+            <div id="noSelect" style="text-align:center;padding:30px;color:var(--text-muted);"><p style="font-size:0.8rem;">Select a device to edit</p></div>
             <div id="deviceProps" style="display:none;">
                 <div class="form-group"><label class="form-label">Device Name</label><input type="text" class="form-input" id="propName"></div>
                 <div class="form-group"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propIP" placeholder="192.168.1.1"></div>
@@ -258,7 +297,7 @@
                     <div id="vmList"></div>
                     <button class="add-btn" id="addVMBtn" style="margin-top:8px;">+ Add VM</button>
                 </div>
-                <button class="btn btn-danger" style="width:100%;margin-top:16px;" id="deleteBtn">🗑️ Delete Device</button>
+                <button class="btn btn-danger" style="width:100%;margin-top:16px;justify-content:center;" id="deleteBtn">&#x1F5D1;&#xFE0F; Delete Device</button>
             </div>
         </aside>
         <footer class="statusbar">
@@ -274,7 +313,7 @@
             <div class="modal-header"><h3>Network Configuration</h3><button class="modal-close" onclick="closeModal('configModal')">&times;</button></div>
             <div class="modal-body">
                 <div class="config-section">
-                    <div class="config-title">🌐 DNS Configuration</div>
+                    <div class="config-title">&#x1F310; DNS Configuration</div>
                     <div class="form-group"><label class="form-label">DNS Provider</label>
                         <select class="form-select" id="dnsProvider" onchange="updateDnsFields()">
                             <option value="DNS Filter">DNS Filter</option>
@@ -291,7 +330,7 @@
                     </div>
                 </div>
                 <div class="config-section">
-                    <div class="config-title">📋 DHCP Configuration</div>
+                    <div class="config-title">&#x1F4CB; DHCP Configuration</div>
                     <div class="form-group"><label class="form-label">DHCP Server Type</label>
                         <select class="form-select" id="dhcpType" onchange="updateDhcpDevices()">
                             <option value="Router">Router</option>
@@ -302,12 +341,12 @@
                     <div class="form-group"><label class="form-label">DHCP Device</label><select class="form-select" id="dhcpDevice"></select></div>
                 </div>
                 <div class="config-section">
-                    <div class="config-title">🏷️ VLANs & Subnets</div>
+                    <div class="config-title">&#x1F3F7;&#xFE0F; VLANs &amp; Subnets</div>
                     <div id="vlanList"></div>
                     <button class="add-btn" onclick="openModal('vlanModal')">+ Add VLAN</button>
                 </div>
             </div>
-            <div class="modal-footer"><button class="btn btn-primary" onclick="saveConfig()">Save & Close</button></div>
+            <div class="modal-footer"><button class="btn btn-primary" onclick="saveConfig()">Save &amp; Close</button></div>
         </div>
     </div>
     <div class="modal-bg" id="vlanModal">
@@ -892,7 +931,7 @@
             const tempContainer = document.createElement('div');
             tempContainer.style.cssText = `
                 position: fixed; left: -10000px; top: 0;
-                background: #0a0e14; padding: 20px;
+                background: #050505; padding: 20px;
             `;
             document.body.appendChild(tempContainer);
             
@@ -916,7 +955,7 @@
                 } else {
                     path = `M${fx},${fy} C${midX},${fy} ${midX},${ty} ${tx},${ty}`;
                 }
-                const strokeColor = conn.type === 'wired' ? '#58a6ff' : '#a371f7';
+                const strokeColor = conn.type === 'wired' ? '#ff3b3b' : '#c084fc';
                 const dashArray = conn.type === 'wireless' ? 'stroke-dasharray="8,4"' : '';
                 paths += `<path d="${path}" stroke="${strokeColor}" stroke-width="2" fill="none" ${dashArray}/>`;
             });
@@ -924,7 +963,7 @@
             
             // Create wrapper
             const wrapper = document.createElement('div');
-            wrapper.style.cssText = `position: relative; width: ${contentWidth + infoBoxWidth}px; height: ${Math.max(contentHeight, infoBoxHeight)}px; background: #0a0e14;`;
+            wrapper.style.cssText = `position: relative; width: ${contentWidth + infoBoxWidth}px; height: ${Math.max(contentHeight, infoBoxHeight)}px; background: #050505;`;
             
             // Diagram area
             const diagramArea = document.createElement('div');
@@ -948,8 +987,8 @@
             const infoClone = infoBox.cloneNode(true);
             infoClone.style.cssText = `
                 position: absolute; top: 0; right: 0;
-                background: #141920; border: 1px solid #2a3140; border-radius: 10px;
-                padding: 14px; min-width: 220px; font-size: 11px; color: #e6e6e6;
+                background: #0a0a0a; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+                padding: 14px; min-width: 220px; font-size: 11px; color: #e4e4e7;
             `;
             wrapper.appendChild(infoClone);
             
@@ -957,7 +996,7 @@
             
             // Render to canvas
             html2canvas(wrapper, { 
-                backgroundColor: '#0a0e14', 
+                backgroundColor: '#050505', 
                 scale: 2, 
                 useCORS: true, 
                 logging: false 
@@ -970,20 +1009,20 @@
                 const pageHeight = pdf.internal.pageSize.getHeight();
                 
                 // Header
-                pdf.setFillColor(15, 20, 25);
+                pdf.setFillColor(5, 5, 5);
                 pdf.rect(0, 0, pageWidth, 25, 'F');
-                pdf.setTextColor(230, 230, 230);
+                pdf.setTextColor(228, 228, 231);
                 pdf.setFontSize(18);
                 pdf.setFont('helvetica', 'bold');
                 pdf.text(title, 10, 12);
                 if (client) {
                     pdf.setFontSize(11);
                     pdf.setFont('helvetica', 'normal');
-                    pdf.setTextColor(139, 148, 158);
+                    pdf.setTextColor(161, 161, 161);
                     pdf.text('Client: ' + client, 10, 20);
                 }
                 pdf.setFontSize(10);
-                pdf.setTextColor(230, 230, 230);
+                pdf.setTextColor(228, 228, 231);
                 pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 12, { align: 'right' });
                 
                 // Calculate image dimensions to fit and center
@@ -1013,7 +1052,7 @@
                 
                 // Footer
                 pdf.setFontSize(8);
-                pdf.setTextColor(92, 99, 112);
+                pdf.setTextColor(102, 102, 102);
                 pdf.text('Generated by NetMap Pro', 10, pageHeight - 5);
                 pdf.text('Page 1 of 1', pageWidth - 10, pageHeight - 5, { align: 'right' });
                 
