@@ -82,6 +82,7 @@
         .status-retired{background:#555;opacity:0.5}
         .status-decommissioned{background:#555}
         .device-icon{font-size:24px;margin-bottom:4px}
+        .device-icon.vmhost-icon{font-size:16px;letter-spacing:-2px}
         .device-name{font-size:0.75rem;font-weight:600;margin-bottom:2px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .device-ip{font-size:0.65rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace}
         .device-badge{font-size:0.6rem;padding:3px 8px;background:rgba(255,59,59,0.08);border:1px solid rgba(255,59,59,0.15);border-radius:6px;color:var(--secondary);margin-top:6px;display:inline-block;font-weight:500}
@@ -182,7 +183,7 @@
         <header class="header">
             <div class="logo"><div class="logo-icon">&#x2B21;</div> <span class="logo-label">NetMap Pro</span></div>
             <div class="header-actions">
-                <button class="btn" id="exportPdfBtn">&#x1F4C4; Export PDF</button>
+                <button class="btn" id="exportPdfBtn">&#x1F4C4; Export</button>
                 <button class="btn" id="exportJsonBtn">&#x1F4BE; Save Project</button>
                 <button class="btn" id="importBtn">&#x1F4C2; Load Project</button>
                 <button class="btn" id="configBtn">&#x2699;&#xFE0F; Config</button>
@@ -193,10 +194,12 @@
             <div class="sidebar-section">
                 <div class="sidebar-title">Endpoints</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="windows"><span class="icon">&#x1FA9F;</span>Windows</div>
-                    <div class="device-item" draggable="true" data-type="mac"><span class="icon">&#x1F34E;</span>macOS</div>
-                    <div class="device-item" draggable="true" data-type="linux"><span class="icon">&#x1F427;</span>Linux</div>
-                    <div class="device-item" draggable="true" data-type="mobile"><span class="icon">&#x1F4F1;</span>Mobile</div>
+                    <div class="device-item" draggable="true" data-type="desktop"><span class="icon">&#x1F5A5;&#xFE0F;</span>Desktop</div>
+                    <div class="device-item" draggable="true" data-type="laptop"><span class="icon">&#x1F4BB;</span>Laptop</div>
+                    <div class="device-item" draggable="true" data-type="cellphone"><span class="icon">&#x1F4F1;</span>Cell Phone</div>
+                    <div class="device-item" draggable="true" data-type="tablet"><span class="icon">&#x1F4F2;</span>Tablet</div>
+                    <div class="device-item" draggable="true" data-type="printer"><span class="icon">&#x1F5A8;&#xFE0F;</span>Printer</div>
+                    <div class="device-item" draggable="true" data-type="otherendpoint"><span class="icon">&#x2753;</span>Other</div>
                 </div>
             </div>
             <div class="sidebar-section">
@@ -220,14 +223,14 @@
                 <div class="device-palette">
                     <div class="device-item" draggable="true" data-type="cloud"><span class="icon">&#x2601;&#xFE0F;</span>Cloud</div>
                     <div class="device-item" draggable="true" data-type="onprem"><span class="icon">&#x1F3E2;</span>On-Prem</div>
-                    <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">&#x1F5A5;&#xFE0F;</span>VM Host</div>
-                    <div class="device-item" draggable="true" data-type="vm"><span class="icon">&#x1F4E6;</span>VM</div>
+                    <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">&#x1F5A5;&#xFE0F;&#x1F5A5;&#xFE0F;</span>VM Host</div>
+                    <div class="device-item" draggable="true" data-type="vm"><span class="icon">&#x1F5A5;&#xFE0F;</span>VM</div>
+                    <div class="device-item" draggable="true" data-type="storage"><span class="icon">&#x1F4E6;</span>Storage</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Other</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="printer"><span class="icon">&#x1F5A8;&#xFE0F;</span>Printer</div>
                     <div class="device-item" draggable="true" data-type="phone"><span class="icon">&#x260E;&#xFE0F;</span>Desk Phone</div>
                     <div class="device-item" draggable="true" data-type="camera"><span class="icon">&#x1F4F9;</span>Security Cam</div>
                     <div class="device-item" draggable="true" data-type="iot"><span class="icon">&#x1F310;</span>IoT</div>
@@ -281,6 +284,8 @@
             <div id="noSelect" style="text-align:center;padding:30px;color:var(--text-muted);"><p style="font-size:0.8rem;">Select a device to edit</p></div>
             <div id="deviceProps" style="display:none;">
                 <div class="form-group"><label class="form-label">Device Name</label><input type="text" class="form-input" id="propName"></div>
+                <div class="form-group" id="manufacturerGroup" style="display:none;"><label class="form-label">Manufacturer</label><select class="form-select" id="propManufacturer"></select></div>
+                <div class="form-group" id="osGroup" style="display:none;"><label class="form-label">Operating System</label><select class="form-select" id="propOS"></select></div>
                 <div class="form-group"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propIP" placeholder="192.168.1.1"></div>
                 <div class="form-group"><label class="form-label">MAC Address</label><input type="text" class="form-input" id="propMAC" placeholder="00:00:00:00:00:00"></div>
                 <div class="form-group">
@@ -375,16 +380,28 @@
         </div>
     </div>
     <div class="modal-bg" id="exportModal">
-        <div class="modal" style="width:350px;">
-            <div class="modal-header"><h3>Export PDF</h3><button class="modal-close" onclick="closeModal('exportModal')">&times;</button></div>
+        <div class="modal" style="width:400px;">
+            <div class="modal-header"><h3>Export Diagram</h3><button class="modal-close" onclick="closeModal('exportModal')">&times;</button></div>
             <div class="modal-body">
                 <div class="form-group"><label class="form-label">Document Title</label><input type="text" class="form-input" id="pdfTitle" value="Network Diagram"></div>
                 <div class="form-group"><label class="form-label">Client Name</label><input type="text" class="form-input" id="pdfClient" placeholder="Client Name"></div>
-                <div class="form-group"><label class="form-label">Orientation</label>
+                <div class="form-group"><label class="form-label">Export Format</label>
+                    <div class="conn-toggle">
+                        <button type="button" class="active" id="formatPdfBtn" onclick="setExportFormat('pdf')">PDF</button>
+                        <button type="button" id="formatSvgBtn" onclick="setExportFormat('svg')">SVG</button>
+                    </div>
+                </div>
+                <div class="form-group" id="orientationGroup"><label class="form-label">Orientation</label>
                     <select class="form-select" id="pdfOrientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select>
                 </div>
+                <div class="form-group">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.8rem;color:var(--text-secondary);">
+                        <input type="checkbox" id="includeInventory" checked style="width:16px;height:16px;accent-color:var(--primary);">
+                        Include device inventory (Notes, VLAN, MAC)
+                    </label>
+                </div>
             </div>
-            <div class="modal-footer"><button class="btn" onclick="closeModal('exportModal')">Cancel</button><button class="btn btn-primary" onclick="generatePDF()">Generate PDF</button></div>
+            <div class="modal-footer"><button class="btn" onclick="closeModal('exportModal')">Cancel</button><button class="btn btn-primary" id="exportBtn" onclick="doExport()">Export PDF</button></div>
         </div>
     </div>
     <script>
@@ -403,19 +420,42 @@
             zoom: 1,
             panX: 0,
             panY: 0,
-            counter: 0
+            counter: 0,
+            exportFormat: 'pdf'
         };
 
         const types = {
-            windows: { name: 'Windows PC', icon: '🪟' }, mac: { name: 'Mac', icon: '🍎' },
-            linux: { name: 'Linux', icon: '🐧' }, mobile: { name: 'Mobile', icon: '📱' },
+            desktop: { name: 'Desktop', icon: '🖥️' }, laptop: { name: 'Laptop', icon: '💻' },
+            cellphone: { name: 'Cell Phone', icon: '📱' }, tablet: { name: 'Tablet', icon: '📲' },
+            otherendpoint: { name: 'Other Endpoint', icon: '❓' },
             server: { name: 'Server', icon: '🖥️' }, nas: { name: 'NAS', icon: '💾' },
             router: { name: 'Router', icon: '📡' }, switch: { name: 'Switch', icon: '🔀' },
             firewall: { name: 'Firewall', icon: '🛡️' }, ap: { name: 'Access Point', icon: '📶' },
-            vmhost: { name: 'VM Host', icon: '🖥️' }, vm: { name: 'VM', icon: '📦' },
-            cloud: { name: 'Cloud', icon: '☁️' }, onprem: { name: 'On-Prem', icon: '🏢' }, printer: { name: 'Printer', icon: '🖨️' },
+            vmhost: { name: 'VM Host', icon: '🖥️🖥️' }, vm: { name: 'VM', icon: '🖥️' },
+            cloud: { name: 'Cloud', icon: '☁️' }, onprem: { name: 'On-Prem', icon: '🏢' }, storage: { name: 'Storage', icon: '📦' }, printer: { name: 'Printer', icon: '🖨️' },
             iot: { name: 'IoT', icon: '🌐' }, phone: { name: 'Desk Phone', icon: '☎️' },
             camera: { name: 'Security Camera', icon: '📹' }
+        };
+
+        const manufacturers = {
+            desktop: ['Dell', 'HP', 'Lenovo', 'Apple', 'Asus', 'Acer', 'Microsoft', 'Intel NUC', 'Custom Build', 'Other'],
+            laptop: ['Dell', 'HP', 'Lenovo', 'Apple', 'Asus', 'Acer', 'Microsoft', 'Samsung', 'MSI', 'Razer', 'Framework', 'Other'],
+            cellphone: ['Apple', 'Samsung', 'Google', 'OnePlus', 'Motorola', 'LG', 'Xiaomi', 'Huawei', 'Sony', 'Nokia', 'Other'],
+            tablet: ['Apple', 'Samsung', 'Microsoft', 'Lenovo', 'Amazon', 'Google', 'Huawei', 'Asus', 'Other'],
+            printer: ['HP', 'Canon', 'Epson', 'Brother', 'Xerox', 'Lexmark', 'Ricoh', 'Kyocera', 'Dell', 'Samsung', 'Konica Minolta', 'Other'],
+            otherendpoint: ['Generic', 'Custom', 'Other'],
+            server: ['Dell', 'HP/HPE', 'Lenovo', 'Supermicro', 'Cisco', 'IBM', 'Fujitsu', 'Intel', 'Custom Build', 'Other'],
+            vm: ['VMware', 'Hyper-V', 'Proxmox', 'KVM', 'VirtualBox', 'Xen', 'Other']
+        };
+
+        const operatingSystems = {
+            desktop: ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'],
+            laptop: ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'],
+            cellphone: ['iOS 17', 'iOS 16', 'iOS 15', 'Android 14', 'Android 13', 'Android 12', 'Android 11', 'Android 10', 'Other'],
+            tablet: ['iPadOS 17', 'iPadOS 16', 'iPadOS 15', 'Android 14', 'Android 13', 'Android 12', 'Windows 11', 'Windows 10', 'Fire OS', 'Chrome OS', 'Other'],
+            otherendpoint: ['Windows', 'macOS', 'Linux', 'Android', 'iOS', 'Embedded', 'Proprietary', 'Other'],
+            server: ['Windows Server 2022', 'Windows Server 2019', 'Windows Server 2016', 'Windows Server 2012 R2', 'Ubuntu Server 24.04', 'Ubuntu Server 22.04', 'Ubuntu Server 20.04', 'RHEL 9', 'RHEL 8', 'CentOS Stream 9', 'Rocky Linux 9', 'AlmaLinux 9', 'Debian 12', 'Debian 11', 'SUSE Linux Enterprise', 'VMware ESXi', 'Proxmox VE', 'Other'],
+            vm: ['Windows Server 2022', 'Windows Server 2019', 'Windows Server 2016', 'Windows 11', 'Windows 10', 'Ubuntu Server 24.04', 'Ubuntu Server 22.04', 'Ubuntu 24.04', 'Ubuntu 22.04', 'RHEL 9', 'RHEL 8', 'CentOS Stream 9', 'Rocky Linux 9', 'AlmaLinux 9', 'Debian 12', 'Debian 11', 'Other Linux', 'Other']
         };
 
         const canvasArea = document.getElementById('canvasArea');
@@ -559,6 +599,8 @@
             document.getElementById('propMAC').oninput = e => updateDeviceProp('mac', e.target.value);
             document.getElementById('propVLAN').onchange = e => updateDeviceProp('vlan', e.target.value);
             document.getElementById('propNotes').oninput = e => updateDeviceProp('notes', e.target.value);
+            document.getElementById('propManufacturer').onchange = e => updateDeviceProp('manufacturer', e.target.value);
+            document.getElementById('propOS').onchange = e => updateDeviceProp('os', e.target.value);
 
             document.addEventListener('keydown', e => {
                 if (e.key === 'Escape') { cancelConnect(); deselectAll(); }
@@ -584,6 +626,7 @@
                 type: type,
                 name: cfg.name + ' ' + state.counter,
                 ip: '', mac: '', status: 'online', vlan: '', notes: '',
+                manufacturer: '', os: '',
                 x: x, y: y,
                 vms: type === 'vmhost' ? [] : null
             };
@@ -601,8 +644,11 @@
             el.style.left = d.x + 'px';
             el.style.top = d.y + 'px';
             
+            const iconClass = d.type === 'vmhost' ? 'device-icon vmhost-icon' : 'device-icon';
+            const iconContent = d.type === 'vmhost' ? '🖥️🖥️' : cfg.icon;
+            
             el.innerHTML = '<div class="device-status status-' + d.status + '"></div>' +
-                '<div class="device-icon">' + cfg.icon + '</div>' +
+                '<div class="' + iconClass + '">' + iconContent + '</div>' +
                 '<div class="device-name">' + d.name + '</div>' +
                 '<div class="device-ip">' + (d.ip || 'No IP') + '</div>' +
                 '<div class="device-badge">' + cfg.name + '</div>' +
@@ -744,6 +790,28 @@
             document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === d.status));
             document.getElementById('vmSection').style.display = d.type === 'vmhost' ? 'block' : 'none';
             if (d.type === 'vmhost') renderVMList(d);
+            
+            // Handle manufacturer dropdown
+            const mfgGroup = document.getElementById('manufacturerGroup');
+            const mfgSelect = document.getElementById('propManufacturer');
+            if (manufacturers[d.type]) {
+                mfgGroup.style.display = 'block';
+                mfgSelect.innerHTML = '<option value="">-- Select --</option>' + 
+                    manufacturers[d.type].map(m => '<option value="' + m + '"' + (d.manufacturer === m ? ' selected' : '') + '>' + m + '</option>').join('');
+            } else {
+                mfgGroup.style.display = 'none';
+            }
+            
+            // Handle OS dropdown
+            const osGroup = document.getElementById('osGroup');
+            const osSelect = document.getElementById('propOS');
+            if (operatingSystems[d.type]) {
+                osGroup.style.display = 'block';
+                osSelect.innerHTML = '<option value="">-- Select --</option>' + 
+                    operatingSystems[d.type].map(o => '<option value="' + o + '"' + (d.os === o ? ' selected' : '') + '>' + o + '</option>').join('');
+            } else {
+                osGroup.style.display = 'none';
+            }
         }
 
         function renderVMList(d) {
@@ -893,10 +961,176 @@
             }
         }
 
+        function setExportFormat(format) {
+            state.exportFormat = format;
+            document.getElementById('formatPdfBtn').classList.toggle('active', format === 'pdf');
+            document.getElementById('formatSvgBtn').classList.toggle('active', format === 'svg');
+            document.getElementById('orientationGroup').style.display = format === 'pdf' ? 'block' : 'none';
+            document.getElementById('exportBtn').textContent = format === 'pdf' ? 'Export PDF' : 'Export SVG';
+        }
+
+        function doExport() {
+            if (state.exportFormat === 'svg') {
+                generateSVG();
+            } else {
+                generatePDF();
+            }
+        }
+
+        function getVlanName(vlanId) {
+            const vlan = state.vlans.find(v => v.id === vlanId);
+            return vlan ? `VLAN ${vlan.id} - ${vlan.name}` : 'None';
+        }
+
+        function generateSVG() {
+            const title = document.getElementById('pdfTitle').value || 'Network Diagram';
+            const client = document.getElementById('pdfClient').value || '';
+            const includeInventory = document.getElementById('includeInventory').checked;
+            closeModal('exportModal');
+            
+            if (state.devices.length === 0) {
+                alert('No devices to export. Add some devices first.');
+                return;
+            }
+            
+            // Calculate bounding box
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            state.devices.forEach(d => {
+                const el = document.getElementById(d.id);
+                const w = el ? el.offsetWidth : 120;
+                const h = el ? el.offsetHeight : 100;
+                minX = Math.min(minX, d.x);
+                minY = Math.min(minY, d.y);
+                maxX = Math.max(maxX, d.x + w);
+                maxY = Math.max(maxY, d.y + h);
+            });
+            
+            const padding = 50;
+            minX -= padding;
+            minY -= padding;
+            maxX += padding;
+            maxY += padding;
+            
+            const contentWidth = maxX - minX;
+            const contentHeight = maxY - minY;
+            
+            // Build inventory data
+            let inventoryHeight = 0;
+            let inventoryContent = '';
+            if (includeInventory && state.devices.length > 0) {
+                inventoryHeight = 60 + (state.devices.length * 22);
+                inventoryContent = `
+                    <rect x="0" y="${contentHeight + 20}" width="${Math.max(contentWidth, 900)}" height="${inventoryHeight}" fill="#0a0a0a" stroke="#333" rx="10"/>
+                    <text x="15" y="${contentHeight + 45}" fill="#ff3b3b" font-size="14" font-weight="bold" font-family="Arial, sans-serif">Device Inventory</text>
+                    <text x="15" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">Name</text>
+                    <text x="130" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">Manufacturer</text>
+                    <text x="230" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">OS</text>
+                    <text x="350" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">IP Address</text>
+                    <text x="470" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">MAC Address</text>
+                    <text x="610" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">VLAN</text>
+                    <text x="720" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">Notes</text>
+                `;
+                state.devices.forEach((d, i) => {
+                    const y = contentHeight + 85 + (i * 22);
+                    const cfg = types[d.type];
+                    inventoryContent += `
+                        <text x="15" y="${y}" fill="#e4e4e7" font-size="11" font-family="Arial, sans-serif">${cfg.icon} ${d.name.substring(0, 12)}</text>
+                        <text x="130" y="${y}" fill="#a1a1a1" font-size="11" font-family="Arial, sans-serif">${(d.manufacturer || '-').substring(0, 12)}</text>
+                        <text x="230" y="${y}" fill="#a1a1a1" font-size="11" font-family="Arial, sans-serif">${(d.os || '-').substring(0, 15)}</text>
+                        <text x="350" y="${y}" fill="#a1a1a1" font-size="11" font-family="monospace">${d.ip || '-'}</text>
+                        <text x="470" y="${y}" fill="#a1a1a1" font-size="11" font-family="monospace">${d.mac || '-'}</text>
+                        <text x="610" y="${y}" fill="#a1a1a1" font-size="11" font-family="Arial, sans-serif">${getVlanName(d.vlan).substring(0, 12)}</text>
+                        <text x="720" y="${y}" fill="#888" font-size="11" font-family="Arial, sans-serif">${(d.notes || '-').substring(0, 25)}${d.notes && d.notes.length > 25 ? '...' : ''}</text>
+                    `;
+                });
+            }
+            
+            const totalHeight = contentHeight + (includeInventory ? inventoryHeight + 40 : 0);
+            
+            // Build SVG
+            let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${contentWidth}" height="${totalHeight + 60}" viewBox="0 0 ${contentWidth} ${totalHeight + 60}">
+    <defs>
+        <style>
+            .title { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #e4e4e7; }
+            .subtitle { font-family: Arial, sans-serif; font-size: 12px; fill: #a1a1a1; }
+            .device-box { fill: #0a0a0a; stroke: #333; stroke-width: 2; rx: 10; }
+            .device-name { font-family: Arial, sans-serif; font-size: 11px; fill: #e4e4e7; font-weight: 600; }
+            .device-ip { font-family: monospace; font-size: 10px; fill: #666; }
+            .device-badge { font-family: Arial, sans-serif; font-size: 9px; fill: #ff6b6b; }
+            .device-icon { font-size: 20px; }
+            .conn-wired { stroke: #ff3b3b; stroke-width: 2; fill: none; }
+            .conn-wireless { stroke: #c084fc; stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
+        </style>
+    </defs>
+    <rect width="100%" height="100%" fill="#050505"/>
+    <text x="15" y="25" class="title">${title}</text>
+    ${client ? `<text x="15" y="45" class="subtitle">Client: ${client}</text>` : ''}
+    <text x="${contentWidth - 15}" y="25" class="subtitle" text-anchor="end">${new Date().toLocaleDateString()}</text>
+    <g transform="translate(0, 60)">`;
+            
+            // Add connections
+            state.connections.forEach(conn => {
+                const from = getConnectionPoint(conn.from, conn.fromPos);
+                const to = getConnectionPoint(conn.to, conn.toPos);
+                const fx = from.x - minX, fy = from.y - minY;
+                const tx = to.x - minX, ty = to.y - minY;
+                const midX = (fx + tx) / 2, midY = (fy + ty) / 2;
+                let path;
+                if (conn.fromPos === 'top' || conn.fromPos === 'bottom') {
+                    path = `M${fx},${fy} C${fx},${midY} ${tx},${midY} ${tx},${ty}`;
+                } else {
+                    path = `M${fx},${fy} C${midX},${fy} ${midX},${ty} ${tx},${ty}`;
+                }
+                svgContent += `<path d="${path}" class="conn-${conn.type}"/>`;
+            });
+            
+            // Add devices
+            state.devices.forEach(d => {
+                const cfg = types[d.type];
+                const x = d.x - minX;
+                const y = d.y - minY;
+                const statusColors = { online: '#22c55e', offline: '#555', warning: '#f97316', retired: '#555', decommissioned: '#555' };
+                
+                let iconContent;
+                if (d.type === 'vmhost') {
+                    iconContent = `
+                        <text x="52" y="32" text-anchor="middle" font-size="14">🖥️</text>
+                        <text x="68" y="32" text-anchor="middle" font-size="14">🖥️</text>`;
+                } else {
+                    iconContent = `<text x="60" y="30" text-anchor="middle" class="device-icon">${cfg.icon}</text>`;
+                }
+                
+                svgContent += `
+                    <g transform="translate(${x}, ${y})">
+                        <rect class="device-box" width="120" height="90"/>
+                        <circle cx="105" cy="12" r="4" fill="${statusColors[d.status] || '#555'}"/>
+                        ${iconContent}
+                        <text x="60" y="50" text-anchor="middle" class="device-name">${d.name}</text>
+                        <text x="60" y="65" text-anchor="middle" class="device-ip">${d.ip || 'No IP'}</text>
+                        <text x="60" y="82" text-anchor="middle" class="device-badge">${cfg.name}</text>
+                    </g>`;
+            });
+            
+            svgContent += inventoryContent;
+            svgContent += `
+    </g>
+    <text x="15" y="${totalHeight + 55}" fill="#666" font-size="10" font-family="Arial, sans-serif">Generated by NetMap Pro</text>
+</svg>`;
+            
+            // Download SVG
+            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = title.toLowerCase().replace(/\s+/g, '-') + '-' + new Date().toISOString().split('T')[0] + '.svg';
+            a.click();
+        }
+
         function generatePDF() {
             const title = document.getElementById('pdfTitle').value || 'Network Diagram';
             const client = document.getElementById('pdfClient').value || '';
             const orientation = document.getElementById('pdfOrientation').value;
+            const includeInventory = document.getElementById('includeInventory').checked;
             closeModal('exportModal');
             
             if (state.devices.length === 0) {
@@ -1054,11 +1288,96 @@
                 
                 pdf.addImage(imgData, 'PNG', xPos, yPos, finalWidth, finalHeight);
                 
-                // Footer
+                // Footer for page 1
                 pdf.setFontSize(8);
                 pdf.setTextColor(102, 102, 102);
                 pdf.text('Generated by NetMap Pro', 10, pageHeight - 5);
-                pdf.text('Page 1 of 1', pageWidth - 10, pageHeight - 5, { align: 'right' });
+                pdf.text(includeInventory ? 'Page 1 of 2' : 'Page 1 of 1', pageWidth - 10, pageHeight - 5, { align: 'right' });
+                
+                // Add device inventory page if checked
+                if (includeInventory && state.devices.length > 0) {
+                    pdf.addPage();
+                    
+                    // Header for page 2
+                    pdf.setFillColor(5, 5, 5);
+                    pdf.rect(0, 0, pageWidth, 25, 'F');
+                    pdf.setTextColor(228, 228, 231);
+                    pdf.setFontSize(18);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.text('Device Inventory', 10, 12);
+                    if (client) {
+                        pdf.setFontSize(11);
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.setTextColor(161, 161, 161);
+                        pdf.text('Client: ' + client, 10, 20);
+                    }
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(228, 228, 231);
+                    pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 12, { align: 'right' });
+                    
+                    // Table headers
+                    let yPos = 35;
+                    pdf.setFillColor(20, 20, 20);
+                    pdf.rect(10, yPos - 5, pageWidth - 20, 8, 'F');
+                    pdf.setFontSize(7);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setTextColor(255, 59, 59);
+                    
+                    const cols = orientation === 'landscape' 
+                        ? [10, 45, 80, 115, 155, 195, 235] 
+                        : [10, 35, 55, 80, 110, 140, 165];
+                    
+                    pdf.text('Device', cols[0], yPos);
+                    pdf.text('Manufacturer', cols[1], yPos);
+                    pdf.text('OS', cols[2], yPos);
+                    pdf.text('IP Address', cols[3], yPos);
+                    pdf.text('MAC Address', cols[4], yPos);
+                    pdf.text('VLAN', cols[5], yPos);
+                    pdf.text('Notes', cols[6], yPos);
+                    
+                    yPos += 8;
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setTextColor(228, 228, 231);
+                    
+                    state.devices.forEach((d, i) => {
+                        if (yPos > pageHeight - 15) {
+                            // Add new page if needed
+                            pdf.addPage();
+                            yPos = 15;
+                        }
+                        
+                        // Alternate row background
+                        if (i % 2 === 0) {
+                            pdf.setFillColor(15, 15, 15);
+                            pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
+                        }
+                        
+                        const cfg = types[d.type];
+                        const vlanText = getVlanName(d.vlan);
+                        const maxLen = orientation === 'landscape' ? 18 : 12;
+                        const notesLen = orientation === 'landscape' ? 40 : 20;
+                        
+                        pdf.setFontSize(7);
+                        pdf.setTextColor(228, 228, 231);
+                        pdf.text(d.name.substring(0, maxLen), cols[0], yPos);
+                        pdf.setTextColor(161, 161, 161);
+                        pdf.text((d.manufacturer || '-').substring(0, maxLen), cols[1], yPos);
+                        pdf.text((d.os || '-').substring(0, maxLen), cols[2], yPos);
+                        pdf.text(d.ip || '-', cols[3], yPos);
+                        pdf.text((d.mac || '-').substring(0, 17), cols[4], yPos);
+                        pdf.text(vlanText.substring(0, 12), cols[5], yPos);
+                        pdf.setTextColor(102, 102, 102);
+                        pdf.text((d.notes || '-').substring(0, notesLen), cols[6], yPos);
+                        
+                        yPos += 7;
+                    });
+                    
+                    // Footer for page 2
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(102, 102, 102);
+                    pdf.text('Generated by NetMap Pro', 10, pageHeight - 5);
+                    pdf.text('Page 2 of 2', pageWidth - 10, pageHeight - 5, { align: 'right' });
+                }
                 
                 pdf.save(title.toLowerCase().replace(/\s+/g, '-') + '-' + new Date().toISOString().split('T')[0] + '.pdf');
             });
