@@ -42,26 +42,13 @@
         .device-item { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 8px; cursor: grab; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 10px; color: var(--text-secondary); transition: all 0.15s; }
         .device-item:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
         .device-item .icon { font-size: 20px; }
-        .canvas-area { position: relative; overflow: hidden; background: var(--bg-primary); }
-        .canvas-grid { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(88,166,255,0.1) 1px, transparent 1px); background-size: 20px 20px; pointer-events: none; }
-        
-        /* Canvas wrapper for zooming */
-        #canvasWrapper {
-            position: absolute;
-            inset: 0;
-            transform-origin: 0 0;
-        }
-        #canvas { 
-            position: absolute;
-            inset: 0;
-        }
-        #connections { 
-            position: absolute; 
-            inset: 0; 
-            pointer-events: none; 
-            z-index: 5; 
-            overflow: visible; 
-        }
+        .canvas-area { position: relative; overflow: hidden; background: var(--bg-primary); cursor: grab; }
+        .canvas-area.panning { cursor: grabbing; }
+        .canvas-area.dragging-device { cursor: move; }
+        .canvas-grid { position: absolute; width: 8000px; height: 8000px; left: -4000px; top: -4000px; background-image: radial-gradient(circle, rgba(88,166,255,0.1) 1px, transparent 1px); background-size: 20px 20px; pointer-events: none; }
+        #canvasWrapper { position: absolute; width: 8000px; height: 8000px; left: -4000px; top: -4000px; transform-origin: center center; }
+        #canvas { position: absolute; width: 100%; height: 100%; }
+        #connections { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: visible; }
         .conn-wired { stroke: var(--accent-blue); stroke-width: 2; fill: none; }
         .conn-wireless { stroke: var(--accent-purple); stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
         .controls { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; background: var(--bg-secondary); padding: 6px; border-radius: 8px; border: 1px solid var(--border-color); z-index: 100; }
@@ -125,7 +112,7 @@
         .vm-list { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color); display: flex; flex-wrap: wrap; gap: 4px; }
         .hosted-vm { background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; font-size: 9px; display: flex; align-items: center; gap: 4px; }
         .hosted-vm .dot { width: 6px; height: 6px; border-radius: 50%; }
-        .empty-state { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; color: var(--text-muted); }
+        .empty-state { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; color: var(--text-muted); pointer-events: none; }
         .empty-state h3 { font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
         .empty-state p { font-size: 12px; }
         .conn-hint { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: var(--accent-green); color: #000; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 500; z-index: 1000; display: none; }
@@ -135,37 +122,20 @@
         ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
         
         .network-info-box {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 14px;
-            min-width: 220px;
-            max-width: 280px;
-            z-index: 100;
-            font-size: 11px;
+            position: absolute; top: 16px; right: 16px;
+            background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px;
+            padding: 14px; min-width: 220px; max-width: 280px; z-index: 100; font-size: 11px;
         }
-        .network-info-box h4 {
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border-color);
-            color: var(--text-primary);
-        }
+        .network-info-box h4 { font-size: 12px; font-weight: 600; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
         .info-section { margin-bottom: 12px; }
         .info-section:last-child { margin-bottom: 0; }
         .info-section-title { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 6px; }
         .info-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
         .info-label { color: var(--text-secondary); }
         .info-value { font-family: monospace; color: var(--text-primary); font-weight: 500; }
-        .info-value.dns-filter { color: var(--accent-cyan); }
-        .info-value.umbrella { color: var(--accent-blue); }
-        .info-value.server { color: var(--accent-green); }
         .vlan-tag { display: inline-block; padding: 2px 6px; background: var(--bg-tertiary); border-radius: 4px; margin: 2px; font-family: monospace; font-size: 10px; }
         .vlan-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .pan-hint { position: absolute; bottom: 60px; left: 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px; font-size: 10px; color: var(--text-muted); z-index: 100; }
     </style>
 </head>
 <body>
@@ -231,16 +201,14 @@
             </div>
         </aside>
         <main class="canvas-area" id="canvasArea">
-            <div class="canvas-grid"></div>
-            <!-- Wrapper for zoom - contains both SVG and devices -->
+            <div class="canvas-grid" id="canvasGrid"></div>
             <div id="canvasWrapper">
-                <svg id="connections" width="4000" height="4000"></svg>
-                <div id="canvas">
-                    <div class="empty-state" id="emptyState">
-                        <h3>Start Building Your Network</h3>
-                        <p>Drag devices from the sidebar onto the canvas</p>
-                    </div>
-                </div>
+                <svg id="connections" width="8000" height="8000"></svg>
+                <div id="canvas"></div>
+            </div>
+            <div class="empty-state" id="emptyState">
+                <h3>Start Building Your Network</h3>
+                <p>Drag devices from the sidebar onto the canvas</p>
             </div>
             <div class="network-info-box" id="networkInfoBox">
                 <h4>⚙️ Network Configuration</h4>
@@ -259,10 +227,11 @@
                     <div class="vlan-tags" id="infoVlans"></div>
                 </div>
             </div>
+            <div class="pan-hint">Drag empty space to pan • Scroll to zoom</div>
             <div class="controls">
                 <button class="btn" id="zoomInBtn">🔍+</button>
                 <button class="btn" id="zoomOutBtn">🔍-</button>
-                <button class="btn" id="resetBtn">🏠</button>
+                <button class="btn" id="resetBtn">🏠 Reset View</button>
             </div>
         </main>
         <aside class="props-panel">
@@ -390,28 +359,25 @@
             connType: 'wired',
             connecting: null,
             zoom: 1,
+            panX: 0,
+            panY: 0,
             counter: 0
         };
 
         const types = {
-            windows: { name: 'Windows PC', icon: '🪟' },
-            mac: { name: 'Mac', icon: '🍎' },
-            linux: { name: 'Linux', icon: '🐧' },
-            mobile: { name: 'Mobile', icon: '📱' },
-            server: { name: 'Server', icon: '🖥️' },
-            nas: { name: 'NAS', icon: '💾' },
-            router: { name: 'Router', icon: '📡' },
-            switch: { name: 'Switch', icon: '🔀' },
-            firewall: { name: 'Firewall', icon: '🛡️' },
-            ap: { name: 'Access Point', icon: '📶' },
-            vmhost: { name: 'VM Host', icon: '🏢' },
-            vm: { name: 'VM', icon: '📦' },
-            cloud: { name: 'Cloud', icon: '☁️' },
-            printer: { name: 'Printer', icon: '🖨️' },
+            windows: { name: 'Windows PC', icon: '🪟' }, mac: { name: 'Mac', icon: '🍎' },
+            linux: { name: 'Linux', icon: '🐧' }, mobile: { name: 'Mobile', icon: '📱' },
+            server: { name: 'Server', icon: '🖥️' }, nas: { name: 'NAS', icon: '💾' },
+            router: { name: 'Router', icon: '📡' }, switch: { name: 'Switch', icon: '🔀' },
+            firewall: { name: 'Firewall', icon: '🛡️' }, ap: { name: 'Access Point', icon: '📶' },
+            vmhost: { name: 'VM Host', icon: '🏢' }, vm: { name: 'VM', icon: '📦' },
+            cloud: { name: 'Cloud', icon: '☁️' }, printer: { name: 'Printer', icon: '🖨️' },
             iot: { name: 'IoT', icon: '🌐' }
         };
 
+        const canvasArea = document.getElementById('canvasArea');
         const canvasWrapper = document.getElementById('canvasWrapper');
+        const canvasGrid = document.getElementById('canvasGrid');
         const canvas = document.getElementById('canvas');
         const svg = document.getElementById('connections');
         const connHint = document.getElementById('connHint');
@@ -427,28 +393,110 @@
             document.getElementById('infoVlans').innerHTML = state.vlans.map(v => '<span class="vlan-tag">VLAN ' + v.id + ' - ' + v.subnet + '</span>').join('');
         }
 
+        // Pan and zoom state
+        let isPanning = false;
+        let panStart = { x: 0, y: 0 };
+        let draggingDevice = null;
+        let dragStart = { x: 0, y: 0 };
+        let deviceStart = { x: 0, y: 0 };
+
+        function applyTransform() {
+            const transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+            canvasWrapper.style.transform = transform;
+            canvasGrid.style.transform = transform;
+            document.getElementById('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
+        }
+
+        function resetView() {
+            state.zoom = 1;
+            state.panX = 0;
+            state.panY = 0;
+            applyTransform();
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            // Device drag from palette
             document.querySelectorAll('.device-item').forEach(item => {
                 item.addEventListener('dragstart', e => e.dataTransfer.setData('type', item.dataset.type));
             });
             
-            const canvasArea = document.getElementById('canvasArea');
             canvasArea.addEventListener('dragover', e => e.preventDefault());
             canvasArea.addEventListener('drop', function(e) {
                 e.preventDefault();
                 const type = e.dataTransfer.getData('type');
                 if (type) {
                     const rect = canvasArea.getBoundingClientRect();
-                    // Account for zoom when calculating drop position
-                    const x = (e.clientX - rect.left) / state.zoom - 60;
-                    const y = (e.clientY - rect.top) / state.zoom - 40;
+                    // Convert screen coords to canvas coords accounting for pan and zoom
+                    const x = (e.clientX - rect.left - state.panX) / state.zoom + 4000 - 60;
+                    const y = (e.clientY - rect.top - state.panY) / state.zoom + 4000 - 40;
                     createDevice(type, x, y);
                 }
             });
 
-            document.getElementById('zoomInBtn').onclick = () => { state.zoom = Math.min(2, state.zoom + 0.1); applyZoom(); };
-            document.getElementById('zoomOutBtn').onclick = () => { state.zoom = Math.max(0.5, state.zoom - 0.1); applyZoom(); };
-            document.getElementById('resetBtn').onclick = () => { state.zoom = 1; applyZoom(); };
+            // Pan functionality - mousedown on canvas area
+            canvasArea.addEventListener('mousedown', function(e) {
+                // Only start panning if clicking on empty space (not on a device)
+                if (e.target === canvasArea || e.target === canvasGrid || e.target.closest('#canvasWrapper') && !e.target.closest('.network-device')) {
+                    isPanning = true;
+                    panStart.x = e.clientX - state.panX;
+                    panStart.y = e.clientY - state.panY;
+                    canvasArea.classList.add('panning');
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isPanning) {
+                    state.panX = e.clientX - panStart.x;
+                    state.panY = e.clientY - panStart.y;
+                    applyTransform();
+                }
+                if (draggingDevice) {
+                    const dx = (e.clientX - dragStart.x) / state.zoom;
+                    const dy = (e.clientY - dragStart.y) / state.zoom;
+                    draggingDevice.x = deviceStart.x + dx;
+                    draggingDevice.y = deviceStart.y + dy;
+                    const el = document.getElementById(draggingDevice.id);
+                    el.style.left = draggingDevice.x + 'px';
+                    el.style.top = draggingDevice.y + 'px';
+                    drawConnections();
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isPanning) {
+                    isPanning = false;
+                    canvasArea.classList.remove('panning');
+                }
+                if (draggingDevice) {
+                    draggingDevice = null;
+                    canvasArea.classList.remove('dragging-device');
+                }
+            });
+
+            // Scroll to zoom
+            canvasArea.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                const rect = canvasArea.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                const oldZoom = state.zoom;
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                state.zoom = Math.max(0.25, Math.min(3, state.zoom + delta));
+                
+                // Adjust pan to zoom toward mouse position
+                const zoomRatio = state.zoom / oldZoom;
+                state.panX = mouseX - (mouseX - state.panX) * zoomRatio;
+                state.panY = mouseY - (mouseY - state.panY) * zoomRatio;
+                
+                applyTransform();
+            }, { passive: false });
+
+            // Buttons
+            document.getElementById('zoomInBtn').onclick = () => { state.zoom = Math.min(3, state.zoom + 0.1); applyTransform(); };
+            document.getElementById('zoomOutBtn').onclick = () => { state.zoom = Math.max(0.25, state.zoom - 0.1); applyTransform(); };
+            document.getElementById('resetBtn').onclick = resetView;
             document.getElementById('wiredBtn').onclick = () => setConnType('wired');
             document.getElementById('wirelessBtn').onclick = () => setConnType('wireless');
             document.getElementById('configBtn').onclick = openConfig;
@@ -469,10 +517,6 @@
             document.getElementById('propVLAN').onchange = e => updateDeviceProp('vlan', e.target.value);
             document.getElementById('propNotes').oninput = e => updateDeviceProp('notes', e.target.value);
 
-            canvas.addEventListener('click', e => {
-                if (e.target === canvas || e.target.id === 'emptyState') deselectAll();
-            });
-
             document.addEventListener('keydown', e => {
                 if (e.key === 'Escape') { cancelConnect(); deselectAll(); }
                 if (e.key === 'Delete' && state.selected) deleteSelected();
@@ -480,15 +524,8 @@
 
             updateVlanSelect();
             updateNetworkInfoBox();
+            applyTransform();
         });
-
-        function applyZoom() {
-            // Apply zoom to the wrapper containing both SVG and devices
-            canvasWrapper.style.transform = 'scale(' + state.zoom + ')';
-            document.getElementById('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
-            // Redraw connections - they now use device positions directly since everything scales together
-            drawConnections();
-        }
 
         function setConnType(type) {
             state.connType = type;
@@ -532,17 +569,25 @@
                 '<div class="conn-point left" data-pos="left"></div>' +
                 '<div class="conn-point right" data-pos="right"></div>';
 
-            el.addEventListener('mousedown', e => {
+            el.addEventListener('mousedown', function(e) {
                 if (e.target.classList.contains('conn-point')) return;
-                startDrag(e, d);
+                e.stopPropagation();
+                draggingDevice = d;
+                dragStart.x = e.clientX;
+                dragStart.y = e.clientY;
+                deviceStart.x = d.x;
+                deviceStart.y = d.y;
+                canvasArea.classList.add('dragging-device');
             });
-            el.addEventListener('click', e => {
+            
+            el.addEventListener('click', function(e) {
                 if (e.target.classList.contains('conn-point')) return;
                 e.stopPropagation();
                 selectDevice(d);
             });
+            
             el.querySelectorAll('.conn-point').forEach(point => {
-                point.addEventListener('click', e => {
+                point.addEventListener('click', function(e) {
                     e.stopPropagation();
                     e.preventDefault();
                     handleConnectionClick(d, point.dataset.pos);
@@ -557,37 +602,6 @@
             const container = document.getElementById('vms' + d.id);
             if (!container) return;
             container.innerHTML = d.vms.map(vm => '<div class="hosted-vm"><div class="dot status-' + vm.status + '"></div>' + vm.name + '</div>').join('');
-        }
-
-        let dragging = null, dragStart = { x: 0, y: 0 }, deviceStart = { x: 0, y: 0 };
-        
-        function startDrag(e, d) {
-            dragging = d;
-            dragStart.x = e.clientX;
-            dragStart.y = e.clientY;
-            deviceStart.x = d.x;
-            deviceStart.y = d.y;
-            document.addEventListener('mousemove', onDrag);
-            document.addEventListener('mouseup', stopDrag);
-        }
-        
-        function onDrag(e) {
-            if (!dragging) return;
-            const el = document.getElementById(dragging.id);
-            // Calculate delta and account for zoom
-            const dx = (e.clientX - dragStart.x) / state.zoom;
-            const dy = (e.clientY - dragStart.y) / state.zoom;
-            dragging.x = deviceStart.x + dx;
-            dragging.y = deviceStart.y + dy;
-            el.style.left = dragging.x + 'px';
-            el.style.top = dragging.y + 'px';
-            drawConnections();
-        }
-        
-        function stopDrag() {
-            dragging = null;
-            document.removeEventListener('mousemove', onDrag);
-            document.removeEventListener('mouseup', stopDrag);
         }
 
         function handleConnectionClick(device, position) {
@@ -624,20 +638,15 @@
             connHint.classList.remove('active');
         }
 
-        // Get connection point using stored device positions (not DOM)
         function getConnectionPoint(deviceId, position) {
             const device = state.devices.find(d => d.id === deviceId);
             if (!device) return { x: 0, y: 0 };
-            
             const el = document.getElementById(deviceId);
             if (!el) return { x: 0, y: 0 };
-            
             const width = el.offsetWidth;
             const height = el.offsetHeight;
-            
             const centerX = device.x + width / 2;
             const centerY = device.y + height / 2;
-            
             switch (position) {
                 case 'top': return { x: centerX, y: device.y };
                 case 'bottom': return { x: centerX, y: device.y + height };
@@ -654,7 +663,6 @@
                 const to = getConnectionPoint(conn.to, conn.toPos);
                 const midX = (from.x + to.x) / 2;
                 const midY = (from.y + to.y) / 2;
-                
                 let path;
                 if (conn.fromPos === 'top' || conn.fromPos === 'bottom') {
                     path = 'M' + from.x + ',' + from.y + ' C' + from.x + ',' + midY + ' ' + to.x + ',' + midY + ' ' + to.x + ',' + to.y;
@@ -848,24 +856,120 @@
             const orientation = document.getElementById('pdfOrientation').value;
             closeModal('exportModal');
             
-            // Temporarily reset zoom for capture
-            const originalZoom = state.zoom;
-            state.zoom = 1;
-            canvasWrapper.style.transform = 'scale(1)';
+            if (state.devices.length === 0) {
+                alert('No devices to export. Add some devices first.');
+                return;
+            }
             
-            document.querySelector('.controls').style.display = 'none';
-            connHint.style.display = 'none';
-            document.querySelectorAll('.network-device').forEach(el => el.classList.remove('selected', 'connecting'));
-            document.querySelectorAll('.conn-point').forEach(el => el.style.visibility = 'hidden');
+            // Calculate bounding box of all devices
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            state.devices.forEach(d => {
+                const el = document.getElementById(d.id);
+                const w = el ? el.offsetWidth : 120;
+                const h = el ? el.offsetHeight : 100;
+                minX = Math.min(minX, d.x);
+                minY = Math.min(minY, d.y);
+                maxX = Math.max(maxX, d.x + w);
+                maxY = Math.max(maxY, d.y + h);
+            });
             
-            const canvasArea = document.getElementById('canvasArea');
+            // Add padding around the content
+            const padding = 50;
+            minX -= padding;
+            minY -= padding;
+            maxX += padding;
+            maxY += padding;
             
-            html2canvas(canvasArea, { backgroundColor: '#0a0e14', scale: 2, useCORS: true, logging: false }).then(canvasImg => {
+            const contentWidth = maxX - minX;
+            const contentHeight = maxY - minY;
+            
+            // Include network info box dimensions
+            const infoBox = document.getElementById('networkInfoBox');
+            const infoBoxWidth = infoBox.offsetWidth + 40;
+            const infoBoxHeight = infoBox.offsetHeight + 40;
+            
+            // Create a temporary container for rendering
+            const tempContainer = document.createElement('div');
+            tempContainer.style.cssText = `
+                position: fixed; left: -10000px; top: 0;
+                background: #0a0e14; padding: 20px;
+            `;
+            document.body.appendChild(tempContainer);
+            
+            // Create SVG for connections
+            const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            tempSvg.setAttribute('width', contentWidth);
+            tempSvg.setAttribute('height', contentHeight);
+            tempSvg.style.cssText = 'position: absolute; top: 0; left: 0; pointer-events: none;';
+            
+            // Draw connections offset to bounding box
+            let paths = '';
+            state.connections.forEach(conn => {
+                const from = getConnectionPoint(conn.from, conn.fromPos);
+                const to = getConnectionPoint(conn.to, conn.toPos);
+                const fx = from.x - minX, fy = from.y - minY;
+                const tx = to.x - minX, ty = to.y - minY;
+                const midX = (fx + tx) / 2, midY = (fy + ty) / 2;
+                let path;
+                if (conn.fromPos === 'top' || conn.fromPos === 'bottom') {
+                    path = `M${fx},${fy} C${fx},${midY} ${tx},${midY} ${tx},${ty}`;
+                } else {
+                    path = `M${fx},${fy} C${midX},${fy} ${midX},${ty} ${tx},${ty}`;
+                }
+                const strokeColor = conn.type === 'wired' ? '#58a6ff' : '#a371f7';
+                const dashArray = conn.type === 'wireless' ? 'stroke-dasharray="8,4"' : '';
+                paths += `<path d="${path}" stroke="${strokeColor}" stroke-width="2" fill="none" ${dashArray}/>`;
+            });
+            tempSvg.innerHTML = paths;
+            
+            // Create wrapper
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = `position: relative; width: ${contentWidth + infoBoxWidth}px; height: ${Math.max(contentHeight, infoBoxHeight)}px; background: #0a0e14;`;
+            
+            // Diagram area
+            const diagramArea = document.createElement('div');
+            diagramArea.style.cssText = `position: relative; width: ${contentWidth}px; height: ${contentHeight}px; display: inline-block; vertical-align: top;`;
+            diagramArea.appendChild(tempSvg);
+            
+            // Clone and position devices
+            state.devices.forEach(d => {
+                const orig = document.getElementById(d.id);
+                const clone = orig.cloneNode(true);
+                clone.style.left = (d.x - minX) + 'px';
+                clone.style.top = (d.y - minY) + 'px';
+                clone.classList.remove('selected', 'connecting');
+                clone.querySelectorAll('.conn-point').forEach(cp => cp.style.display = 'none');
+                diagramArea.appendChild(clone);
+            });
+            
+            wrapper.appendChild(diagramArea);
+            
+            // Clone network info box
+            const infoClone = infoBox.cloneNode(true);
+            infoClone.style.cssText = `
+                position: absolute; top: 0; right: 0;
+                background: #141920; border: 1px solid #2a3140; border-radius: 10px;
+                padding: 14px; min-width: 220px; font-size: 11px; color: #e6e6e6;
+            `;
+            wrapper.appendChild(infoClone);
+            
+            tempContainer.appendChild(wrapper);
+            
+            // Render to canvas
+            html2canvas(wrapper, { 
+                backgroundColor: '#0a0e14', 
+                scale: 2, 
+                useCORS: true, 
+                logging: false 
+            }).then(canvasImg => {
+                document.body.removeChild(tempContainer);
+                
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
                 const pageWidth = pdf.internal.pageSize.getWidth();
                 const pageHeight = pdf.internal.pageSize.getHeight();
                 
+                // Header
                 pdf.setFillColor(15, 20, 25);
                 pdf.rect(0, 0, pageWidth, 25, 'F');
                 pdf.setTextColor(230, 230, 230);
@@ -879,36 +983,52 @@
                     pdf.text('Client: ' + client, 10, 20);
                 }
                 pdf.setFontSize(10);
+                pdf.setTextColor(230, 230, 230);
                 pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 12, { align: 'right' });
                 
+                // Calculate image dimensions to fit and center
                 const imgData = canvasImg.toDataURL('image/png');
-                const imgWidth = pageWidth - 20;
-                const imgHeight = (canvasImg.height * imgWidth) / canvasImg.width;
-                const maxImgHeight = pageHeight - 45;
-                let finalWidth = imgWidth, finalHeight = imgHeight;
-                if (imgHeight > maxImgHeight) {
-                    finalHeight = maxImgHeight;
-                    finalWidth = (canvasImg.width * finalHeight) / canvasImg.height;
-                }
-                pdf.addImage(imgData, 'PNG', (pageWidth - finalWidth) / 2, 30, finalWidth, finalHeight);
+                const availableWidth = pageWidth - 20; // 10mm margin each side
+                const availableHeight = pageHeight - 45; // header + footer space
                 
+                const imgAspect = canvasImg.width / canvasImg.height;
+                const availAspect = availableWidth / availableHeight;
+                
+                let finalWidth, finalHeight;
+                if (imgAspect > availAspect) {
+                    // Image is wider - fit to width
+                    finalWidth = availableWidth;
+                    finalHeight = availableWidth / imgAspect;
+                } else {
+                    // Image is taller - fit to height
+                    finalHeight = availableHeight;
+                    finalWidth = availableHeight * imgAspect;
+                }
+                
+                // Center the image
+                const xPos = (pageWidth - finalWidth) / 2;
+                const yPos = 28 + (availableHeight - finalHeight) / 2;
+                
+                pdf.addImage(imgData, 'PNG', xPos, yPos, finalWidth, finalHeight);
+                
+                // Footer
                 pdf.setFontSize(8);
                 pdf.setTextColor(92, 99, 112);
                 pdf.text('Generated by NetMap Pro', 10, pageHeight - 5);
                 pdf.text('Page 1 of 1', pageWidth - 10, pageHeight - 5, { align: 'right' });
                 
                 pdf.save(title.toLowerCase().replace(/\s+/g, '-') + '-' + new Date().toISOString().split('T')[0] + '.pdf');
-                
-                // Restore zoom
-                state.zoom = originalZoom;
-                canvasWrapper.style.transform = 'scale(' + state.zoom + ')';
-                document.querySelector('.controls').style.display = 'flex';
-                document.querySelectorAll('.conn-point').forEach(el => el.style.visibility = '');
             });
         }
 
         function exportJson() {
-            const data = { devices: state.devices, connections: state.connections, vlans: state.vlans, config: state.config };
+            const data = { 
+                devices: state.devices, 
+                connections: state.connections, 
+                vlans: state.vlans, 
+                config: state.config,
+                view: { zoom: state.zoom, panX: state.panX, panY: state.panY }
+            };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -931,12 +1051,18 @@
                             state.connections = data.connections || [];
                             state.vlans = data.vlans || state.vlans;
                             state.config = data.config || state.config;
+                            if (data.view) {
+                                state.zoom = data.view.zoom || 1;
+                                state.panX = data.view.panX || 0;
+                                state.panY = data.view.panY || 0;
+                            }
                             document.querySelectorAll('.network-device').forEach(el => el.remove());
                             state.devices.forEach(d => renderDevice(d));
                             drawConnections();
                             updateVlanSelect();
                             updateNetworkInfoBox();
                             updateCounts();
+                            applyTransform();
                             if (state.devices.length > 0) document.getElementById('emptyState').style.display = 'none';
                         } catch (err) {
                             alert('Error loading project: ' + err.message);
