@@ -316,7 +316,47 @@
                         <div class="status-btn" data-status="decommissioned"><div class="dot status-decommissioned"></div>Decom.</div>
                     </div>
                 </div>
-                <div class="form-group"><label class="form-label">VLAN</label><select class="form-select" id="propVLAN"></select></div>
+                <div class="form-group" id="vlanGroup"><label class="form-label">VLAN</label><select class="form-select" id="propVLAN"></select></div>
+                <div id="ssidSection" style="display:none;">
+                    <div class="form-label">Assigned SSIDs</div>
+                    <div id="apSSIDList" style="max-height:150px;overflow-y:auto;margin-bottom:8px;"></div>
+                </div>
+                <div id="switchSection" style="display:none;">
+                    <div class="form-group">
+                        <label class="form-label">Number of Ports</label>
+                        <select class="form-select" id="propSwitchPorts" onchange="updateDeviceProp('ports', this.value)">
+                            <option value="">-- Select --</option>
+                            <option value="5">5 Ports</option>
+                            <option value="8">8 Ports</option>
+                            <option value="12">12 Ports</option>
+                            <option value="16">16 Ports</option>
+                            <option value="24">24 Ports</option>
+                            <option value="48">48 Ports</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.8rem;color:var(--text-secondary);">
+                            <input type="checkbox" id="propPOE" onchange="updateDeviceProp('poe', this.checked)" style="width:16px;height:16px;accent-color:var(--primary);">
+                            PoE Capable
+                        </label>
+                    </div>
+                    <div class="form-label">Assigned VLANs</div>
+                    <div id="switchVLANList" style="max-height:150px;overflow-y:auto;margin-bottom:8px;"></div>
+                </div>
+                <div id="firewallSection" style="display:none;">
+                    <div class="form-group">
+                        <label class="form-label">Number of Ports</label>
+                        <select class="form-select" id="propFirewallPorts" onchange="updateDeviceProp('ports', this.value)">
+                            <option value="">-- Select --</option>
+                            <option value="2">2 Ports</option>
+                            <option value="4">4 Ports</option>
+                            <option value="6">6 Ports</option>
+                            <option value="8">8 Ports</option>
+                            <option value="10">10 Ports</option>
+                            <option value="12">12 Ports</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="propNotes"></textarea></div>
                 <div id="vmSection" style="display:none;">
                     <div class="form-label">Hosted VMs</div>
@@ -371,6 +411,11 @@
                     <div id="vlanList"></div>
                     <button class="add-btn" onclick="openModal('vlanModal')">+ Add VLAN</button>
                 </div>
+                <div class="config-section">
+                    <div class="config-title">&#x1F4F6; Wireless Configuration</div>
+                    <div id="ssidList"></div>
+                    <button class="add-btn" onclick="openModal('ssidModal')">+ Add SSID</button>
+                </div>
             </div>
             <div class="modal-footer"><button class="btn btn-primary" onclick="saveConfig()">Save &amp; Close</button></div>
         </div>
@@ -385,6 +430,28 @@
                 <div class="form-group"><label class="form-label">Gateway</label><input type="text" class="form-input" id="newVlanGateway" placeholder="192.168.10.1"></div>
             </div>
             <div class="modal-footer"><button class="btn" onclick="closeModal('vlanModal')">Cancel</button><button class="btn btn-primary" onclick="saveVlan()">Add</button></div>
+        </div>
+    </div>
+    <div class="modal-bg" id="ssidModal">
+        <div class="modal" style="width:350px;">
+            <div class="modal-header"><h3>Add SSID</h3><button class="modal-close" onclick="closeModal('ssidModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">SSID Name</label><input type="text" class="form-input" id="newSSIDName" placeholder="MyNetwork"></div>
+                <div class="form-group"><label class="form-label">Security</label>
+                    <select class="form-select" id="newSSIDSecurity">
+                        <option value="WPA3-Enterprise">WPA3-Enterprise</option>
+                        <option value="WPA3-Personal">WPA3-Personal</option>
+                        <option value="WPA2-Enterprise">WPA2-Enterprise</option>
+                        <option value="WPA2-Personal" selected>WPA2-Personal</option>
+                        <option value="WPA/WPA2-Mixed">WPA/WPA2-Mixed</option>
+                        <option value="Open">Open</option>
+                    </select>
+                </div>
+                <div class="form-group"><label class="form-label">VLAN</label>
+                    <select class="form-select" id="newSSIDVlan"></select>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeModal('ssidModal')">Cancel</button><button class="btn btn-primary" onclick="saveSSID()">Add</button></div>
         </div>
     </div>
     <div class="modal-bg" id="vmModal">
@@ -424,6 +491,7 @@
                 { id: 10, name: 'Management', subnet: '192.168.10.0/24', gateway: '192.168.10.1' },
                 { id: 20, name: 'Servers', subnet: '192.168.20.0/24', gateway: '192.168.20.1' }
             ],
+            ssids: [],
             config: { dnsProvider: 'DNS Filter', dnsServer: '', dnsPrimary: '8.8.8.8', dnsSecondary: '8.8.4.4', dhcpType: 'Router', dhcpDevice: '' },
             selected: null,
             connType: 'wired',
@@ -946,11 +1014,48 @@
             document.getElementById('propName').value = d.name;
             document.getElementById('propIP').value = d.ip;
             document.getElementById('propMAC').value = d.mac;
-            document.getElementById('propVLAN').value = d.vlan;
             document.getElementById('propNotes').value = d.notes;
             document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === d.status));
             document.getElementById('vmSection').style.display = d.type === 'vmhost' ? 'block' : 'none';
             if (d.type === 'vmhost') renderVMList(d);
+            
+            // Handle VLAN dropdown - hide for Access Points, Firewalls, and Switches
+            const vlanGroup = document.getElementById('vlanGroup');
+            if (d.type === 'ap' || d.type === 'firewall' || d.type === 'switch') {
+                vlanGroup.style.display = 'none';
+            } else {
+                vlanGroup.style.display = 'block';
+                document.getElementById('propVLAN').value = d.vlan;
+            }
+            
+            // Handle SSID section for Access Points
+            const ssidSection = document.getElementById('ssidSection');
+            if (d.type === 'ap') {
+                ssidSection.style.display = 'block';
+                renderAPSSIDList(d);
+            } else {
+                ssidSection.style.display = 'none';
+            }
+            
+            // Handle Switch section
+            const switchSection = document.getElementById('switchSection');
+            if (d.type === 'switch') {
+                switchSection.style.display = 'block';
+                document.getElementById('propSwitchPorts').value = d.ports || '';
+                document.getElementById('propPOE').checked = d.poe || false;
+                renderSwitchVLANList(d);
+            } else {
+                switchSection.style.display = 'none';
+            }
+            
+            // Handle Firewall section
+            const firewallSection = document.getElementById('firewallSection');
+            if (d.type === 'firewall') {
+                firewallSection.style.display = 'block';
+                document.getElementById('propFirewallPorts').value = d.ports || '';
+            } else {
+                firewallSection.style.display = 'none';
+            }
             
             // Handle manufacturer dropdown
             const mfgGroup = document.getElementById('manufacturerGroup');
@@ -972,6 +1077,71 @@
                     operatingSystems[d.type].map(o => '<option value="' + o + '"' + (d.os === o ? ' selected' : '') + '>' + o + '</option>').join('');
             } else {
                 osGroup.style.display = 'none';
+            }
+        }
+        
+        function renderSwitchVLANList(d) {
+            const container = document.getElementById('switchVLANList');
+            if (state.vlans.length === 0) {
+                container.innerHTML = '<p style="font-size:10px;color:var(--text-muted);text-align:center;">No VLANs configured. Add VLANs in Config.</p>';
+                return;
+            }
+            
+            // Initialize vlans array on device if not present
+            if (!d.assignedVlans) d.assignedVlans = [];
+            
+            container.innerHTML = state.vlans.map(vlan => {
+                const isChecked = d.assignedVlans.includes(vlan.id);
+                return '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.75rem;color:var(--text-secondary);padding:4px 0;">' +
+                    '<input type="checkbox" ' + (isChecked ? 'checked' : '') + ' onchange="toggleSwitchVLAN(' + vlan.id + ')" style="width:14px;height:14px;accent-color:var(--primary);">' +
+                    '<span style="flex:1">VLAN ' + vlan.id + ' - ' + vlan.name + '</span>' +
+                    '<span style="font-size:0.65rem;color:var(--text-muted);">' + vlan.subnet + '</span>' +
+                '</label>';
+            }).join('');
+        }
+        
+        function toggleSwitchVLAN(vlanId) {
+            if (!state.selected || state.selected.type !== 'switch') return;
+            if (!state.selected.assignedVlans) state.selected.assignedVlans = [];
+            
+            const index = state.selected.assignedVlans.indexOf(vlanId);
+            if (index === -1) {
+                state.selected.assignedVlans.push(vlanId);
+            } else {
+                state.selected.assignedVlans.splice(index, 1);
+            }
+        }
+        
+        function renderAPSSIDList(d) {
+            const container = document.getElementById('apSSIDList');
+            if (state.ssids.length === 0) {
+                container.innerHTML = '<p style="font-size:10px;color:var(--text-muted);text-align:center;">No SSIDs configured. Add SSIDs in Config.</p>';
+                return;
+            }
+            
+            // Initialize ssids array on device if not present
+            if (!d.ssids) d.ssids = [];
+            
+            container.innerHTML = state.ssids.map(ssid => {
+                const isChecked = d.ssids.includes(ssid.name);
+                const vlanInfo = ssid.vlan ? ' (VLAN ' + ssid.vlan + ')' : '';
+                return '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.75rem;color:var(--text-secondary);padding:4px 0;">' +
+                    '<input type="checkbox" ' + (isChecked ? 'checked' : '') + ' onchange="toggleAPSSID(\'' + ssid.name + '\')" style="width:14px;height:14px;accent-color:var(--primary);">' +
+                    '<span style="flex:1">' + ssid.name + '</span>' +
+                    '<span style="font-size:0.65rem;color:var(--text-muted);">' + ssid.security + vlanInfo + '</span>' +
+                '</label>';
+            }).join('');
+        }
+        
+        function toggleAPSSID(ssidName) {
+            if (!state.selected || state.selected.type !== 'ap') return;
+            if (!state.selected.ssids) state.selected.ssids = [];
+            
+            const index = state.selected.ssids.indexOf(ssidName);
+            if (index === -1) {
+                state.selected.ssids.push(ssidName);
+            } else {
+                state.selected.ssids.splice(index, 1);
             }
         }
 
@@ -1026,6 +1196,11 @@
             document.getElementById('propVLAN').innerHTML = '<option value="">Select VLAN</option>' + 
                 state.vlans.map(v => '<option value="' + v.id + '">VLAN ' + v.id + ' - ' + v.name + '</option>').join('');
         }
+        
+        function updateSSIDVlanSelect() {
+            document.getElementById('newSSIDVlan').innerHTML = '<option value="">No VLAN</option>' + 
+                state.vlans.map(v => '<option value="' + v.id + '">VLAN ' + v.id + ' - ' + v.name + '</option>').join('');
+        }
 
         function openConfig() {
             openModal('configModal');
@@ -1034,14 +1209,60 @@
             document.getElementById('dnsSecondary').value = state.config.dnsSecondary;
             document.getElementById('dhcpType').value = state.config.dhcpType;
             renderVlanList();
+            renderSSIDList();
             updateDnsFields();
             updateDhcpDevices();
+            updateSSIDVlanSelect();
         }
 
         function renderVlanList() {
             document.getElementById('vlanList').innerHTML = state.vlans.map((v, i) => 
                 '<div class="vlan-item"><span class="vlan-id">VLAN ' + v.id + '</span><span class="vlan-name">' + v.name + '</span><span class="vlan-subnet">' + v.subnet + '</span><button class="vlan-del" onclick="deleteVlan(' + i + ')">&times;</button></div>'
             ).join('');
+        }
+        
+        function renderSSIDList() {
+            const container = document.getElementById('ssidList');
+            if (state.ssids.length === 0) {
+                container.innerHTML = '<p style="font-size:0.7rem;color:var(--text-muted);text-align:center;padding:10px;">No SSIDs configured</p>';
+                return;
+            }
+            container.innerHTML = state.ssids.map((s, i) => {
+                const vlanInfo = s.vlan ? 'VLAN ' + s.vlan : 'No VLAN';
+                return '<div class="vlan-item"><span class="vlan-id" style="min-width:auto;">📶</span><span class="vlan-name" style="flex:1;">' + s.name + '</span><span class="vlan-subnet" style="font-size:0.6rem;">' + s.security + ' / ' + vlanInfo + '</span><button class="vlan-del" onclick="deleteSSID(' + i + ')">&times;</button></div>';
+            }).join('');
+        }
+        
+        function deleteSSID(index) {
+            const ssidName = state.ssids[index].name;
+            state.ssids.splice(index, 1);
+            // Remove this SSID from all access points
+            state.devices.forEach(d => {
+                if (d.type === 'ap' && d.ssids) {
+                    d.ssids = d.ssids.filter(s => s !== ssidName);
+                }
+            });
+            renderSSIDList();
+        }
+        
+        function saveSSID() {
+            const name = document.getElementById('newSSIDName').value.trim();
+            const security = document.getElementById('newSSIDSecurity').value;
+            const vlan = document.getElementById('newSSIDVlan').value;
+            
+            if (name) {
+                // Check for duplicate
+                if (state.ssids.some(s => s.name === name)) {
+                    alert('An SSID with this name already exists.');
+                    return;
+                }
+                state.ssids.push({ name, security, vlan });
+                renderSSIDList();
+                closeModal('ssidModal');
+                document.getElementById('newSSIDName').value = '';
+                document.getElementById('newSSIDSecurity').value = 'WPA2-Personal';
+                document.getElementById('newSSIDVlan').value = '';
+            }
         }
 
         function deleteVlan(index) {
@@ -1299,6 +1520,9 @@
                 return;
             }
             
+            // Logo image base64 (same as header)
+            const logoBase64 = 'data:image/jpeg;base64,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';
+            
             // Calculate bounding box of all devices
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             state.devices.forEach(d => {
@@ -1407,29 +1631,38 @@
                 const pageWidth = pdf.internal.pageSize.getWidth();
                 const pageHeight = pdf.internal.pageSize.getHeight();
                 
-                // Header with i-Tech branding
+                // Header with i-Tech branding and logo
                 pdf.setFillColor(0, 30, 98);
-                pdf.rect(0, 0, pageWidth, 25, 'F');
-                pdf.setTextColor(234, 234, 234);
-                pdf.setFontSize(10);
-                pdf.setFont('helvetica', 'bold');
-                pdf.text('i-tech', 10, 8);
-                pdf.setFontSize(16);
-                pdf.text(title, 10, 16);
-                if (client) {
-                    pdf.setFontSize(10);
-                    pdf.setFont('helvetica', 'normal');
-                    pdf.setTextColor(216, 215, 223);
-                    pdf.text('Client: ' + client, 10, 22);
+                pdf.rect(0, 0, pageWidth, 22, 'F');
+                
+                // Add logo image
+                try {
+                    pdf.addImage(logoBase64, 'JPEG', 8, 3, 35, 16);
+                } catch(e) {
+                    console.log('Logo error:', e);
                 }
-                pdf.setFontSize(10);
+                
+                // Title and subtitle to the right of logo
+                pdf.setTextColor(234, 234, 234);
+                pdf.setFontSize(14);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(title, 48, 10);
+                if (client) {
+                    pdf.setFontSize(9);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setTextColor(200, 200, 200);
+                    pdf.text('Client: ' + client, 48, 16);
+                }
+                
+                // Date on right
+                pdf.setFontSize(9);
                 pdf.setTextColor(234, 234, 234);
                 pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 12, { align: 'right' });
                 
                 // Calculate image dimensions to fit and center
                 const imgData = canvasImg.toDataURL('image/png');
                 const availableWidth = pageWidth - 20; // 10mm margin each side
-                const availableHeight = pageHeight - 45; // header + footer space
+                const availableHeight = pageHeight - 42; // header + footer space
                 
                 const imgAspect = canvasImg.width / canvasImg.height;
                 const availAspect = availableWidth / availableHeight;
@@ -1447,7 +1680,7 @@
                 
                 // Center the image
                 const xPos = (pageWidth - finalWidth) / 2;
-                const yPos = 28 + (availableHeight - finalHeight) / 2;
+                const yPos = 25 + (availableHeight - finalHeight) / 2;
                 
                 pdf.addImage(imgData, 'PNG', xPos, yPos, finalWidth, finalHeight);
                 
@@ -1455,94 +1688,224 @@
                 pdf.setFontSize(8);
                 pdf.setTextColor(102, 102, 102);
                 pdf.text('Generated by i-Tech Network Mapping Tool', 10, pageHeight - 5);
-                pdf.text(includeInventory ? 'Page 1 of 2' : 'Page 1 of 1', pageWidth - 10, pageHeight - 5, { align: 'right' });
+                pdf.text(includeInventory ? 'Page 1 of 2+' : 'Page 1 of 1', pageWidth - 10, pageHeight - 5, { align: 'right' });
                 
-                // Add device inventory page if checked
+                // Add device inventory pages if checked
                 if (includeInventory && state.devices.length > 0) {
+                    // Group devices by type
+                    const devicesByType = {};
+                    state.devices.forEach(d => {
+                        if (!devicesByType[d.type]) devicesByType[d.type] = [];
+                        devicesByType[d.type].push(d);
+                    });
+                    
+                    let pageNum = 2;
+                    let totalPages = 2; // Will be updated
+                    
                     pdf.addPage();
                     
-                    // Header for page 2 with i-Tech branding
+                    // Header for inventory page
                     pdf.setFillColor(0, 30, 98);
-                    pdf.rect(0, 0, pageWidth, 25, 'F');
+                    pdf.rect(0, 0, pageWidth, 22, 'F');
+                    try {
+                        pdf.addImage(logoBase64, 'JPEG', 8, 3, 35, 16);
+                    } catch(e) {}
                     pdf.setTextColor(234, 234, 234);
-                    pdf.setFontSize(10);
+                    pdf.setFontSize(14);
                     pdf.setFont('helvetica', 'bold');
-                    pdf.text('i-tech', 10, 8);
-                    pdf.setFontSize(16);
-                    pdf.text('Device Inventory', 10, 16);
+                    pdf.text('Device Inventory', 48, 10);
                     if (client) {
-                        pdf.setFontSize(10);
+                        pdf.setFontSize(9);
                         pdf.setFont('helvetica', 'normal');
-                        pdf.setTextColor(216, 215, 223);
-                        pdf.text('Client: ' + client, 10, 22);
+                        pdf.setTextColor(200, 200, 200);
+                        pdf.text('Client: ' + client, 48, 16);
                     }
-                    pdf.setFontSize(10);
+                    pdf.setFontSize(9);
                     pdf.setTextColor(234, 234, 234);
                     pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 12, { align: 'right' });
                     
-                    // Table headers
-                    let yPos = 35;
-                    pdf.setFillColor(240, 240, 240);
-                    pdf.rect(10, yPos - 5, pageWidth - 20, 8, 'F');
-                    pdf.setFontSize(7);
-                    pdf.setFont('helvetica', 'bold');
-                    pdf.setTextColor(15, 113, 240);
+                    let yPos = 30;
                     
-                    const cols = orientation === 'landscape' 
-                        ? [10, 45, 80, 115, 155, 195, 235] 
-                        : [10, 35, 55, 80, 110, 140, 165];
+                    // Define columns per device type
+                    const typeConfigs = {
+                        'switch': {
+                            name: 'Switches',
+                            cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'Ports', 'PoE', 'VLANs', 'Notes'],
+                            widths: orientation === 'landscape' ? [35, 30, 35, 40, 15, 15, 50, 50] : [25, 22, 30, 35, 12, 12, 30, 24],
+                            getData: (d) => [
+                                d.name, d.manufacturer || '-', d.ip || '-', d.mac || '-',
+                                d.ports || '-', d.poe ? 'Yes' : 'No',
+                                d.assignedVlans ? d.assignedVlans.map(v => 'VLAN ' + v).join(', ') : '-',
+                                d.notes || '-'
+                            ]
+                        },
+                        'firewall': {
+                            name: 'Firewalls',
+                            cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'Ports', 'Notes'],
+                            widths: orientation === 'landscape' ? [40, 35, 40, 45, 20, 90] : [28, 25, 32, 38, 15, 52],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.ip || '-', d.mac || '-', d.ports || '-', d.notes || '-']
+                        },
+                        'ap': {
+                            name: 'Access Points',
+                            cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'SSIDs', 'Notes'],
+                            widths: orientation === 'landscape' ? [40, 35, 40, 45, 60, 50] : [28, 25, 32, 38, 40, 27],
+                            getData: (d) => [
+                                d.name, d.manufacturer || '-', d.ip || '-', d.mac || '-',
+                                d.ssids ? d.ssids.join(', ') : '-', d.notes || '-'
+                            ]
+                        },
+                        'router': {
+                            name: 'Routers',
+                            cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'VLAN', 'Notes'],
+                            widths: orientation === 'landscape' ? [40, 35, 40, 45, 40, 70] : [28, 25, 32, 38, 30, 37],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.ip || '-', d.mac || '-', getVlanName(d.vlan), d.notes || '-']
+                        },
+                        'server': {
+                            name: 'Servers',
+                            cols: ['Name', 'Manufacturer', 'OS', 'IP Address', 'MAC Address', 'VLAN', 'Notes'],
+                            widths: orientation === 'landscape' ? [35, 30, 35, 35, 40, 35, 60] : [24, 22, 25, 30, 35, 28, 26],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.os || '-', d.ip || '-', d.mac || '-', getVlanName(d.vlan), d.notes || '-']
+                        },
+                        'vmhost': {
+                            name: 'VM Hosts',
+                            cols: ['Name', 'Manufacturer', 'OS', 'IP Address', 'MAC Address', 'VMs', 'Notes'],
+                            widths: orientation === 'landscape' ? [35, 30, 35, 35, 40, 50, 45] : [24, 22, 25, 30, 35, 35, 19],
+                            getData: (d) => [
+                                d.name, d.manufacturer || '-', d.os || '-', d.ip || '-', d.mac || '-',
+                                d.vms ? d.vms.map(vm => vm.name).join(', ') : '-', d.notes || '-'
+                            ]
+                        },
+                        'default': {
+                            name: 'Devices',
+                            cols: ['Name', 'Manufacturer', 'OS', 'IP Address', 'MAC Address', 'VLAN', 'Notes'],
+                            widths: orientation === 'landscape' ? [35, 30, 35, 35, 40, 35, 60] : [24, 22, 25, 30, 35, 28, 26],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.os || '-', d.ip || '-', d.mac || '-', getVlanName(d.vlan), d.notes || '-']
+                        }
+                    };
                     
-                    pdf.text('Device', cols[0], yPos);
-                    pdf.text('Manufacturer', cols[1], yPos);
-                    pdf.text('OS', cols[2], yPos);
-                    pdf.text('IP Address', cols[3], yPos);
-                    pdf.text('MAC Address', cols[4], yPos);
-                    pdf.text('VLAN', cols[5], yPos);
-                    pdf.text('Notes', cols[6], yPos);
+                    // Type display names
+                    const typeNames = {
+                        'desktop': 'Desktops', 'laptop': 'Laptops', 'cellphone': 'Cell Phones', 'tablet': 'Tablets',
+                        'printer': 'Printers', 'otherendpoint': 'Other Endpoints', 'server': 'Servers', 'nas': 'NAS Devices',
+                        'router': 'Routers', 'firewall': 'Firewalls', 'switch': 'Switches', 'ap': 'Access Points',
+                        'vmhost': 'VM Hosts', 'vm': 'Virtual Machines', 'cloud': 'Cloud Services', 'onprem': 'On-Premises',
+                        'storage': 'Storage', 'phone': 'Desk Phones', 'camera': 'Security Cameras', 'iot': 'IoT Devices'
+                    };
                     
-                    yPos += 8;
-                    pdf.setFont('helvetica', 'normal');
-                    
-                    state.devices.forEach((d, i) => {
-                        if (yPos > pageHeight - 15) {
-                            // Add new page if needed
+                    // Process each device type
+                    Object.keys(devicesByType).forEach(deviceType => {
+                        const devices = devicesByType[deviceType];
+                        const config = typeConfigs[deviceType] || typeConfigs['default'];
+                        const typeName = typeNames[deviceType] || types[deviceType]?.name || deviceType;
+                        
+                        // Check if we need a new page
+                        if (yPos > pageHeight - 40) {
                             pdf.addPage();
-                            yPos = 15;
+                            pageNum++;
+                            // Header for new page
+                            pdf.setFillColor(0, 30, 98);
+                            pdf.rect(0, 0, pageWidth, 22, 'F');
+                            try {
+                                pdf.addImage(logoBase64, 'JPEG', 8, 3, 35, 16);
+                            } catch(e) {}
+                            pdf.setTextColor(234, 234, 234);
+                            pdf.setFontSize(14);
+                            pdf.setFont('helvetica', 'bold');
+                            pdf.text('Device Inventory (continued)', 48, 10);
+                            pdf.setFontSize(9);
+                            pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 12, { align: 'right' });
+                            yPos = 30;
                         }
                         
-                        // Alternate row background
-                        if (i % 2 === 0) {
-                            pdf.setFillColor(250, 250, 250);
-                        } else {
-                            pdf.setFillColor(255, 255, 255);
-                        }
+                        // Section header
+                        pdf.setFillColor(15, 113, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 8, 'F');
+                        pdf.setFontSize(9);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(255, 255, 255);
+                        pdf.text(typeName + ' (' + devices.length + ')', 12, yPos + 1);
+                        yPos += 10;
+                        
+                        // Column headers
+                        pdf.setFillColor(240, 240, 240);
                         pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
-                        
-                        const cfg = types[d.type];
-                        const vlanText = getVlanName(d.vlan);
-                        const maxLen = orientation === 'landscape' ? 18 : 12;
-                        const notesLen = orientation === 'landscape' ? 40 : 20;
-                        
-                        pdf.setFontSize(7);
-                        pdf.setTextColor(30, 30, 30);
-                        pdf.text(d.name.substring(0, maxLen), cols[0], yPos);
+                        pdf.setFontSize(6);
+                        pdf.setFont('helvetica', 'bold');
                         pdf.setTextColor(60, 60, 60);
-                        pdf.text((d.manufacturer || '-').substring(0, maxLen), cols[1], yPos);
-                        pdf.text((d.os || '-').substring(0, maxLen), cols[2], yPos);
-                        pdf.text(d.ip || '-', cols[3], yPos);
-                        pdf.text((d.mac || '-').substring(0, 17), cols[4], yPos);
-                        pdf.text(vlanText.substring(0, 12), cols[5], yPos);
-                        pdf.setTextColor(80, 80, 80);
-                        pdf.text((d.notes || '-').substring(0, notesLen), cols[6], yPos);
                         
-                        yPos += 7;
+                        let xOffset = 10;
+                        config.cols.forEach((col, i) => {
+                            pdf.text(col, xOffset + 1, yPos);
+                            xOffset += config.widths[i];
+                        });
+                        yPos += 6;
+                        
+                        // Device rows
+                        pdf.setFont('helvetica', 'normal');
+                        devices.forEach((d, i) => {
+                            // Check for page break
+                            if (yPos > pageHeight - 15) {
+                                pdf.addPage();
+                                pageNum++;
+                                pdf.setFillColor(0, 30, 98);
+                                pdf.rect(0, 0, pageWidth, 22, 'F');
+                                try {
+                                    pdf.addImage(logoBase64, 'JPEG', 8, 3, 35, 16);
+                                } catch(e) {}
+                                pdf.setTextColor(234, 234, 234);
+                                pdf.setFontSize(14);
+                                pdf.setFont('helvetica', 'bold');
+                                pdf.text('Device Inventory (continued)', 48, 10);
+                                pdf.setFontSize(9);
+                                pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 12, { align: 'right' });
+                                yPos = 30;
+                                
+                                // Repeat column headers
+                                pdf.setFillColor(240, 240, 240);
+                                pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
+                                pdf.setFontSize(6);
+                                pdf.setFont('helvetica', 'bold');
+                                pdf.setTextColor(60, 60, 60);
+                                let xOff = 10;
+                                config.cols.forEach((col, j) => {
+                                    pdf.text(col, xOff + 1, yPos);
+                                    xOff += config.widths[j];
+                                });
+                                yPos += 6;
+                                pdf.setFont('helvetica', 'normal');
+                            }
+                            
+                            // Alternate row background
+                            if (i % 2 === 0) {
+                                pdf.setFillColor(250, 250, 250);
+                            } else {
+                                pdf.setFillColor(255, 255, 255);
+                            }
+                            pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
+                            
+                            const rowData = config.getData(d);
+                            pdf.setFontSize(6);
+                            pdf.setTextColor(40, 40, 40);
+                            
+                            let xOff = 10;
+                            rowData.forEach((val, j) => {
+                                const maxChars = Math.floor(config.widths[j] / 1.8);
+                                const truncated = String(val).substring(0, maxChars);
+                                pdf.text(truncated, xOff + 1, yPos);
+                                xOff += config.widths[j];
+                            });
+                            
+                            yPos += 6;
+                        });
+                        
+                        yPos += 6; // Space between sections
                     });
                     
-                    // Footer for page 2
+                    // Footer for last page
                     pdf.setFontSize(8);
                     pdf.setTextColor(102, 102, 102);
                     pdf.text('Generated by i-Tech Network Mapping Tool', 10, pageHeight - 5);
-                    pdf.text('Page 2 of 2', pageWidth - 10, pageHeight - 5, { align: 'right' });
+                    pdf.text('Page ' + pageNum + ' of ' + pageNum, pageWidth - 10, pageHeight - 5, { align: 'right' });
                 }
                 
                 pdf.save(title.toLowerCase().replace(/\s+/g, '-') + '-' + new Date().toISOString().split('T')[0] + '.pdf');
