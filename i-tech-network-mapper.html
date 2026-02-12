@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>i-Tech Network Mapping Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            /* i-Tech Brand Colors */
+            --primary:#0F71F0;--secondary:#199FFF;--accent:#EF7225;
+            --dark:#001543;--darker:#001E62;
+            --grey:#42486A;--grey-light:#4a5080;
+            --glass:rgba(255,255,255,0.05);--glass-border:rgba(255,255,255,0.1);
+            --text:#EAEAEA;--text-secondary:#D8D7DF;--text-muted:#8a8daf;
+            --green:#22c55e;--yellow:#eab308;--orange:#EF7225;--red-soft:#ef4444;
+            --accent-purple:#c084fc;
+            --titan-white:#D8D7DF;
+            --white-smoke:#EAEAEA;
+        }
+        body{font-family:'Poppins',sans-serif;background:linear-gradient(135deg,var(--dark),var(--darker));color:var(--text);overflow:hidden;height:100vh;line-height:1.6}
+
+        /* Animated background */
+        .grid-bg{position:fixed;top:0;left:0;width:100%;height:100%;background-image:linear-gradient(rgba(15,113,240,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(15,113,240,0.03) 1px,transparent 1px);background-size:60px 60px;z-index:0;animation:gridMove 20s linear infinite;pointer-events:none}
+        @keyframes gridMove{0%{transform:translate(0,0)}100%{transform:translate(60px,60px)}}
+        .orb{position:fixed;border-radius:50%;filter:blur(80px);z-index:0;animation:float 20s ease-in-out infinite;pointer-events:none}
+        .orb-1{width:600px;height:600px;background:radial-gradient(circle,rgba(15,113,240,0.12) 0%,transparent 70%);top:-200px;right:-200px}
+        .orb-2{width:500px;height:500px;background:radial-gradient(circle,rgba(0,30,98,0.10) 0%,transparent 70%);bottom:-150px;left:-150px;animation-delay:-10s}
+        .orb-3{width:400px;height:400px;background:radial-gradient(circle,rgba(25,159,255,0.08) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:-5s}
+        @keyframes float{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(30px,-30px) scale(1.05)}50%{transform:translate(-20px,20px) scale(0.95)}75%{transform:translate(20px,30px) scale(1.02)}}
+
+        /* Layout */
+        .app{display:grid;grid-template-columns:260px 1fr 300px;grid-template-rows:56px 1fr 40px;height:100vh;position:relative;z-index:1}
+
+        /* Header */
+        .header{grid-column:1/-1;background:rgba(0,21,67,0.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-border);display:flex;align-items:center;padding:0 1.5rem;gap:16px;z-index:100}
+        .logo{font-weight:700;font-size:1.25rem;display:flex;align-items:center;gap:10px}
+        .logo-icon{height:36px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:6px;padding:4px 10px}
+        .logo-icon img{height:100%;width:auto}
+        .logo-tool-name{font-size:0.85rem;color:var(--text-muted);font-weight:400;margin-left:14px;padding-left:14px;border-left:1px solid var(--glass-border)}
+        .client-label{display:flex;align-items:center;margin-left:20px;padding-left:20px;border-left:1px solid var(--glass-border)}
+        .client-input{background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:6px 12px;color:var(--text);font-size:0.85rem;font-family:'Poppins',sans-serif;width:200px;outline:none;transition:border-color 0.3s}
+        .client-input:focus{border-color:rgba(15,113,240,0.5)}
+        .client-input::placeholder{color:var(--text-muted)}
+        .header-actions{display:flex;gap:8px;margin-left:auto}
+
+        /* Buttons */
+        .btn{padding:8px 14px;border-radius:12px;border:1px solid var(--glass-border);background:var(--glass);color:var(--text-secondary);cursor:pointer;font-size:0.8rem;font-family:'Poppins',sans-serif;font-weight:500;display:flex;align-items:center;gap:6px;transition:all 0.3s ease;backdrop-filter:blur(10px)}
+        .btn:hover{color:var(--text);border-color:rgba(15,113,240,0.4);box-shadow:0 0 15px rgba(15,113,240,0.1)}
+        .btn-primary{background:linear-gradient(135deg,var(--primary),#006CFF);border-color:transparent;color:white;font-weight:600}
+        .btn-primary:hover{box-shadow:0 4px 20px rgba(15,113,240,0.4);transform:translateY(-1px)}
+        .btn-danger{border-color:rgba(239,68,68,0.3);color:var(--red-soft)}
+        .btn-danger:hover{background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.5);box-shadow:0 0 15px rgba(239,68,68,0.1)}
+
+        /* Sidebar */
+        .sidebar{background:rgba(0,21,67,0.9);backdrop-filter:blur(20px);border-right:1px solid var(--glass-border);overflow-y:auto;padding:14px}
+        .sidebar-section{margin-bottom:20px}
+        .sidebar-title{font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--primary);margin-bottom:10px}
+        .device-palette{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+        .device-item{background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:10px 8px;cursor:grab;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:0.7rem;font-weight:500;color:var(--text-secondary);transition:all 0.3s ease}
+        .device-item:hover{border-color:rgba(15,113,240,0.5);background:rgba(15,113,240,0.08);transform:translateY(-2px);box-shadow:0 4px 15px rgba(15,113,240,0.1)}
+        .device-item .icon{font-size:20px}
+
+        /* Canvas */
+        .canvas-area{position:relative;overflow:hidden;background:#ffffff;cursor:grab}
+        .canvas-area.panning{cursor:grabbing}
+        .canvas-area.dragging-device{cursor:move}
+        .canvas-grid{position:absolute;width:8000px;height:8000px;left:-4000px;top:-4000px;background-image:radial-gradient(circle,rgba(15,113,240,0.25) 1.5px,transparent 1.5px);background-size:20px 20px;pointer-events:none;animation:dotPulse 3s ease-in-out infinite}
+        @keyframes dotPulse{0%,100%{opacity:0.6}50%{opacity:1}}
+        #canvasWrapper{position:absolute;width:8000px;height:8000px;left:-4000px;top:-4000px;transform-origin:center center}
+        #canvas{position:absolute;width:100%;height:100%}
+        #connections{position:absolute;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
+        .conn-wired{stroke:var(--primary);stroke-width:2;fill:none}
+        .conn-wireless{stroke:var(--accent-purple);stroke-width:2;fill:none;stroke-dasharray:8,4}
+        .controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);padding:8px;border-radius:14px;border:1px solid #e0e0e0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+
+        /* Network devices */
+        .network-device{position:absolute;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);border:2px solid #e0e0e0;border-radius:14px;padding:12px;min-width:120px;cursor:move;user-select:none;z-index:10;transition:border-color 0.3s,box-shadow 0.3s;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+        .network-device:hover{border-color:#0F71F0;box-shadow:0 4px 20px rgba(15,113,240,0.15)}
+        .network-device.selected{border-color:var(--primary);box-shadow:0 0 0 3px rgba(15,113,240,0.2),0 4px 30px rgba(15,113,240,0.15)}
+        .network-device.connecting{border-color:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,0.15)}
+        .device-status{width:8px;height:8px;border-radius:50%;position:absolute;top:10px;right:10px}
+        .status-online{background:var(--green);box-shadow:0 0 8px var(--green)}
+        .status-offline{background:#555}
+        .status-warning{background:var(--orange);box-shadow:0 0 8px var(--orange)}
+        .status-retired{background:#555;opacity:0.5}
+        .status-decommissioned{background:#555}
+        .device-icon{font-size:24px;margin-bottom:4px}
+        .device-icon.vmhost-icon{font-size:16px;letter-spacing:-2px}
+        .device-name{font-size:0.75rem;font-weight:600;margin-bottom:2px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1a1a1a}
+        .device-ip{font-size:0.65rem;color:#666;font-family:'JetBrains Mono',monospace}
+        .device-badge{font-size:0.6rem;padding:3px 8px;background:rgba(15,113,240,0.1);border:1px solid rgba(15,113,240,0.2);border-radius:6px;color:#0F71F0;margin-top:6px;display:inline-block;font-weight:500}
+        .conn-point{position:absolute;width:14px;height:14px;background:#ffffff;border:2px solid var(--primary);border-radius:50%;cursor:crosshair;z-index:20;opacity:0;transition:opacity 0.2s,transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+        .network-device:hover .conn-point,.network-device.connecting .conn-point{opacity:1}
+        .conn-point:hover{background:var(--primary);transform:scale(1.2)}
+        .conn-point.top{top:-7px;left:50%;margin-left:-7px}
+        .conn-point.bottom{bottom:-7px;left:50%;margin-left:-7px}
+        .conn-point.left{left:-7px;top:50%;margin-top:-7px}
+        .conn-point.right{right:-7px;top:50%;margin-top:-7px}
+
+        /* Properties panel */
+        .props-panel{background:rgba(0,21,67,0.9);backdrop-filter:blur(20px);border-left:1px solid var(--glass-border);overflow-y:auto;padding:14px}
+        .panel-title{font-size:0.85rem;font-weight:600;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--glass-border);background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .form-group{margin-bottom:14px}
+        .form-label{display:block;font-size:0.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+        .form-input,.form-select,.form-textarea{width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);border-radius:10px;color:var(--text);font-size:0.8rem;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color 0.3s,box-shadow 0.3s}
+        .form-input:focus,.form-select:focus,.form-textarea:focus{border-color:rgba(15,113,240,0.5);box-shadow:0 0 0 3px rgba(15,113,240,0.1)}
+        .form-textarea{min-height:60px;resize:vertical;font-family:'Poppins',sans-serif}
+        .status-btns{display:flex;gap:4px;flex-wrap:wrap}
+        .status-btn{flex:1;min-width:50px;padding:8px 4px;background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;cursor:pointer;text-align:center;font-size:0.6rem;font-weight:500;color:var(--text-secondary);font-family:'Poppins',sans-serif;transition:all 0.3s}
+        .status-btn.active{border-color:rgba(15,113,240,0.5);background:rgba(15,113,240,0.08);color:var(--text)}
+        .status-btn .dot{width:8px;height:8px;border-radius:50%;margin:0 auto 4px}
+        .conn-toggle{display:flex;background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);border-radius:10px;padding:3px;margin-bottom:10px}
+        .conn-toggle button{flex:1;padding:7px;background:none;border:none;border-radius:8px;color:var(--text-secondary);cursor:pointer;font-size:0.7rem;font-weight:500;font-family:'Poppins',sans-serif;transition:all 0.3s}
+        .conn-toggle button.active{background:var(--glass);color:var(--text)}
+        .conn-toggle button.wired.active{color:var(--primary)}
+        .conn-toggle button.wireless.active{color:var(--accent-purple)}
+
+        /* Status bar */
+        .statusbar{grid-column:1/-1;background:rgba(0,21,67,0.9);backdrop-filter:blur(20px);border-top:1px solid var(--glass-border);display:flex;align-items:center;padding:0 1.5rem;font-size:0.7rem;font-weight:500;color:var(--text-muted);gap:20px}
+
+        /* Modals */
+        .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;visibility:hidden;transition:all 0.3s}
+        .modal-bg.active{opacity:1;visibility:visible}
+        .modal{background:rgba(0,30,98,0.98);backdrop-filter:blur(20px);border:1px solid var(--glass-border);border-radius:20px;width:450px;max-height:80vh;overflow-y:auto;position:relative}
+        .modal::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--secondary));border-radius:20px 20px 0 0;opacity:0.8}
+        .modal-header{padding:18px 20px;border-bottom:1px solid var(--glass-border);display:flex;justify-content:space-between;align-items:center}
+        .modal-header h3{font-size:0.95rem;font-weight:600;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .modal-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;transition:color 0.3s}
+        .modal-close:hover{color:var(--primary)}
+        .modal-body{padding:20px}
+        .modal-footer{padding:14px 20px;border-top:1px solid var(--glass-border);display:flex;justify-content:flex-end;gap:8px}
+
+        /* Config */
+        .config-section{background:var(--glass);border:1px solid var(--glass-border);border-radius:14px;padding:16px;margin-bottom:12px}
+        .config-title{font-size:0.75rem;font-weight:600;margin-bottom:12px;color:var(--primary)}
+        .vlan-item{display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);border-radius:10px;font-size:0.7rem;margin-bottom:6px;transition:border-color 0.3s}
+        .vlan-item:hover{border-color:rgba(255,255,255,0.15)}
+        .vlan-id{font-weight:600;color:var(--secondary);min-width:60px;font-family:'JetBrains Mono',monospace}
+        .vlan-subnet{color:var(--text-secondary);font-family:'JetBrains Mono',monospace}
+        .vlan-name{color:var(--text-muted);flex:1}
+        .vlan-del{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;transition:color 0.3s}
+        .vlan-del:hover{color:var(--red-soft)}
+        .add-btn{width:100%;padding:10px;background:none;border:1px dashed rgba(15,113,240,0.4);border-radius:10px;color:var(--text-muted);cursor:pointer;font-size:0.7rem;font-weight:500;font-family:'Poppins',sans-serif;transition:all 0.3s}
+        .add-btn:hover{border-color:var(--primary);color:var(--primary)}
+
+        /* VM */
+        .vm-host{min-width:180px;background:rgba(255,255,255,0.95);border-style:dashed;border-color:var(--accent-purple)}
+        .vm-list{margin-top:8px;padding-top:8px;border-top:1px solid #e0e0e0;display:flex;flex-wrap:wrap;gap:4px}
+        .hosted-vm{background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;font-size:0.6rem;display:flex;align-items:center;gap:4px;color:#333}
+        .hosted-vm .dot{width:6px;height:6px;border-radius:50%}
+
+        /* Misc */
+        .empty-state{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#666;pointer-events:none}
+        .empty-state h3{font-size:1.1rem;font-weight:600;margin-bottom:8px;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .empty-state p{font-size:0.8rem}
+        .conn-hint{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--primary),#006CFF);color:white;padding:10px 20px;border-radius:12px;font-size:0.8rem;font-weight:600;z-index:1000;display:none;box-shadow:0 4px 20px rgba(15,113,240,0.4)}
+        .conn-hint.active{display:block}
+
+        /* Network info box */
+        .network-info-box{position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);border:1px solid #e0e0e0;border-radius:14px;padding:16px;min-width:220px;max-width:280px;z-index:100;font-size:0.7rem;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+        .network-info-box h4{font-size:0.8rem;font-weight:600;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #e0e0e0;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .info-section{margin-bottom:12px}
+        .info-section:last-child{margin-bottom:0}
+        .info-section-title{font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--primary);margin-bottom:6px}
+        .info-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
+        .info-label{color:#666}
+        .info-value{font-family:'JetBrains Mono',monospace;color:#1a1a1a;font-weight:500}
+        .vlan-tag{display:inline-block;padding:3px 8px;background:rgba(15,113,240,0.08);border:1px solid rgba(15,113,240,0.2);border-radius:6px;margin:2px;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:#0F71F0}
+        .vlan-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+        .pan-hint{position:absolute;bottom:60px;left:16px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);border:1px solid #e0e0e0;padding:8px 12px;border-radius:10px;font-size:0.65rem;color:#666;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+
+        /* Scrollbar */
+        ::-webkit-scrollbar{width:6px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:var(--grey-light);border-radius:3px}
+        ::-webkit-scrollbar-thumb:hover{background:rgba(15,113,240,0.4)}
+    </style>
+</head>
+<body>
+    <div class="grid-bg"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="app">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <img src="data:image/jpeg;base64,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" alt="i-tech logo" />
+                </div>
+                <span class="logo-tool-name">Network Mapping Tool</span>
+            </div>
+            <div class="client-label">
+                <span style="color:var(--text-muted);font-size:0.7rem;margin-right:6px;">Client:</span>
+                <input type="text" id="clientName" class="client-input" placeholder="Enter client name...">
+            </div>
+            <div class="header-actions">
+                <button class="btn" id="exportPdfBtn">&#x1F4C4; Export PDF</button>
+                <button class="btn" id="exportJsonBtn">&#x1F4BE; Save Project</button>
+                <button class="btn" id="importBtn">&#x1F4C2; Load Project</button>
+                <button class="btn" id="configBtn">&#x2699;&#xFE0F; Config</button>
+                <button class="btn btn-danger" id="clearBtn">&#x1F5D1;&#xFE0F; Clear</button>
+            </div>
+        </header>
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">Endpoints</div>
+                <div class="device-palette">
+                    <div class="device-item" draggable="true" data-type="desktop"><span class="icon">&#x1F5A5;&#xFE0F;</span>Desktop</div>
+                    <div class="device-item" draggable="true" data-type="laptop"><span class="icon">&#x1F4BB;</span>Laptop</div>
+                    <div class="device-item" draggable="true" data-type="cellphone"><span class="icon">&#x1F4F1;</span>Cell Phone</div>
+                    <div class="device-item" draggable="true" data-type="tablet"><span class="icon">&#x1F4F2;</span>Tablet</div>
+                    <div class="device-item" draggable="true" data-type="printer"><span class="icon">&#x1F5A8;&#xFE0F;</span>Printer</div>
+                    <div class="device-item" draggable="true" data-type="otherendpoint"><span class="icon">&#x2753;</span>Other</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Servers &amp; Storage</div>
+                <div class="device-palette">
+                    <div class="device-item" draggable="true" data-type="server"><span class="icon">&#x1F5A5;&#xFE0F;</span>Server</div>
+                    <div class="device-item" draggable="true" data-type="nas"><span class="icon">&#x1F4BE;</span>NAS</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Network Equipment</div>
+                <div class="device-palette">
+                    <div class="device-item" draggable="true" data-type="router"><span class="icon">&#x1F4E1;</span>Router</div>
+                    <div class="device-item" draggable="true" data-type="firewall"><span class="icon">&#x1F6E1;&#xFE0F;</span>Firewall</div>
+                    <div class="device-item" draggable="true" data-type="switch"><span class="icon">&#x1F500;</span>Switch</div>
+                    <div class="device-item" draggable="true" data-type="ap"><span class="icon">&#x1F4F6;</span>Access Point</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Virtualization &amp; Cloud</div>
+                <div class="device-palette">
+                    <div class="device-item" draggable="true" data-type="cloud"><span class="icon">&#x2601;&#xFE0F;</span>Cloud</div>
+                    <div class="device-item" draggable="true" data-type="onprem"><span class="icon">&#x1F3E2;</span>On-Prem</div>
+                    <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">&#x1F5A5;&#xFE0F;&#x1F5A5;&#xFE0F;</span>VM Host</div>
+                    <div class="device-item" draggable="true" data-type="vm"><span class="icon">&#x1F5A5;&#xFE0F;</span>VM</div>
+                    <div class="device-item" draggable="true" data-type="storage"><span class="icon">&#x1F4E6;</span>Storage</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Other</div>
+                <div class="device-palette">
+                    <div class="device-item" draggable="true" data-type="phone"><span class="icon">&#x260E;&#xFE0F;</span>Desk Phone</div>
+                    <div class="device-item" draggable="true" data-type="camera"><span class="icon">&#x1F4F9;</span>Security Cam</div>
+                    <div class="device-item" draggable="true" data-type="iot"><span class="icon">&#x1F310;</span>IoT</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Connection Type</div>
+                <div class="conn-toggle">
+                    <button class="wired active" id="wiredBtn">&#x2015; Wired</button>
+                    <button class="wireless" id="wirelessBtn">&#x2505; Wireless</button>
+                </div>
+                <p style="font-size:0.65rem;color:var(--text-muted);">Click circles on devices to connect.</p>
+            </div>
+        </aside>
+        <main class="canvas-area" id="canvasArea">
+            <div class="canvas-grid" id="canvasGrid"></div>
+            <div id="canvasWrapper">
+                <svg id="connections" width="8000" height="8000"></svg>
+                <div id="canvas"></div>
+            </div>
+            <div class="empty-state" id="emptyState">
+                <h3>Start Building Your Network</h3>
+                <p>Drag devices from the sidebar onto the canvas</p>
+            </div>
+            <div class="network-info-box" id="networkInfoBox">
+                <h4>&#x2699;&#xFE0F; Network Configuration</h4>
+                <div class="info-section">
+                    <div class="info-section-title">DNS</div>
+                    <div class="info-row"><span class="info-label">Provider:</span><span class="info-value" id="infoDnsProvider">DNS Filter</span></div>
+                    <div class="info-row"><span class="info-label">Primary:</span><span class="info-value" id="infoDnsPrimary">8.8.8.8</span></div>
+                    <div class="info-row"><span class="info-label">Secondary:</span><span class="info-value" id="infoDnsSecondary">8.8.4.4</span></div>
+                </div>
+                <div class="info-section">
+                    <div class="info-section-title">DHCP</div>
+                    <div class="info-row"><span class="info-label">Managed by:</span><span class="info-value" id="infoDhcp">Router</span></div>
+                </div>
+                <div class="info-section">
+                    <div class="info-section-title">VLANs</div>
+                    <div class="vlan-tags" id="infoVlans"></div>
+                </div>
+            </div>
+            <div class="pan-hint">Drag empty space to pan &#x2022; Scroll to zoom</div>
+            <div class="controls">
+                <button class="btn" id="zoomInBtn">&#x1F50D;+</button>
+                <button class="btn" id="zoomOutBtn">&#x1F50D;-</button>
+                <button class="btn" id="resetBtn">&#x1F3E0; Reset View</button>
+            </div>
+        </main>
+        <aside class="props-panel">
+            <div class="panel-title">Properties</div>
+            <div id="noSelect" style="text-align:center;padding:30px;color:var(--text-muted);"><p style="font-size:0.8rem;">Select a device to edit</p></div>
+            <div id="deviceProps" style="display:none;">
+                <div class="form-group"><label class="form-label">Device Name</label><input type="text" class="form-input" id="propName"></div>
+                <div class="form-group" id="manufacturerGroup" style="display:none;"><label class="form-label">Manufacturer</label><select class="form-select" id="propManufacturer"></select></div>
+                <div class="form-group" id="osGroup" style="display:none;"><label class="form-label">Operating System</label><select class="form-select" id="propOS"></select></div>
+                <div class="form-group"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propIP" placeholder="192.168.1.1"></div>
+                <div class="form-group"><label class="form-label">MAC Address</label><input type="text" class="form-input" id="propMAC" placeholder="00:00:00:00:00:00"></div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <div class="status-btns">
+                        <div class="status-btn" data-status="online"><div class="dot status-online"></div>Online</div>
+                        <div class="status-btn" data-status="offline"><div class="dot status-offline"></div>Offline</div>
+                        <div class="status-btn" data-status="warning"><div class="dot status-warning"></div>Warning</div>
+                        <div class="status-btn" data-status="retired"><div class="dot status-retired"></div>Retired</div>
+                        <div class="status-btn" data-status="decommissioned"><div class="dot status-decommissioned"></div>Decom.</div>
+                    </div>
+                </div>
+                <div class="form-group"><label class="form-label">VLAN</label><select class="form-select" id="propVLAN"></select></div>
+                <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="propNotes"></textarea></div>
+                <div id="vmSection" style="display:none;">
+                    <div class="form-label">Hosted VMs</div>
+                    <div id="vmList"></div>
+                    <button class="add-btn" id="addVMBtn" style="margin-top:8px;">+ Add VM</button>
+                </div>
+                <button class="btn btn-danger" style="width:100%;margin-top:16px;justify-content:center;" id="deleteBtn">&#x1F5D1;&#xFE0F; Delete Device</button>
+            </div>
+        </aside>
+        <footer class="statusbar">
+            <span id="deviceCount">0 devices</span>
+            <span id="connCount">0 connections</span>
+            <span style="margin-left:auto;" id="zoomLevel">100%</span>
+        </footer>
+    </div>
+    <div class="conn-hint" id="connHint">Click another device to complete connection</div>
+
+    <div class="modal-bg" id="configModal">
+        <div class="modal">
+            <div class="modal-header"><h3>Network Configuration</h3><button class="modal-close" onclick="closeModal('configModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="config-section">
+                    <div class="config-title">&#x1F310; DNS Configuration</div>
+                    <div class="form-group"><label class="form-label">DNS Provider</label>
+                        <select class="form-select" id="dnsProvider" onchange="updateDnsFields()">
+                            <option value="DNS Filter">DNS Filter</option>
+                            <option value="Cisco Umbrella">Cisco Umbrella</option>
+                            <option value="Server Hosted">Server Hosted</option>
+                            <option value="Cloudflare">Cloudflare</option>
+                            <option value="Google DNS">Google DNS</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="dnsServerGroup" style="display:none;"><label class="form-label">DNS Server</label><select class="form-select" id="dnsServerDevice"></select></div>
+                    <div style="display:flex;gap:8px;">
+                        <div class="form-group" style="flex:1;"><label class="form-label">Primary DNS</label><input type="text" class="form-input" id="dnsPrimary" value="8.8.8.8"></div>
+                        <div class="form-group" style="flex:1;"><label class="form-label">Secondary DNS</label><input type="text" class="form-input" id="dnsSecondary" value="8.8.4.4"></div>
+                    </div>
+                </div>
+                <div class="config-section">
+                    <div class="config-title">&#x1F4CB; DHCP Configuration</div>
+                    <div class="form-group"><label class="form-label">DHCP Server Type</label>
+                        <select class="form-select" id="dhcpType" onchange="updateDhcpDevices()">
+                            <option value="Router">Router</option>
+                            <option value="Dedicated Server">Dedicated Server</option>
+                            <option value="Firewall">Firewall</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label class="form-label">DHCP Device</label><select class="form-select" id="dhcpDevice"></select></div>
+                </div>
+                <div class="config-section">
+                    <div class="config-title">&#x1F3F7;&#xFE0F; VLANs &amp; Subnets</div>
+                    <div id="vlanList"></div>
+                    <button class="add-btn" onclick="openModal('vlanModal')">+ Add VLAN</button>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary" onclick="saveConfig()">Save &amp; Close</button></div>
+        </div>
+    </div>
+    <div class="modal-bg" id="vlanModal">
+        <div class="modal" style="width:350px;">
+            <div class="modal-header"><h3>Add VLAN</h3><button class="modal-close" onclick="closeModal('vlanModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">VLAN ID</label><input type="number" class="form-input" id="newVlanID"></div>
+                <div class="form-group"><label class="form-label">Name</label><input type="text" class="form-input" id="newVlanName"></div>
+                <div class="form-group"><label class="form-label">Subnet</label><input type="text" class="form-input" id="newVlanSubnet" placeholder="192.168.10.0/24"></div>
+                <div class="form-group"><label class="form-label">Gateway</label><input type="text" class="form-input" id="newVlanGateway" placeholder="192.168.10.1"></div>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeModal('vlanModal')">Cancel</button><button class="btn btn-primary" onclick="saveVlan()">Add</button></div>
+        </div>
+    </div>
+    <div class="modal-bg" id="vmModal">
+        <div class="modal" style="width:350px;">
+            <div class="modal-header"><h3>Add VM</h3><button class="modal-close" onclick="closeModal('vmModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">VM Name</label><input type="text" class="form-input" id="newVMName"></div>
+                <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="newVMStatus"><option value="online">Online</option><option value="offline">Offline</option><option value="warning">Warning</option></select></div>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeModal('vmModal')">Cancel</button><button class="btn btn-primary" onclick="saveVM()">Add</button></div>
+        </div>
+    </div>
+    <div class="modal-bg" id="exportModal">
+        <div class="modal" style="width:400px;">
+            <div class="modal-header"><h3>Export PDF</h3><button class="modal-close" onclick="closeModal('exportModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">Document Title</label><input type="text" class="form-input" id="pdfTitle" value="Network Diagram"></div>
+                <div class="form-group"><label class="form-label">Orientation</label>
+                    <select class="form-select" id="pdfOrientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select>
+                </div>
+                <div class="form-group">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.8rem;color:var(--text-secondary);">
+                        <input type="checkbox" id="includeInventory" checked style="width:16px;height:16px;accent-color:var(--primary);">
+                        Include device inventory (Notes, VLAN, MAC)
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeModal('exportModal')">Cancel</button><button class="btn btn-primary" onclick="generatePDF()">Export PDF</button></div>
+        </div>
+    </div>
+    <script>
+        const state = {
+            devices: [],
+            connections: [],
+            vlans: [
+                { id: 1, name: 'Default', subnet: '192.168.1.0/24', gateway: '192.168.1.1' },
+                { id: 10, name: 'Management', subnet: '192.168.10.0/24', gateway: '192.168.10.1' },
+                { id: 20, name: 'Servers', subnet: '192.168.20.0/24', gateway: '192.168.20.1' }
+            ],
+            config: { dnsProvider: 'DNS Filter', dnsServer: '', dnsPrimary: '8.8.8.8', dnsSecondary: '8.8.4.4', dhcpType: 'Router', dhcpDevice: '' },
+            selected: null,
+            connType: 'wired',
+            connecting: null,
+            zoom: 1,
+            panX: 0,
+            panY: 0,
+            counter: 0,
+            exportFormat: 'pdf'
+        };
+
+        const types = {
+            desktop: { name: 'Desktop', icon: '🖥️' }, laptop: { name: 'Laptop', icon: '💻' },
+            cellphone: { name: 'Cell Phone', icon: '📱' }, tablet: { name: 'Tablet', icon: '📲' },
+            otherendpoint: { name: 'Other Endpoint', icon: '❓' },
+            server: { name: 'Server', icon: '🖥️' }, nas: { name: 'NAS', icon: '💾' },
+            router: { name: 'Router', icon: '📡' }, switch: { name: 'Switch', icon: '🔀' },
+            firewall: { name: 'Firewall', icon: '🛡️' }, ap: { name: 'Access Point', icon: '📶' },
+            vmhost: { name: 'VM Host', icon: '🖥️🖥️' }, vm: { name: 'VM', icon: '🖥️' },
+            cloud: { name: 'Cloud', icon: '☁️' }, onprem: { name: 'On-Prem', icon: '🏢' }, storage: { name: 'Storage', icon: '📦' }, printer: { name: 'Printer', icon: '🖨️' },
+            iot: { name: 'IoT', icon: '🌐' }, phone: { name: 'Desk Phone', icon: '☎️' },
+            camera: { name: 'Security Camera', icon: '📹' }
+        };
+
+        const manufacturers = {
+            desktop: ['Dell', 'HP', 'Lenovo', 'Apple', 'Asus', 'Acer', 'Microsoft', 'Intel NUC', 'Custom Build', 'Other'],
+            laptop: ['Dell', 'HP', 'Lenovo', 'Apple', 'Asus', 'Acer', 'Microsoft', 'Samsung', 'MSI', 'Razer', 'Framework', 'Other'],
+            cellphone: ['Apple', 'Samsung', 'Google', 'OnePlus', 'Motorola', 'LG', 'Xiaomi', 'Huawei', 'Sony', 'Nokia', 'Other'],
+            tablet: ['Apple', 'Samsung', 'Microsoft', 'Lenovo', 'Amazon', 'Google', 'Huawei', 'Asus', 'Other'],
+            printer: ['HP', 'Canon', 'Epson', 'Brother', 'Xerox', 'Lexmark', 'Ricoh', 'Kyocera', 'Dell', 'Samsung', 'Konica Minolta', 'Other'],
+            otherendpoint: ['Generic', 'Custom', 'Other'],
+            server: ['Dell', 'HP/HPE', 'Lenovo', 'Supermicro', 'Cisco', 'IBM', 'Fujitsu', 'Intel', 'Custom Build', 'Other'],
+            vm: ['VMware', 'Hyper-V', 'Proxmox', 'KVM', 'VirtualBox', 'Xen', 'Other']
+        };
+
+        const operatingSystems = {
+            desktop: ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'],
+            laptop: ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'],
+            cellphone: ['iOS 17', 'iOS 16', 'iOS 15', 'Android 14', 'Android 13', 'Android 12', 'Android 11', 'Android 10', 'Other'],
+            tablet: ['iPadOS 17', 'iPadOS 16', 'iPadOS 15', 'Android 14', 'Android 13', 'Android 12', 'Windows 11', 'Windows 10', 'Fire OS', 'Chrome OS', 'Other'],
+            otherendpoint: ['Windows', 'macOS', 'Linux', 'Android', 'iOS', 'Embedded', 'Proprietary', 'Other'],
+            server: ['Windows Server 2022', 'Windows Server 2019', 'Windows Server 2016', 'Windows Server 2012 R2', 'Ubuntu Server 24.04', 'Ubuntu Server 22.04', 'Ubuntu Server 20.04', 'RHEL 9', 'RHEL 8', 'CentOS Stream 9', 'Rocky Linux 9', 'AlmaLinux 9', 'Debian 12', 'Debian 11', 'SUSE Linux Enterprise', 'VMware ESXi', 'Proxmox VE', 'Other'],
+            vm: ['Windows Server 2022', 'Windows Server 2019', 'Windows Server 2016', 'Windows 11', 'Windows 10', 'Ubuntu Server 24.04', 'Ubuntu Server 22.04', 'Ubuntu 24.04', 'Ubuntu 22.04', 'RHEL 9', 'RHEL 8', 'CentOS Stream 9', 'Rocky Linux 9', 'AlmaLinux 9', 'Debian 12', 'Debian 11', 'Other Linux', 'Other']
+        };
+
+        const canvasArea = document.getElementById('canvasArea');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const canvasGrid = document.getElementById('canvasGrid');
+        const canvas = document.getElementById('canvas');
+        const svg = document.getElementById('connections');
+        const connHint = document.getElementById('connHint');
+
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        function updateNetworkInfoBox() {
+            document.getElementById('infoDnsProvider').textContent = state.config.dnsProvider;
+            document.getElementById('infoDnsPrimary').textContent = state.config.dnsPrimary;
+            document.getElementById('infoDnsSecondary').textContent = state.config.dnsSecondary;
+            document.getElementById('infoDhcp').textContent = state.config.dhcpType;
+            document.getElementById('infoVlans').innerHTML = state.vlans.map(v => '<span class="vlan-tag">VLAN ' + v.id + ' - ' + v.subnet + '</span>').join('');
+        }
+
+        // Pan and zoom state
+        let isPanning = false;
+        let panStart = { x: 0, y: 0 };
+        let draggingDevice = null;
+        let dragStart = { x: 0, y: 0 };
+        let deviceStart = { x: 0, y: 0 };
+
+        function applyTransform() {
+            const transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+            canvasWrapper.style.transform = transform;
+            canvasGrid.style.transform = transform;
+            document.getElementById('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
+        }
+
+        function resetView() {
+            state.zoom = 1;
+            state.panX = 0;
+            state.panY = 0;
+            applyTransform();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Device drag from palette
+            document.querySelectorAll('.device-item').forEach(item => {
+                item.addEventListener('dragstart', e => e.dataTransfer.setData('type', item.dataset.type));
+            });
+            
+            canvasArea.addEventListener('dragover', e => e.preventDefault());
+            canvasArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                const type = e.dataTransfer.getData('type');
+                if (type) {
+                    const rect = canvasArea.getBoundingClientRect();
+                    // Convert screen coords to canvas coords accounting for pan and zoom
+                    const x = (e.clientX - rect.left - state.panX) / state.zoom + 4000 - 60;
+                    const y = (e.clientY - rect.top - state.panY) / state.zoom + 4000 - 40;
+                    createDevice(type, x, y);
+                }
+            });
+
+            // Pan functionality - mousedown on canvas area
+            canvasArea.addEventListener('mousedown', function(e) {
+                // Only start panning if clicking on empty space (not on a device)
+                if (e.target === canvasArea || e.target === canvasGrid || e.target.closest('#canvasWrapper') && !e.target.closest('.network-device')) {
+                    isPanning = true;
+                    panStart.x = e.clientX - state.panX;
+                    panStart.y = e.clientY - state.panY;
+                    canvasArea.classList.add('panning');
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isPanning) {
+                    state.panX = e.clientX - panStart.x;
+                    state.panY = e.clientY - panStart.y;
+                    applyTransform();
+                }
+                if (draggingDevice) {
+                    const dx = (e.clientX - dragStart.x) / state.zoom;
+                    const dy = (e.clientY - dragStart.y) / state.zoom;
+                    draggingDevice.x = deviceStart.x + dx;
+                    draggingDevice.y = deviceStart.y + dy;
+                    const el = document.getElementById(draggingDevice.id);
+                    el.style.left = draggingDevice.x + 'px';
+                    el.style.top = draggingDevice.y + 'px';
+                    drawConnections();
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isPanning) {
+                    isPanning = false;
+                    canvasArea.classList.remove('panning');
+                }
+                if (draggingDevice) {
+                    draggingDevice = null;
+                    canvasArea.classList.remove('dragging-device');
+                }
+            });
+
+            // Scroll to zoom
+            canvasArea.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                const rect = canvasArea.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                const oldZoom = state.zoom;
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                state.zoom = Math.max(0.25, Math.min(3, state.zoom + delta));
+                
+                // Adjust pan to zoom toward mouse position
+                const zoomRatio = state.zoom / oldZoom;
+                state.panX = mouseX - (mouseX - state.panX) * zoomRatio;
+                state.panY = mouseY - (mouseY - state.panY) * zoomRatio;
+                
+                applyTransform();
+            }, { passive: false });
+
+            // Buttons
+            document.getElementById('zoomInBtn').onclick = () => { state.zoom = Math.min(3, state.zoom + 0.1); applyTransform(); };
+            document.getElementById('zoomOutBtn').onclick = () => { state.zoom = Math.max(0.25, state.zoom - 0.1); applyTransform(); };
+            document.getElementById('resetBtn').onclick = resetView;
+            document.getElementById('wiredBtn').onclick = () => setConnType('wired');
+            document.getElementById('wirelessBtn').onclick = () => setConnType('wireless');
+            document.getElementById('configBtn').onclick = openConfig;
+            document.getElementById('clearBtn').onclick = clearAll;
+            document.getElementById('exportPdfBtn').onclick = () => openModal('exportModal');
+            document.getElementById('exportJsonBtn').onclick = exportJson;
+            document.getElementById('importBtn').onclick = importData;
+            document.getElementById('deleteBtn').onclick = deleteSelected;
+            document.getElementById('addVMBtn').onclick = () => openModal('vmModal');
+
+            document.querySelectorAll('.status-btn').forEach(btn => {
+                btn.onclick = () => setStatus(btn.dataset.status);
+            });
+
+            document.getElementById('propName').oninput = e => updateDeviceProp('name', e.target.value);
+            document.getElementById('propIP').oninput = e => updateDeviceProp('ip', e.target.value);
+            document.getElementById('propMAC').oninput = e => updateDeviceProp('mac', e.target.value);
+            document.getElementById('propVLAN').onchange = e => updateDeviceProp('vlan', e.target.value);
+            document.getElementById('propNotes').oninput = e => updateDeviceProp('notes', e.target.value);
+            document.getElementById('propManufacturer').onchange = e => updateDeviceProp('manufacturer', e.target.value);
+            document.getElementById('propOS').onchange = e => updateDeviceProp('os', e.target.value);
+
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') { cancelConnect(); deselectAll(); }
+                if (e.key === 'Delete' && state.selected) deleteSelected();
+            });
+
+            updateVlanSelect();
+            updateNetworkInfoBox();
+            applyTransform();
+        });
+
+        function setConnType(type) {
+            state.connType = type;
+            document.getElementById('wiredBtn').className = 'wired' + (type === 'wired' ? ' active' : '');
+            document.getElementById('wirelessBtn').className = 'wireless' + (type === 'wireless' ? ' active' : '');
+        }
+
+        function createDevice(type, x, y) {
+            state.counter++;
+            const cfg = types[type];
+            const device = {
+                id: 'dev' + Date.now(),
+                type: type,
+                name: cfg.name + ' ' + state.counter,
+                ip: '', mac: '', status: 'online', vlan: '', notes: '',
+                manufacturer: '', os: '',
+                x: x, y: y,
+                vms: type === 'vmhost' ? [] : null
+            };
+            state.devices.push(device);
+            renderDevice(device);
+            updateCounts();
+            document.getElementById('emptyState').style.display = 'none';
+        }
+
+        function renderDevice(d) {
+            const cfg = types[d.type];
+            const el = document.createElement('div');
+            el.id = d.id;
+            el.className = 'network-device' + (d.type === 'vmhost' ? ' vm-host' : '');
+            el.style.left = d.x + 'px';
+            el.style.top = d.y + 'px';
+            
+            const iconClass = d.type === 'vmhost' ? 'device-icon vmhost-icon' : 'device-icon';
+            const iconContent = d.type === 'vmhost' ? '🖥️🖥️' : cfg.icon;
+            
+            el.innerHTML = '<div class="device-status status-' + d.status + '"></div>' +
+                '<div class="' + iconClass + '">' + iconContent + '</div>' +
+                '<div class="device-name">' + d.name + '</div>' +
+                '<div class="device-ip">' + (d.ip || 'No IP') + '</div>' +
+                '<div class="device-badge">' + cfg.name + '</div>' +
+                (d.type === 'vmhost' ? '<div class="vm-list" id="vms' + d.id + '"></div>' : '') +
+                '<div class="conn-point top" data-pos="top"></div>' +
+                '<div class="conn-point bottom" data-pos="bottom"></div>' +
+                '<div class="conn-point left" data-pos="left"></div>' +
+                '<div class="conn-point right" data-pos="right"></div>';
+
+            el.addEventListener('mousedown', function(e) {
+                if (e.target.classList.contains('conn-point')) return;
+                e.stopPropagation();
+                draggingDevice = d;
+                dragStart.x = e.clientX;
+                dragStart.y = e.clientY;
+                deviceStart.x = d.x;
+                deviceStart.y = d.y;
+                canvasArea.classList.add('dragging-device');
+            });
+            
+            el.addEventListener('click', function(e) {
+                if (e.target.classList.contains('conn-point')) return;
+                e.stopPropagation();
+                selectDevice(d);
+            });
+            
+            el.querySelectorAll('.conn-point').forEach(point => {
+                point.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleConnectionClick(d, point.dataset.pos);
+                });
+            });
+
+            canvas.appendChild(el);
+            if (d.type === 'vmhost' && d.vms) renderVMsOnDevice(d);
+        }
+
+        function renderVMsOnDevice(d) {
+            const container = document.getElementById('vms' + d.id);
+            if (!container) return;
+            container.innerHTML = d.vms.map(vm => '<div class="hosted-vm"><div class="dot status-' + vm.status + '"></div>' + vm.name + '</div>').join('');
+        }
+
+        function handleConnectionClick(device, position) {
+            if (state.connecting === null) {
+                state.connecting = { device: device, pos: position };
+                document.getElementById(device.id).classList.add('connecting');
+                connHint.classList.add('active');
+            } else {
+                if (state.connecting.device.id !== device.id) {
+                    const exists = state.connections.some(c =>
+                        (c.from === state.connecting.device.id && c.to === device.id) ||
+                        (c.from === device.id && c.to === state.connecting.device.id)
+                    );
+                    if (!exists) {
+                        state.connections.push({
+                            id: 'conn' + Date.now(),
+                            from: state.connecting.device.id, fromPos: state.connecting.pos,
+                            to: device.id, toPos: position, type: state.connType
+                        });
+                        drawConnections();
+                        updateCounts();
+                    }
+                }
+                cancelConnect();
+            }
+        }
+
+        function cancelConnect() {
+            if (state.connecting) {
+                const el = document.getElementById(state.connecting.device.id);
+                if (el) el.classList.remove('connecting');
+            }
+            state.connecting = null;
+            connHint.classList.remove('active');
+        }
+
+        function getConnectionPoint(deviceId, position) {
+            const device = state.devices.find(d => d.id === deviceId);
+            if (!device) return { x: 0, y: 0 };
+            const el = document.getElementById(deviceId);
+            if (!el) return { x: 0, y: 0 };
+            const width = el.offsetWidth;
+            const height = el.offsetHeight;
+            const centerX = device.x + width / 2;
+            const centerY = device.y + height / 2;
+            switch (position) {
+                case 'top': return { x: centerX, y: device.y };
+                case 'bottom': return { x: centerX, y: device.y + height };
+                case 'left': return { x: device.x, y: centerY };
+                case 'right': return { x: device.x + width, y: centerY };
+                default: return { x: centerX, y: centerY };
+            }
+        }
+
+        function drawConnections() {
+            let paths = '';
+            state.connections.forEach(conn => {
+                const from = getConnectionPoint(conn.from, conn.fromPos);
+                const to = getConnectionPoint(conn.to, conn.toPos);
+                const midX = (from.x + to.x) / 2;
+                const midY = (from.y + to.y) / 2;
+                let path;
+                if (conn.fromPos === 'top' || conn.fromPos === 'bottom') {
+                    path = 'M' + from.x + ',' + from.y + ' C' + from.x + ',' + midY + ' ' + to.x + ',' + midY + ' ' + to.x + ',' + to.y;
+                } else {
+                    path = 'M' + from.x + ',' + from.y + ' C' + midX + ',' + from.y + ' ' + midX + ',' + to.y + ' ' + to.x + ',' + to.y;
+                }
+                paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
+            });
+            svg.innerHTML = paths;
+        }
+        function selectDevice(d) {
+            deselectAll();
+            state.selected = d;
+            document.getElementById(d.id).classList.add('selected');
+            showProps(d);
+        }
+
+        function deselectAll() {
+            if (state.selected) {
+                const el = document.getElementById(state.selected.id);
+                if (el) el.classList.remove('selected');
+            }
+            state.selected = null;
+            document.getElementById('noSelect').style.display = 'block';
+            document.getElementById('deviceProps').style.display = 'none';
+        }
+
+        function showProps(d) {
+            document.getElementById('noSelect').style.display = 'none';
+            document.getElementById('deviceProps').style.display = 'block';
+            document.getElementById('propName').value = d.name;
+            document.getElementById('propIP').value = d.ip;
+            document.getElementById('propMAC').value = d.mac;
+            document.getElementById('propVLAN').value = d.vlan;
+            document.getElementById('propNotes').value = d.notes;
+            document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === d.status));
+            document.getElementById('vmSection').style.display = d.type === 'vmhost' ? 'block' : 'none';
+            if (d.type === 'vmhost') renderVMList(d);
+            
+            // Handle manufacturer dropdown
+            const mfgGroup = document.getElementById('manufacturerGroup');
+            const mfgSelect = document.getElementById('propManufacturer');
+            if (manufacturers[d.type]) {
+                mfgGroup.style.display = 'block';
+                mfgSelect.innerHTML = '<option value="">-- Select --</option>' + 
+                    manufacturers[d.type].map(m => '<option value="' + m + '"' + (d.manufacturer === m ? ' selected' : '') + '>' + m + '</option>').join('');
+            } else {
+                mfgGroup.style.display = 'none';
+            }
+            
+            // Handle OS dropdown
+            const osGroup = document.getElementById('osGroup');
+            const osSelect = document.getElementById('propOS');
+            if (operatingSystems[d.type]) {
+                osGroup.style.display = 'block';
+                osSelect.innerHTML = '<option value="">-- Select --</option>' + 
+                    operatingSystems[d.type].map(o => '<option value="' + o + '"' + (d.os === o ? ' selected' : '') + '>' + o + '</option>').join('');
+            } else {
+                osGroup.style.display = 'none';
+            }
+        }
+
+        function renderVMList(d) {
+            const list = document.getElementById('vmList');
+            list.innerHTML = (!d.vms || d.vms.length === 0) 
+                ? '<p style="font-size:10px;color:var(--text-muted);text-align:center;">No VMs</p>'
+                : d.vms.map((vm, i) => '<div class="vlan-item"><div class="dot status-' + vm.status + '" style="width:8px;height:8px;border-radius:50%;"></div><span style="flex:1">' + vm.name + '</span><button class="vlan-del" onclick="removeVM(' + i + ')">&times;</button></div>').join('');
+        }
+
+        function removeVM(index) {
+            if (state.selected && state.selected.vms) {
+                state.selected.vms.splice(index, 1);
+                renderVMsOnDevice(state.selected);
+                renderVMList(state.selected);
+            }
+        }
+
+        function updateDeviceProp(key, value) {
+            if (!state.selected) return;
+            state.selected[key] = value;
+            const el = document.getElementById(state.selected.id);
+            if (key === 'name') el.querySelector('.device-name').textContent = value;
+            if (key === 'ip') el.querySelector('.device-ip').textContent = value || 'No IP';
+        }
+
+        function setStatus(status) {
+            if (!state.selected) return;
+            state.selected.status = status;
+            document.getElementById(state.selected.id).querySelector('.device-status').className = 'device-status status-' + status;
+            document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === status));
+        }
+
+        function deleteSelected() {
+            if (!state.selected) return;
+            const id = state.selected.id;
+            state.connections = state.connections.filter(c => c.from !== id && c.to !== id);
+            state.devices = state.devices.filter(d => d.id !== id);
+            document.getElementById(id).remove();
+            deselectAll();
+            drawConnections();
+            updateCounts();
+            if (state.devices.length === 0) document.getElementById('emptyState').style.display = 'block';
+        }
+
+        function updateCounts() {
+            document.getElementById('deviceCount').textContent = state.devices.length + ' device' + (state.devices.length !== 1 ? 's' : '');
+            document.getElementById('connCount').textContent = state.connections.length + ' connection' + (state.connections.length !== 1 ? 's' : '');
+        }
+
+        function updateVlanSelect() {
+            document.getElementById('propVLAN').innerHTML = '<option value="">Select VLAN</option>' + 
+                state.vlans.map(v => '<option value="' + v.id + '">VLAN ' + v.id + ' - ' + v.name + '</option>').join('');
+        }
+
+        function openConfig() {
+            openModal('configModal');
+            document.getElementById('dnsProvider').value = state.config.dnsProvider;
+            document.getElementById('dnsPrimary').value = state.config.dnsPrimary;
+            document.getElementById('dnsSecondary').value = state.config.dnsSecondary;
+            document.getElementById('dhcpType').value = state.config.dhcpType;
+            renderVlanList();
+            updateDnsFields();
+            updateDhcpDevices();
+        }
+
+        function renderVlanList() {
+            document.getElementById('vlanList').innerHTML = state.vlans.map((v, i) => 
+                '<div class="vlan-item"><span class="vlan-id">VLAN ' + v.id + '</span><span class="vlan-name">' + v.name + '</span><span class="vlan-subnet">' + v.subnet + '</span><button class="vlan-del" onclick="deleteVlan(' + i + ')">&times;</button></div>'
+            ).join('');
+        }
+
+        function deleteVlan(index) {
+            state.vlans.splice(index, 1);
+            renderVlanList();
+            updateVlanSelect();
+            updateNetworkInfoBox();
+        }
+
+        function saveVlan() {
+            const id = parseInt(document.getElementById('newVlanID').value);
+            const name = document.getElementById('newVlanName').value;
+            const subnet = document.getElementById('newVlanSubnet').value;
+            const gateway = document.getElementById('newVlanGateway').value;
+            if (id && name && subnet) {
+                state.vlans.push({ id, name, subnet, gateway });
+                renderVlanList();
+                updateVlanSelect();
+                updateNetworkInfoBox();
+                closeModal('vlanModal');
+                document.getElementById('newVlanID').value = '';
+                document.getElementById('newVlanName').value = '';
+                document.getElementById('newVlanSubnet').value = '';
+                document.getElementById('newVlanGateway').value = '';
+            }
+        }
+
+        function updateDnsFields() {
+            const prov = document.getElementById('dnsProvider').value;
+            document.getElementById('dnsServerGroup').style.display = prov === 'Server Hosted' ? 'block' : 'none';
+            if (prov === 'Server Hosted') {
+                document.getElementById('dnsServerDevice').innerHTML = '<option value="">Select...</option>' +
+                    state.devices.filter(d => d.type === 'server').map(d => '<option value="' + d.id + '">' + d.name + '</option>').join('');
+            }
+        }
+
+        function updateDhcpDevices() {
+            const type = document.getElementById('dhcpType').value;
+            const typeMap = { 'Router': 'router', 'Dedicated Server': 'server', 'Firewall': 'firewall' };
+            const devices = state.devices.filter(d => d.type === typeMap[type]);
+            document.getElementById('dhcpDevice').innerHTML = '<option value="">Select...</option>' +
+                devices.map(d => '<option value="' + d.id + '">' + d.name + '</option>').join('');
+        }
+
+        function saveConfig() {
+            state.config.dnsProvider = document.getElementById('dnsProvider').value;
+            state.config.dnsPrimary = document.getElementById('dnsPrimary').value;
+            state.config.dnsSecondary = document.getElementById('dnsSecondary').value;
+            state.config.dhcpType = document.getElementById('dhcpType').value;
+            state.config.dhcpDevice = document.getElementById('dhcpDevice').value;
+            updateNetworkInfoBox();
+            closeModal('configModal');
+        }
+
+        function saveVM() {
+            if (!state.selected || state.selected.type !== 'vmhost') return;
+            const name = document.getElementById('newVMName').value;
+            const status = document.getElementById('newVMStatus').value;
+            if (name) {
+                state.selected.vms.push({ name, status });
+                renderVMsOnDevice(state.selected);
+                renderVMList(state.selected);
+                closeModal('vmModal');
+                document.getElementById('newVMName').value = '';
+            }
+        }
+
+        function clearAll() {
+            if (confirm('Clear all devices and connections?')) {
+                state.devices = [];
+                state.connections = [];
+                state.counter = 0;
+                document.querySelectorAll('.network-device').forEach(el => el.remove());
+                svg.innerHTML = '';
+                deselectAll();
+                updateCounts();
+                document.getElementById('emptyState').style.display = 'block';
+            }
+        }
+
+        function setExportFormat(format) {
+            state.exportFormat = format;
+            document.getElementById('formatPdfBtn').classList.toggle('active', format === 'pdf');
+            document.getElementById('formatSvgBtn').classList.toggle('active', format === 'svg');
+            document.getElementById('orientationGroup').style.display = format === 'pdf' ? 'block' : 'none';
+            document.getElementById('exportBtn').textContent = format === 'pdf' ? 'Export PDF' : 'Export SVG';
+        }
+
+        function doExport() {
+            if (state.exportFormat === 'svg') {
+                generateSVG();
+            } else {
+                generatePDF();
+            }
+        }
+
+        function getVlanName(vlanId) {
+            const vlan = state.vlans.find(v => v.id === vlanId);
+            return vlan ? `VLAN ${vlan.id} - ${vlan.name}` : 'None';
+        }
+
+        function generateSVG() {
+            const title = document.getElementById('pdfTitle').value || 'Network Diagram';
+            const client = document.getElementById('pdfClient').value || '';
+            const includeInventory = document.getElementById('includeInventory').checked;
+            closeModal('exportModal');
+            
+            if (state.devices.length === 0) {
+                alert('No devices to export. Add some devices first.');
+                return;
+            }
+            
+            // Calculate bounding box
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            state.devices.forEach(d => {
+                const el = document.getElementById(d.id);
+                const w = el ? el.offsetWidth : 120;
+                const h = el ? el.offsetHeight : 100;
+                minX = Math.min(minX, d.x);
+                minY = Math.min(minY, d.y);
+                maxX = Math.max(maxX, d.x + w);
+                maxY = Math.max(maxY, d.y + h);
+            });
+            
+            const padding = 50;
+            minX -= padding;
+            minY -= padding;
+            maxX += padding;
+            maxY += padding;
+            
+            const contentWidth = maxX - minX;
+            const contentHeight = maxY - minY;
+            
+            // Build inventory data
+            let inventoryHeight = 0;
+            let inventoryContent = '';
+            if (includeInventory && state.devices.length > 0) {
+                inventoryHeight = 60 + (state.devices.length * 22);
+                inventoryContent = `
+                    <rect x="0" y="${contentHeight + 20}" width="${Math.max(contentWidth, 900)}" height="${inventoryHeight}" fill="#0a0a0a" stroke="#333" rx="10"/>
+                    <text x="15" y="${contentHeight + 45}" fill="#ff3b3b" font-size="14" font-weight="bold" font-family="Arial, sans-serif">Device Inventory</text>
+                    <text x="15" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">Name</text>
+                    <text x="130" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">Manufacturer</text>
+                    <text x="230" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">OS</text>
+                    <text x="350" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">IP Address</text>
+                    <text x="470" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">MAC Address</text>
+                    <text x="610" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">VLAN</text>
+                    <text x="720" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">Notes</text>
+                `;
+                state.devices.forEach((d, i) => {
+                    const y = contentHeight + 85 + (i * 22);
+                    const cfg = types[d.type];
+                    inventoryContent += `
+                        <text x="15" y="${y}" fill="#e4e4e7" font-size="11" font-family="Arial, sans-serif">${cfg.icon} ${d.name.substring(0, 12)}</text>
+                        <text x="130" y="${y}" fill="#a1a1a1" font-size="11" font-family="Arial, sans-serif">${(d.manufacturer || '-').substring(0, 12)}</text>
+                        <text x="230" y="${y}" fill="#a1a1a1" font-size="11" font-family="Arial, sans-serif">${(d.os || '-').substring(0, 15)}</text>
+                        <text x="350" y="${y}" fill="#a1a1a1" font-size="11" font-family="monospace">${d.ip || '-'}</text>
+                        <text x="470" y="${y}" fill="#a1a1a1" font-size="11" font-family="monospace">${d.mac || '-'}</text>
+                        <text x="610" y="${y}" fill="#a1a1a1" font-size="11" font-family="Arial, sans-serif">${getVlanName(d.vlan).substring(0, 12)}</text>
+                        <text x="720" y="${y}" fill="#888" font-size="11" font-family="Arial, sans-serif">${(d.notes || '-').substring(0, 25)}${d.notes && d.notes.length > 25 ? '...' : ''}</text>
+                    `;
+                });
+            }
+            
+            const totalHeight = contentHeight + (includeInventory ? inventoryHeight + 40 : 0);
+            
+            // Build SVG
+            let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${contentWidth}" height="${totalHeight + 60}" viewBox="0 0 ${contentWidth} ${totalHeight + 60}">
+    <defs>
+        <style>
+            .title { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #e4e4e7; }
+            .subtitle { font-family: Arial, sans-serif; font-size: 12px; fill: #a1a1a1; }
+            .device-box { fill: #0a0a0a; stroke: #333; stroke-width: 2; rx: 10; }
+            .device-name { font-family: Arial, sans-serif; font-size: 11px; fill: #e4e4e7; font-weight: 600; }
+            .device-ip { font-family: monospace; font-size: 10px; fill: #666; }
+            .device-badge { font-family: Arial, sans-serif; font-size: 9px; fill: #ff6b6b; }
+            .device-icon { font-size: 20px; }
+            .conn-wired { stroke: #ff3b3b; stroke-width: 2; fill: none; }
+            .conn-wireless { stroke: #c084fc; stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
+        </style>
+    </defs>
+    <rect width="100%" height="100%" fill="#050505"/>
+    <text x="15" y="25" class="title">${title}</text>
+    ${client ? `<text x="15" y="45" class="subtitle">Client: ${client}</text>` : ''}
+    <text x="${contentWidth - 15}" y="25" class="subtitle" text-anchor="end">${new Date().toLocaleDateString()}</text>
+    <g transform="translate(0, 60)">`;
+            
+            // Add connections
+            state.connections.forEach(conn => {
+                const from = getConnectionPoint(conn.from, conn.fromPos);
+                const to = getConnectionPoint(conn.to, conn.toPos);
+                const fx = from.x - minX, fy = from.y - minY;
+                const tx = to.x - minX, ty = to.y - minY;
+                const midX = (fx + tx) / 2, midY = (fy + ty) / 2;
+                let path;
+                if (conn.fromPos === 'top' || conn.fromPos === 'bottom') {
+                    path = `M${fx},${fy} C${fx},${midY} ${tx},${midY} ${tx},${ty}`;
+                } else {
+                    path = `M${fx},${fy} C${midX},${fy} ${midX},${ty} ${tx},${ty}`;
+                }
+                svgContent += `<path d="${path}" class="conn-${conn.type}"/>`;
+            });
+            
+            // Add devices
+            state.devices.forEach(d => {
+                const cfg = types[d.type];
+                const x = d.x - minX;
+                const y = d.y - minY;
+                const statusColors = { online: '#22c55e', offline: '#555', warning: '#f97316', retired: '#555', decommissioned: '#555' };
+                
+                let iconContent;
+                if (d.type === 'vmhost') {
+                    iconContent = `
+                        <text x="52" y="32" text-anchor="middle" font-size="14">🖥️</text>
+                        <text x="68" y="32" text-anchor="middle" font-size="14">🖥️</text>`;
+                } else {
+                    iconContent = `<text x="60" y="30" text-anchor="middle" class="device-icon">${cfg.icon}</text>`;
+                }
+                
+                svgContent += `
+                    <g transform="translate(${x}, ${y})">
+                        <rect class="device-box" width="120" height="90"/>
+                        <circle cx="105" cy="12" r="4" fill="${statusColors[d.status] || '#555'}"/>
+                        ${iconContent}
+                        <text x="60" y="50" text-anchor="middle" class="device-name">${d.name}</text>
+                        <text x="60" y="65" text-anchor="middle" class="device-ip">${d.ip || 'No IP'}</text>
+                        <text x="60" y="82" text-anchor="middle" class="device-badge">${cfg.name}</text>
+                    </g>`;
+            });
+            
+            svgContent += inventoryContent;
+            svgContent += `
+    </g>
+    <text x="15" y="${totalHeight + 55}" fill="#666" font-size="10" font-family="Arial, sans-serif">Generated by NetMap Pro</text>
+</svg>`;
+            
+            // Download SVG
+            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = title.toLowerCase().replace(/\s+/g, '-') + '-' + new Date().toISOString().split('T')[0] + '.svg';
+            a.click();
+        }
+
+        function generatePDF() {
+            const title = document.getElementById('pdfTitle').value || 'Network Diagram';
+            const client = document.getElementById('clientName').value || '';
+            const orientation = document.getElementById('pdfOrientation').value;
+            const includeInventory = document.getElementById('includeInventory').checked;
+            closeModal('exportModal');
+            
+            if (state.devices.length === 0) {
+                alert('No devices to export. Add some devices first.');
+                return;
+            }
+            
+            // Calculate bounding box of all devices
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            state.devices.forEach(d => {
+                const el = document.getElementById(d.id);
+                const w = el ? el.offsetWidth : 120;
+                const h = el ? el.offsetHeight : 100;
+                minX = Math.min(minX, d.x);
+                minY = Math.min(minY, d.y);
+                maxX = Math.max(maxX, d.x + w);
+                maxY = Math.max(maxY, d.y + h);
+            });
+            
+            // Add padding around the content
+            const padding = 50;
+            minX -= padding;
+            minY -= padding;
+            maxX += padding;
+            maxY += padding;
+            
+            const contentWidth = maxX - minX;
+            const contentHeight = maxY - minY;
+            
+            // Include network info box dimensions
+            const infoBox = document.getElementById('networkInfoBox');
+            const infoBoxWidth = infoBox.offsetWidth + 40;
+            const infoBoxHeight = infoBox.offsetHeight + 40;
+            
+            // Create a temporary container for rendering
+            const tempContainer = document.createElement('div');
+            tempContainer.style.cssText = `
+                position: fixed; left: -10000px; top: 0;
+                background: #050505; padding: 20px;
+            `;
+            document.body.appendChild(tempContainer);
+            
+            // Create SVG for connections
+            const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            tempSvg.setAttribute('width', contentWidth);
+            tempSvg.setAttribute('height', contentHeight);
+            tempSvg.style.cssText = 'position: absolute; top: 0; left: 0; pointer-events: none;';
+            
+            // Draw connections offset to bounding box
+            let paths = '';
+            state.connections.forEach(conn => {
+                const from = getConnectionPoint(conn.from, conn.fromPos);
+                const to = getConnectionPoint(conn.to, conn.toPos);
+                const fx = from.x - minX, fy = from.y - minY;
+                const tx = to.x - minX, ty = to.y - minY;
+                const midX = (fx + tx) / 2, midY = (fy + ty) / 2;
+                let path;
+                if (conn.fromPos === 'top' || conn.fromPos === 'bottom') {
+                    path = `M${fx},${fy} C${fx},${midY} ${tx},${midY} ${tx},${ty}`;
+                } else {
+                    path = `M${fx},${fy} C${midX},${fy} ${midX},${ty} ${tx},${ty}`;
+                }
+                const strokeColor = conn.type === 'wired' ? '#0F71F0' : '#c084fc';
+                const dashArray = conn.type === 'wireless' ? 'stroke-dasharray="8,4"' : '';
+                paths += `<path d="${path}" stroke="${strokeColor}" stroke-width="2" fill="none" ${dashArray}/>`;
+            });
+            tempSvg.innerHTML = paths;
+            
+            // Create wrapper
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = `position: relative; width: ${contentWidth + infoBoxWidth}px; height: ${Math.max(contentHeight, infoBoxHeight)}px; background: #ffffff;`;
+            
+            // Diagram area
+            const diagramArea = document.createElement('div');
+            diagramArea.style.cssText = `position: relative; width: ${contentWidth}px; height: ${contentHeight}px; display: inline-block; vertical-align: top;`;
+            diagramArea.appendChild(tempSvg);
+            
+            // Clone and position devices
+            state.devices.forEach(d => {
+                const orig = document.getElementById(d.id);
+                const clone = orig.cloneNode(true);
+                clone.style.left = (d.x - minX) + 'px';
+                clone.style.top = (d.y - minY) + 'px';
+                clone.classList.remove('selected', 'connecting');
+                clone.querySelectorAll('.conn-point').forEach(cp => cp.style.display = 'none');
+                diagramArea.appendChild(clone);
+            });
+            
+            wrapper.appendChild(diagramArea);
+            
+            // Clone network info box
+            const infoClone = infoBox.cloneNode(true);
+            infoClone.style.cssText = `
+                position: absolute; top: 0; right: 0;
+                background: #ffffff; border: 1px solid #e0e0e0; border-radius: 10px;
+                padding: 14px; min-width: 220px; font-size: 11px; color: #1a1a1a;
+            `;
+            wrapper.appendChild(infoClone);
+            
+            tempContainer.appendChild(wrapper);
+            
+            // Render to canvas
+            html2canvas(wrapper, { 
+                backgroundColor: '#ffffff', 
+                scale: 2, 
+                useCORS: true, 
+                logging: false 
+            }).then(canvasImg => {
+                document.body.removeChild(tempContainer);
+                
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                
+                // Header with i-Tech branding
+                pdf.setFillColor(0, 30, 98);
+                pdf.rect(0, 0, pageWidth, 25, 'F');
+                pdf.setTextColor(234, 234, 234);
+                pdf.setFontSize(10);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('i-tech', 10, 8);
+                pdf.setFontSize(16);
+                pdf.text(title, 10, 16);
+                if (client) {
+                    pdf.setFontSize(10);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setTextColor(216, 215, 223);
+                    pdf.text('Client: ' + client, 10, 22);
+                }
+                pdf.setFontSize(10);
+                pdf.setTextColor(234, 234, 234);
+                pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 12, { align: 'right' });
+                
+                // Calculate image dimensions to fit and center
+                const imgData = canvasImg.toDataURL('image/png');
+                const availableWidth = pageWidth - 20; // 10mm margin each side
+                const availableHeight = pageHeight - 45; // header + footer space
+                
+                const imgAspect = canvasImg.width / canvasImg.height;
+                const availAspect = availableWidth / availableHeight;
+                
+                let finalWidth, finalHeight;
+                if (imgAspect > availAspect) {
+                    // Image is wider - fit to width
+                    finalWidth = availableWidth;
+                    finalHeight = availableWidth / imgAspect;
+                } else {
+                    // Image is taller - fit to height
+                    finalHeight = availableHeight;
+                    finalWidth = availableHeight * imgAspect;
+                }
+                
+                // Center the image
+                const xPos = (pageWidth - finalWidth) / 2;
+                const yPos = 28 + (availableHeight - finalHeight) / 2;
+                
+                pdf.addImage(imgData, 'PNG', xPos, yPos, finalWidth, finalHeight);
+                
+                // Footer for page 1
+                pdf.setFontSize(8);
+                pdf.setTextColor(102, 102, 102);
+                pdf.text('Generated by i-Tech Network Mapping Tool', 10, pageHeight - 5);
+                pdf.text(includeInventory ? 'Page 1 of 2' : 'Page 1 of 1', pageWidth - 10, pageHeight - 5, { align: 'right' });
+                
+                // Add device inventory page if checked
+                if (includeInventory && state.devices.length > 0) {
+                    pdf.addPage();
+                    
+                    // Header for page 2 with i-Tech branding
+                    pdf.setFillColor(0, 30, 98);
+                    pdf.rect(0, 0, pageWidth, 25, 'F');
+                    pdf.setTextColor(234, 234, 234);
+                    pdf.setFontSize(10);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.text('i-tech', 10, 8);
+                    pdf.setFontSize(16);
+                    pdf.text('Device Inventory', 10, 16);
+                    if (client) {
+                        pdf.setFontSize(10);
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.setTextColor(216, 215, 223);
+                        pdf.text('Client: ' + client, 10, 22);
+                    }
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(234, 234, 234);
+                    pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 12, { align: 'right' });
+                    
+                    // Table headers
+                    let yPos = 35;
+                    pdf.setFillColor(240, 240, 240);
+                    pdf.rect(10, yPos - 5, pageWidth - 20, 8, 'F');
+                    pdf.setFontSize(7);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setTextColor(15, 113, 240);
+                    
+                    const cols = orientation === 'landscape' 
+                        ? [10, 45, 80, 115, 155, 195, 235] 
+                        : [10, 35, 55, 80, 110, 140, 165];
+                    
+                    pdf.text('Device', cols[0], yPos);
+                    pdf.text('Manufacturer', cols[1], yPos);
+                    pdf.text('OS', cols[2], yPos);
+                    pdf.text('IP Address', cols[3], yPos);
+                    pdf.text('MAC Address', cols[4], yPos);
+                    pdf.text('VLAN', cols[5], yPos);
+                    pdf.text('Notes', cols[6], yPos);
+                    
+                    yPos += 8;
+                    pdf.setFont('helvetica', 'normal');
+                    
+                    state.devices.forEach((d, i) => {
+                        if (yPos > pageHeight - 15) {
+                            // Add new page if needed
+                            pdf.addPage();
+                            yPos = 15;
+                        }
+                        
+                        // Alternate row background
+                        if (i % 2 === 0) {
+                            pdf.setFillColor(250, 250, 250);
+                        } else {
+                            pdf.setFillColor(255, 255, 255);
+                        }
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
+                        
+                        const cfg = types[d.type];
+                        const vlanText = getVlanName(d.vlan);
+                        const maxLen = orientation === 'landscape' ? 18 : 12;
+                        const notesLen = orientation === 'landscape' ? 40 : 20;
+                        
+                        pdf.setFontSize(7);
+                        pdf.setTextColor(30, 30, 30);
+                        pdf.text(d.name.substring(0, maxLen), cols[0], yPos);
+                        pdf.setTextColor(60, 60, 60);
+                        pdf.text((d.manufacturer || '-').substring(0, maxLen), cols[1], yPos);
+                        pdf.text((d.os || '-').substring(0, maxLen), cols[2], yPos);
+                        pdf.text(d.ip || '-', cols[3], yPos);
+                        pdf.text((d.mac || '-').substring(0, 17), cols[4], yPos);
+                        pdf.text(vlanText.substring(0, 12), cols[5], yPos);
+                        pdf.setTextColor(80, 80, 80);
+                        pdf.text((d.notes || '-').substring(0, notesLen), cols[6], yPos);
+                        
+                        yPos += 7;
+                    });
+                    
+                    // Footer for page 2
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(102, 102, 102);
+                    pdf.text('Generated by i-Tech Network Mapping Tool', 10, pageHeight - 5);
+                    pdf.text('Page 2 of 2', pageWidth - 10, pageHeight - 5, { align: 'right' });
+                }
+                
+                pdf.save(title.toLowerCase().replace(/\s+/g, '-') + '-' + new Date().toISOString().split('T')[0] + '.pdf');
+            });
+        }
+
+        function exportJson() {
+            const data = { 
+                devices: state.devices, 
+                connections: state.connections, 
+                vlans: state.vlans, 
+                config: state.config,
+                clientName: document.getElementById('clientName').value || '',
+                view: { zoom: state.zoom, panX: state.panX, panY: state.panY }
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'network-project-' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = evt => {
+                        try {
+                            const data = JSON.parse(evt.target.result);
+                            state.devices = data.devices || [];
+                            state.connections = data.connections || [];
+                            state.vlans = data.vlans || state.vlans;
+                            state.config = data.config || state.config;
+                            if (data.clientName) {
+                                document.getElementById('clientName').value = data.clientName;
+                            }
+                            if (data.view) {
+                                state.zoom = data.view.zoom || 1;
+                                state.panX = data.view.panX || 0;
+                                state.panY = data.view.panY || 0;
+                            }
+                            document.querySelectorAll('.network-device').forEach(el => el.remove());
+                            state.devices.forEach(d => renderDevice(d));
+                            drawConnections();
+                            updateVlanSelect();
+                            updateNetworkInfoBox();
+                            updateCounts();
+                            applyTransform();
+                            if (state.devices.length > 0) document.getElementById('emptyState').style.display = 'none';
+                        } catch (err) {
+                            alert('Error loading project: ' + err.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+    </script>
+</body>
+</html>
