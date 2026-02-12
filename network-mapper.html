@@ -39,6 +39,10 @@
         .logo{font-weight:700;font-size:1.25rem;display:flex;align-items:center;gap:10px}
         .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--primary),var(--secondary));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 20px rgba(255,59,59,0.2)}
         .logo-label{background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .client-label{display:flex;align-items:center;margin-left:20px;padding-left:20px;border-left:1px solid var(--glass-border)}
+        .client-input{background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:6px 12px;color:var(--text);font-size:0.85rem;font-family:'Outfit',sans-serif;width:200px;outline:none;transition:border-color 0.3s}
+        .client-input:focus{border-color:rgba(255,59,59,0.4)}
+        .client-input::placeholder{color:var(--text-muted)}
         .header-actions{display:flex;gap:8px;margin-left:auto}
 
         /* Buttons */
@@ -182,8 +186,12 @@
     <div class="app">
         <header class="header">
             <div class="logo"><div class="logo-icon">&#x2B21;</div> <span class="logo-label">NetMap Pro</span></div>
+            <div class="client-label">
+                <span style="color:var(--text-muted);font-size:0.7rem;margin-right:6px;">Client:</span>
+                <input type="text" id="clientName" class="client-input" placeholder="Enter client name...">
+            </div>
             <div class="header-actions">
-                <button class="btn" id="exportPdfBtn">&#x1F4C4; Export</button>
+                <button class="btn" id="exportPdfBtn">&#x1F4C4; Export PDF</button>
                 <button class="btn" id="exportJsonBtn">&#x1F4BE; Save Project</button>
                 <button class="btn" id="importBtn">&#x1F4C2; Load Project</button>
                 <button class="btn" id="configBtn">&#x2699;&#xFE0F; Config</button>
@@ -381,17 +389,10 @@
     </div>
     <div class="modal-bg" id="exportModal">
         <div class="modal" style="width:400px;">
-            <div class="modal-header"><h3>Export Diagram</h3><button class="modal-close" onclick="closeModal('exportModal')">&times;</button></div>
+            <div class="modal-header"><h3>Export PDF</h3><button class="modal-close" onclick="closeModal('exportModal')">&times;</button></div>
             <div class="modal-body">
                 <div class="form-group"><label class="form-label">Document Title</label><input type="text" class="form-input" id="pdfTitle" value="Network Diagram"></div>
-                <div class="form-group"><label class="form-label">Client Name</label><input type="text" class="form-input" id="pdfClient" placeholder="Client Name"></div>
-                <div class="form-group"><label class="form-label">Export Format</label>
-                    <div class="conn-toggle">
-                        <button type="button" class="active" id="formatPdfBtn" onclick="setExportFormat('pdf')">PDF</button>
-                        <button type="button" id="formatSvgBtn" onclick="setExportFormat('svg')">SVG</button>
-                    </div>
-                </div>
-                <div class="form-group" id="orientationGroup"><label class="form-label">Orientation</label>
+                <div class="form-group"><label class="form-label">Orientation</label>
                     <select class="form-select" id="pdfOrientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select>
                 </div>
                 <div class="form-group">
@@ -401,7 +402,7 @@
                     </label>
                 </div>
             </div>
-            <div class="modal-footer"><button class="btn" onclick="closeModal('exportModal')">Cancel</button><button class="btn btn-primary" id="exportBtn" onclick="doExport()">Export PDF</button></div>
+            <div class="modal-footer"><button class="btn" onclick="closeModal('exportModal')">Cancel</button><button class="btn btn-primary" onclick="generatePDF()">Export PDF</button></div>
         </div>
     </div>
     <script>
@@ -1128,7 +1129,7 @@
 
         function generatePDF() {
             const title = document.getElementById('pdfTitle').value || 'Network Diagram';
-            const client = document.getElementById('pdfClient').value || '';
+            const client = document.getElementById('clientName').value || '';
             const orientation = document.getElementById('pdfOrientation').value;
             const includeInventory = document.getElementById('includeInventory').checked;
             closeModal('exportModal');
@@ -1317,11 +1318,11 @@
                     
                     // Table headers
                     let yPos = 35;
-                    pdf.setFillColor(20, 20, 20);
+                    pdf.setFillColor(240, 240, 240);
                     pdf.rect(10, yPos - 5, pageWidth - 20, 8, 'F');
                     pdf.setFontSize(7);
                     pdf.setFont('helvetica', 'bold');
-                    pdf.setTextColor(255, 59, 59);
+                    pdf.setTextColor(180, 40, 40);
                     
                     const cols = orientation === 'landscape' 
                         ? [10, 45, 80, 115, 155, 195, 235] 
@@ -1337,7 +1338,6 @@
                     
                     yPos += 8;
                     pdf.setFont('helvetica', 'normal');
-                    pdf.setTextColor(228, 228, 231);
                     
                     state.devices.forEach((d, i) => {
                         if (yPos > pageHeight - 15) {
@@ -1348,9 +1348,11 @@
                         
                         // Alternate row background
                         if (i % 2 === 0) {
-                            pdf.setFillColor(15, 15, 15);
-                            pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
+                            pdf.setFillColor(250, 250, 250);
+                        } else {
+                            pdf.setFillColor(255, 255, 255);
                         }
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
                         
                         const cfg = types[d.type];
                         const vlanText = getVlanName(d.vlan);
@@ -1358,15 +1360,15 @@
                         const notesLen = orientation === 'landscape' ? 40 : 20;
                         
                         pdf.setFontSize(7);
-                        pdf.setTextColor(228, 228, 231);
+                        pdf.setTextColor(30, 30, 30);
                         pdf.text(d.name.substring(0, maxLen), cols[0], yPos);
-                        pdf.setTextColor(161, 161, 161);
+                        pdf.setTextColor(60, 60, 60);
                         pdf.text((d.manufacturer || '-').substring(0, maxLen), cols[1], yPos);
                         pdf.text((d.os || '-').substring(0, maxLen), cols[2], yPos);
                         pdf.text(d.ip || '-', cols[3], yPos);
                         pdf.text((d.mac || '-').substring(0, 17), cols[4], yPos);
                         pdf.text(vlanText.substring(0, 12), cols[5], yPos);
-                        pdf.setTextColor(102, 102, 102);
+                        pdf.setTextColor(80, 80, 80);
                         pdf.text((d.notes || '-').substring(0, notesLen), cols[6], yPos);
                         
                         yPos += 7;
@@ -1389,6 +1391,7 @@
                 connections: state.connections, 
                 vlans: state.vlans, 
                 config: state.config,
+                clientName: document.getElementById('clientName').value || '',
                 view: { zoom: state.zoom, panX: state.panX, panY: state.panY }
             };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1413,6 +1416,9 @@
                             state.connections = data.connections || [];
                             state.vlans = data.vlans || state.vlans;
                             state.config = data.config || state.config;
+                            if (data.clientName) {
+                                document.getElementById('clientName').value = data.clientName;
+                            }
                             if (data.view) {
                                 state.zoom = data.view.zoom || 1;
                                 state.panX = data.view.panX || 0;
