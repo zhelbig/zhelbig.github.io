@@ -155,6 +155,40 @@
         .hosted-vm{background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;padding:4px 6px;font-size:0.6rem;display:flex;align-items:center;gap:4px;color:#333}
         .hosted-vm .dot{width:6px;height:6px;border-radius:50%}
 
+        /* Zones */
+        .network-zone{position:absolute;border:2px dashed;border-radius:16px;min-width:150px;min-height:100px;z-index:1;cursor:move;user-select:none;transition:border-color 0.3s,box-shadow 0.3s}
+        .network-zone:hover{box-shadow:0 4px 20px rgba(0,0,0,0.15)}
+        .network-zone.selected{box-shadow:0 0 0 3px rgba(15,113,240,0.3)}
+        .zone-header{padding:8px 12px;border-radius:14px 14px 0 0;display:flex;align-items:center;gap:8px;cursor:move}
+        .zone-icon{font-size:18px}
+        .zone-name{font-size:0.75rem;font-weight:600;color:#1a1a1a}
+        .zone-badge{font-size:0.6rem;padding:2px 6px;border-radius:4px;color:white;font-weight:500}
+        .zone-resize{position:absolute;bottom:0;right:0;width:20px;height:20px;cursor:se-resize;opacity:0.5;display:flex;align-items:center;justify-content:center;font-size:10px;color:#666}
+        .zone-resize:hover{opacity:1}
+        
+        /* Zone types */
+        .zone-cloud{background:rgba(96,165,250,0.08);border-color:rgba(96,165,250,0.5)}
+        .zone-cloud .zone-header{background:rgba(96,165,250,0.15)}
+        .zone-cloud .zone-badge{background:#3b82f6}
+        
+        .zone-onprem{background:rgba(139,92,246,0.08);border-color:rgba(139,92,246,0.5)}
+        .zone-onprem .zone-header{background:rgba(139,92,246,0.15)}
+        .zone-onprem .zone-badge{background:#8b5cf6}
+        
+        .zone-mdf{background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.5)}
+        .zone-mdf .zone-header{background:rgba(34,197,94,0.15)}
+        .zone-mdf .zone-badge{background:#22c55e}
+        
+        .zone-idf{background:rgba(249,115,22,0.08);border-color:rgba(249,115,22,0.5)}
+        .zone-idf .zone-header{background:rgba(249,115,22,0.15)}
+        .zone-idf .zone-badge{background:#f97316}
+        
+        .zone-ups{background:rgba(234,179,8,0.08);border-color:rgba(234,179,8,0.5)}
+        .zone-ups .zone-header{background:rgba(234,179,8,0.15)}
+        .zone-ups .zone-badge{background:#eab308}
+        
+        .zone-item{border-style:dashed !important}
+
         /* Misc */
         .empty-state{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#666;pointer-events:none}
         .empty-state h3{font-size:1.1rem;font-weight:600;margin-bottom:8px;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -230,13 +264,21 @@
                 </div>
             </div>
             <div class="sidebar-section">
-                <div class="sidebar-title">Virtualization &amp; Cloud</div>
+                <div class="sidebar-title">Virtualization</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="cloud"><span class="icon">&#x2601;&#xFE0F;</span>Cloud</div>
-                    <div class="device-item" draggable="true" data-type="onprem"><span class="icon">&#x1F3E2;</span>On-Prem</div>
                     <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">&#x1F5A5;&#xFE0F;&#x1F5A5;&#xFE0F;</span>VM Host</div>
                     <div class="device-item" draggable="true" data-type="vm"><span class="icon">&#x1F5A5;&#xFE0F;</span>VM</div>
                     <div class="device-item" draggable="true" data-type="storage"><span class="icon">&#x1F4E6;</span>Storage</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">Zones (Drag to Create)</div>
+                <div class="device-palette">
+                    <div class="device-item zone-item" draggable="true" data-zone="cloud"><span class="icon">&#x2601;&#xFE0F;</span>Cloud</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="onprem"><span class="icon">&#x1F3E2;</span>On-Prem</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="mdf"><span class="icon">&#x1F3DB;&#xFE0F;</span>MDF</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="idf"><span class="icon">&#x1F4E6;</span>IDF</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="ups"><span class="icon">&#x1F50B;</span>UPS</div>
                 </div>
             </div>
             <div class="sidebar-section">
@@ -389,6 +431,9 @@
                     </div>
                 </div>
                 <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="propNotes"></textarea></div>
+                <div id="printerSection" style="display:none;">
+                    <div class="form-group"><label class="form-label">Model</label><input type="text" class="form-input" id="propPrinterModel" placeholder="e.g. LaserJet Pro M404n" oninput="updateDeviceProp('model', this.value)"></div>
+                </div>
                 <div id="vmSection" style="display:none;">
                     <div class="form-label">Hosted VMs</div>
                     <div id="vmList"></div>
@@ -396,9 +441,64 @@
                 </div>
                 <button class="btn btn-danger" style="width:100%;margin-top:16px;justify-content:center;" id="deleteBtn">&#x1F5D1;&#xFE0F; Delete Device</button>
             </div>
+            <div id="zoneProps" style="display:none;">
+                <div class="form-group"><label class="form-label">Zone Name</label><input type="text" class="form-input" id="propZoneName" oninput="updateZoneProp('name', this.value)"></div>
+                <div id="upsPropsSection" style="display:none;">
+                    <div class="form-group"><label class="form-label">UPS Manufacturer</label>
+                        <select class="form-select" id="propUPSMfg" onchange="updateZoneProp('manufacturer', this.value)">
+                            <option value="">-- Select --</option>
+                            <option value="APC">APC</option>
+                            <option value="CyberPower">CyberPower</option>
+                            <option value="Eaton">Eaton</option>
+                            <option value="Tripp Lite">Tripp Lite</option>
+                            <option value="Vertiv/Liebert">Vertiv/Liebert</option>
+                            <option value="Schneider Electric">Schneider Electric</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label class="form-label">UPS Model</label><input type="text" class="form-input" id="propUPSModel" placeholder="e.g. Smart-UPS 1500" oninput="updateZoneProp('model', this.value)"></div>
+                    <div style="display:flex;gap:8px;">
+                        <div class="form-group" style="flex:1;"><label class="form-label">Capacity (VA)</label><input type="text" class="form-input" id="propUPSCapacity" placeholder="1500" oninput="updateZoneProp('capacity', this.value)"></div>
+                        <div class="form-group" style="flex:1;"><label class="form-label">Runtime (min)</label><input type="text" class="form-input" id="propUPSRuntime" placeholder="15" oninput="updateZoneProp('runtime', this.value)"></div>
+                    </div>
+                    <div class="form-group"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propUPSIP" placeholder="192.168.1.100" oninput="updateZoneProp('ip', this.value)"></div>
+                </div>
+                <div id="mdfPropsSection" style="display:none;">
+                    <div class="form-group"><label class="form-label">Location/Room</label><input type="text" class="form-input" id="propMDFLocation" placeholder="e.g. Server Room 1" oninput="updateZoneProp('location', this.value)"></div>
+                </div>
+                <div id="idfPropsSection" style="display:none;">
+                    <div class="form-group"><label class="form-label">Location/Room</label><input type="text" class="form-input" id="propIDFLocation" placeholder="e.g. Floor 2 Closet" oninput="updateZoneProp('location', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Connected to MDF</label>
+                        <select class="form-select" id="propIDFMDF" onchange="updateZoneProp('connectedMDF', this.value)"></select>
+                    </div>
+                </div>
+                <div id="cloudPropsSection" style="display:none;">
+                    <div class="form-group"><label class="form-label">Cloud Provider</label>
+                        <select class="form-select" id="propCloudProvider" onchange="updateZoneProp('provider', this.value)">
+                            <option value="">-- Select --</option>
+                            <option value="AWS">Amazon Web Services</option>
+                            <option value="Azure">Microsoft Azure</option>
+                            <option value="GCP">Google Cloud Platform</option>
+                            <option value="DigitalOcean">DigitalOcean</option>
+                            <option value="Linode">Linode/Akamai</option>
+                            <option value="Vultr">Vultr</option>
+                            <option value="Oracle Cloud">Oracle Cloud</option>
+                            <option value="IBM Cloud">IBM Cloud</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label class="form-label">Region</label><input type="text" class="form-input" id="propCloudRegion" placeholder="e.g. us-east-1" oninput="updateZoneProp('region', this.value)"></div>
+                </div>
+                <div id="onpremPropsSection" style="display:none;">
+                    <div class="form-group"><label class="form-label">Location/Building</label><input type="text" class="form-input" id="propOnPremLocation" placeholder="e.g. Main Office" oninput="updateZoneProp('location', this.value)"></div>
+                </div>
+                <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="propZoneNotes" oninput="updateZoneProp('notes', this.value)"></textarea></div>
+                <button class="btn btn-danger" style="width:100%;margin-top:16px;justify-content:center;" id="deleteZoneBtn" onclick="deleteSelectedZone()">&#x1F5D1;&#xFE0F; Delete Zone</button>
+            </div>
         </aside>
         <footer class="statusbar">
             <span id="deviceCount">0 devices</span>
+            <span id="zoneCount">0 zones</span>
             <span id="connCount">0 connections</span>
             <span style="margin-left:auto;" id="zoomLevel">100%</span>
         </footer>
@@ -517,6 +617,7 @@
         const state = {
             devices: [],
             connections: [],
+            zones: [],
             vlans: [
                 { id: 1, name: 'Default', subnet: '192.168.1.0/24', gateway: '192.168.1.1' },
                 { id: 10, name: 'Management', subnet: '192.168.10.0/24', gateway: '192.168.10.1' },
@@ -525,13 +626,23 @@
             ssids: [],
             config: { dnsProvider: 'DNS Filter', dnsServer: '', dnsPrimary: '8.8.8.8', dnsSecondary: '8.8.4.4', dhcpType: 'Router', dhcpDevice: '' },
             selected: null,
+            selectedZone: null,
             connType: 'wired',
             connecting: null,
             zoom: 1,
             panX: 0,
             panY: 0,
             counter: 0,
+            zoneCounter: 0,
             exportFormat: 'pdf'
+        };
+
+        const zoneTypes = {
+            cloud: { name: 'Cloud', icon: '☁️', color: '#3b82f6' },
+            onprem: { name: 'On-Prem', icon: '🏢', color: '#8b5cf6' },
+            mdf: { name: 'MDF', icon: '🏛️', color: '#22c55e' },
+            idf: { name: 'IDF', icon: '📦', color: '#f97316' },
+            ups: { name: 'UPS', icon: '🔋', color: '#eab308' }
         };
 
         const types = {
@@ -542,7 +653,7 @@
             router: { name: 'Router', icon: '📡' }, switch: { name: 'Switch', icon: '🔀' },
             firewall: { name: 'Firewall', icon: '🛡️' }, ap: { name: 'Access Point', icon: '📶' },
             vmhost: { name: 'VM Host', icon: '🖥️🖥️' }, vm: { name: 'VM', icon: '🖥️' },
-            cloud: { name: 'Cloud', icon: '☁️' }, onprem: { name: 'On-Prem', icon: '🏢' }, storage: { name: 'Storage', icon: '📦' }, printer: { name: 'Printer', icon: '🖨️' },
+            storage: { name: 'Storage', icon: '📦' }, printer: { name: 'Printer', icon: '🖨️' },
             iot: { name: 'IoT', icon: '🌐' }, phone: { name: 'Desk Phone', icon: '☎️' },
             camera: { name: 'Security Camera', icon: '📹' }
         };
@@ -602,6 +713,12 @@
         let isDraggingConnection = false;
         let dragConnStart = { device: null, pos: null, x: 0, y: 0 };
         let dragConnCurrent = { x: 0, y: 0 };
+        
+        // Zone drag and resize state
+        let draggingZone = null;
+        let zoneStart = { x: 0, y: 0 };
+        let resizingZone = null;
+        let resizeStart = { x: 0, y: 0, w: 0, h: 0 };
 
         function applyTransform() {
             const transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
@@ -619,27 +736,46 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             // Device drag from palette
-            document.querySelectorAll('.device-item').forEach(item => {
-                item.addEventListener('dragstart', e => e.dataTransfer.setData('type', item.dataset.type));
+            document.querySelectorAll('.device-item:not(.zone-item)').forEach(item => {
+                item.addEventListener('dragstart', e => {
+                    e.dataTransfer.setData('type', item.dataset.type);
+                    e.dataTransfer.setData('itemType', 'device');
+                });
+            });
+            
+            // Zone drag from palette
+            document.querySelectorAll('.zone-item').forEach(item => {
+                item.addEventListener('dragstart', e => {
+                    e.dataTransfer.setData('zone', item.dataset.zone);
+                    e.dataTransfer.setData('itemType', 'zone');
+                });
             });
             
             canvasArea.addEventListener('dragover', e => e.preventDefault());
             canvasArea.addEventListener('drop', function(e) {
                 e.preventDefault();
-                const type = e.dataTransfer.getData('type');
-                if (type) {
-                    const rect = canvasArea.getBoundingClientRect();
-                    // Convert screen coords to canvas coords accounting for pan and zoom
-                    const x = (e.clientX - rect.left - state.panX) / state.zoom + 4000 - 60;
-                    const y = (e.clientY - rect.top - state.panY) / state.zoom + 4000 - 40;
-                    createDevice(type, x, y);
+                const itemType = e.dataTransfer.getData('itemType');
+                const rect = canvasArea.getBoundingClientRect();
+                const x = (e.clientX - rect.left - state.panX) / state.zoom + 4000 - 60;
+                const y = (e.clientY - rect.top - state.panY) / state.zoom + 4000 - 40;
+                
+                if (itemType === 'zone') {
+                    const zoneType = e.dataTransfer.getData('zone');
+                    if (zoneType) {
+                        createZone(zoneType, x, y);
+                    }
+                } else {
+                    const type = e.dataTransfer.getData('type');
+                    if (type) {
+                        createDevice(type, x, y);
+                    }
                 }
             });
 
             // Pan functionality - mousedown on canvas area
             canvasArea.addEventListener('mousedown', function(e) {
-                // Only start panning if clicking on empty space (not on a device)
-                if (e.target === canvasArea || e.target === canvasGrid || e.target.closest('#canvasWrapper') && !e.target.closest('.network-device')) {
+                // Only start panning if clicking on empty space (not on a device or zone)
+                if (e.target === canvasArea || e.target === canvasGrid || e.target.closest('#canvasWrapper') && !e.target.closest('.network-device') && !e.target.closest('.network-zone')) {
                     isPanning = true;
                     panStart.x = e.clientX - state.panX;
                     panStart.y = e.clientY - state.panY;
@@ -664,6 +800,24 @@
                     el.style.top = draggingDevice.y + 'px';
                     drawConnections();
                 }
+                if (draggingZone) {
+                    const dx = (e.clientX - dragStart.x) / state.zoom;
+                    const dy = (e.clientY - dragStart.y) / state.zoom;
+                    draggingZone.x = zoneStart.x + dx;
+                    draggingZone.y = zoneStart.y + dy;
+                    const el = document.getElementById(draggingZone.id);
+                    el.style.left = draggingZone.x + 'px';
+                    el.style.top = draggingZone.y + 'px';
+                }
+                if (resizingZone) {
+                    const dx = (e.clientX - resizeStart.x) / state.zoom;
+                    const dy = (e.clientY - resizeStart.y) / state.zoom;
+                    resizingZone.width = Math.max(150, resizeStart.w + dx);
+                    resizingZone.height = Math.max(100, resizeStart.h + dy);
+                    const el = document.getElementById(resizingZone.id);
+                    el.style.width = resizingZone.width + 'px';
+                    el.style.height = resizingZone.height + 'px';
+                }
                 if (isDraggingConnection) {
                     const rect = canvasArea.getBoundingClientRect();
                     // Convert screen coords to canvas coords
@@ -681,6 +835,12 @@
                 if (draggingDevice) {
                     draggingDevice = null;
                     canvasArea.classList.remove('dragging-device');
+                }
+                if (draggingZone) {
+                    draggingZone = null;
+                }
+                if (resizingZone) {
+                    resizingZone = null;
                 }
                 if (isDraggingConnection) {
                     // Check if we're over a device (or its connection point)
@@ -762,7 +922,10 @@
 
             document.addEventListener('keydown', e => {
                 if (e.key === 'Escape') { cancelConnect(); deselectAll(); }
-                if (e.key === 'Delete' && state.selected) deleteSelected();
+                if (e.key === 'Delete') {
+                    if (state.selected) deleteSelected();
+                    if (state.selectedZone) deleteSelectedZone();
+                }
             });
 
             updateVlanSelect();
@@ -874,6 +1037,159 @@
             const container = document.getElementById('vms' + d.id);
             if (!container) return;
             container.innerHTML = d.vms.map(vm => '<div class="hosted-vm"><div class="dot status-' + vm.status + '"></div>' + vm.name + '</div>').join('');
+        }
+
+        // Zone functions
+        function createZone(type, x, y) {
+            state.zoneCounter++;
+            const cfg = zoneTypes[type];
+            const zone = {
+                id: 'zone' + Date.now(),
+                type: type,
+                name: cfg.name + ' ' + state.zoneCounter,
+                x: x, y: y,
+                width: 200, height: 150,
+                notes: ''
+            };
+            // Type-specific properties
+            if (type === 'ups') {
+                zone.manufacturer = '';
+                zone.model = '';
+                zone.capacity = '';
+                zone.runtime = '';
+                zone.ip = '';
+            } else if (type === 'mdf' || type === 'idf') {
+                zone.location = '';
+                if (type === 'idf') zone.connectedMDF = '';
+            } else if (type === 'cloud') {
+                zone.provider = '';
+                zone.region = '';
+            } else if (type === 'onprem') {
+                zone.location = '';
+            }
+            state.zones.push(zone);
+            renderZone(zone);
+            updateCounts();
+            document.getElementById('emptyState').style.display = 'none';
+        }
+
+        function renderZone(z) {
+            const cfg = zoneTypes[z.type];
+            const el = document.createElement('div');
+            el.id = z.id;
+            el.className = 'network-zone zone-' + z.type;
+            el.style.left = z.x + 'px';
+            el.style.top = z.y + 'px';
+            el.style.width = z.width + 'px';
+            el.style.height = z.height + 'px';
+            
+            el.innerHTML = '<div class="zone-header">' +
+                '<span class="zone-icon">' + cfg.icon + '</span>' +
+                '<span class="zone-name">' + z.name + '</span>' +
+                '<span class="zone-badge">' + cfg.name + '</span>' +
+                '</div>' +
+                '<div class="zone-resize">⤡</div>';
+            
+            // Zone header drag
+            const header = el.querySelector('.zone-header');
+            header.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                draggingZone = z;
+                dragStart.x = e.clientX;
+                dragStart.y = e.clientY;
+                zoneStart.x = z.x;
+                zoneStart.y = z.y;
+            });
+            
+            // Zone click to select
+            el.addEventListener('click', function(e) {
+                if (e.target.classList.contains('zone-resize')) return;
+                e.stopPropagation();
+                selectZone(z);
+            });
+            
+            // Resize handle
+            const resizeHandle = el.querySelector('.zone-resize');
+            resizeHandle.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                resizingZone = z;
+                resizeStart.x = e.clientX;
+                resizeStart.y = e.clientY;
+                resizeStart.w = z.width;
+                resizeStart.h = z.height;
+            });
+            
+            canvas.appendChild(el);
+        }
+
+        function selectZone(z) {
+            deselectAll();
+            state.selectedZone = z;
+            document.getElementById(z.id).classList.add('selected');
+            showZoneProps(z);
+        }
+
+        function showZoneProps(z) {
+            document.getElementById('noSelect').style.display = 'none';
+            document.getElementById('deviceProps').style.display = 'none';
+            document.getElementById('zoneProps').style.display = 'block';
+            
+            document.getElementById('propZoneName').value = z.name;
+            document.getElementById('propZoneNotes').value = z.notes || '';
+            
+            // Hide all type-specific sections
+            document.getElementById('upsPropsSection').style.display = 'none';
+            document.getElementById('mdfPropsSection').style.display = 'none';
+            document.getElementById('idfPropsSection').style.display = 'none';
+            document.getElementById('cloudPropsSection').style.display = 'none';
+            document.getElementById('onpremPropsSection').style.display = 'none';
+            
+            // Show appropriate section based on zone type
+            if (z.type === 'ups') {
+                document.getElementById('upsPropsSection').style.display = 'block';
+                document.getElementById('propUPSMfg').value = z.manufacturer || '';
+                document.getElementById('propUPSModel').value = z.model || '';
+                document.getElementById('propUPSCapacity').value = z.capacity || '';
+                document.getElementById('propUPSRuntime').value = z.runtime || '';
+                document.getElementById('propUPSIP').value = z.ip || '';
+            } else if (z.type === 'mdf') {
+                document.getElementById('mdfPropsSection').style.display = 'block';
+                document.getElementById('propMDFLocation').value = z.location || '';
+            } else if (z.type === 'idf') {
+                document.getElementById('idfPropsSection').style.display = 'block';
+                document.getElementById('propIDFLocation').value = z.location || '';
+                // Populate MDF dropdown
+                const mdfSelect = document.getElementById('propIDFMDF');
+                const mdfZones = state.zones.filter(zone => zone.type === 'mdf');
+                mdfSelect.innerHTML = '<option value="">-- Select MDF --</option>' + 
+                    mdfZones.map(m => '<option value="' + m.id + '"' + (z.connectedMDF === m.id ? ' selected' : '') + '>' + m.name + '</option>').join('');
+            } else if (z.type === 'cloud') {
+                document.getElementById('cloudPropsSection').style.display = 'block';
+                document.getElementById('propCloudProvider').value = z.provider || '';
+                document.getElementById('propCloudRegion').value = z.region || '';
+            } else if (z.type === 'onprem') {
+                document.getElementById('onpremPropsSection').style.display = 'block';
+                document.getElementById('propOnPremLocation').value = z.location || '';
+            }
+        }
+
+        function updateZoneProp(key, value) {
+            if (!state.selectedZone) return;
+            state.selectedZone[key] = value;
+            const el = document.getElementById(state.selectedZone.id);
+            if (key === 'name') el.querySelector('.zone-name').textContent = value;
+        }
+
+        function deleteSelectedZone() {
+            if (!state.selectedZone) return;
+            const id = state.selectedZone.id;
+            state.zones = state.zones.filter(z => z.id !== id);
+            document.getElementById(id).remove();
+            deselectAll();
+            updateCounts();
+            if (state.devices.length === 0 && state.zones.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+            }
         }
 
         function handleConnectionClick(device, position) {
@@ -1039,8 +1355,14 @@
                 if (el) el.classList.remove('selected');
             }
             state.selected = null;
+            if (state.selectedZone) {
+                const el = document.getElementById(state.selectedZone.id);
+                if (el) el.classList.remove('selected');
+            }
+            state.selectedZone = null;
             document.getElementById('noSelect').style.display = 'block';
             document.getElementById('deviceProps').style.display = 'none';
+            document.getElementById('zoneProps').style.display = 'none';
         }
 
         function showProps(d) {
@@ -1145,6 +1467,15 @@
                 document.getElementById('propFirewallPorts').value = d.ports || '';
             } else {
                 firewallSection.style.display = 'none';
+            }
+            
+            // Handle Printer section
+            const printerSection = document.getElementById('printerSection');
+            if (d.type === 'printer') {
+                printerSection.style.display = 'block';
+                document.getElementById('propPrinterModel').value = d.model || '';
+            } else {
+                printerSection.style.display = 'none';
             }
             
             // Handle manufacturer dropdown - hide for network equipment types (they have text input now)
@@ -1274,11 +1605,14 @@
             deselectAll();
             drawConnections();
             updateCounts();
-            if (state.devices.length === 0) document.getElementById('emptyState').style.display = 'block';
+            if (state.devices.length === 0 && state.zones.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+            }
         }
 
         function updateCounts() {
             document.getElementById('deviceCount').textContent = state.devices.length + ' device' + (state.devices.length !== 1 ? 's' : '');
+            document.getElementById('zoneCount').textContent = state.zones.length + ' zone' + (state.zones.length !== 1 ? 's' : '');
             document.getElementById('connCount').textContent = state.connections.length + ' connection' + (state.connections.length !== 1 ? 's' : '');
         }
 
@@ -1606,12 +1940,12 @@
             const includeInventory = document.getElementById('includeInventory').checked;
             closeModal('exportModal');
             
-            if (state.devices.length === 0) {
-                alert('No devices to export. Add some devices first.');
+            if (state.devices.length === 0 && state.zones.length === 0) {
+                alert('No devices or zones to export. Add some first.');
                 return;
             }
             
-            // Calculate bounding box of all devices
+            // Calculate bounding box of all devices and zones
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             state.devices.forEach(d => {
                 const el = document.getElementById(d.id);
@@ -1621,6 +1955,12 @@
                 minY = Math.min(minY, d.y);
                 maxX = Math.max(maxX, d.x + w);
                 maxY = Math.max(maxY, d.y + h);
+            });
+            state.zones.forEach(z => {
+                minX = Math.min(minX, z.x);
+                minY = Math.min(minY, z.y);
+                maxX = Math.max(maxX, z.x + z.width);
+                maxY = Math.max(maxY, z.y + z.height);
             });
             
             // Add padding around the content
@@ -1680,6 +2020,23 @@
             const diagramArea = document.createElement('div');
             diagramArea.style.cssText = `position: relative; width: ${contentWidth}px; height: ${contentHeight}px; display: inline-block; vertical-align: top;`;
             diagramArea.appendChild(tempSvg);
+            
+            // Clone and position zones (render first so they appear behind devices)
+            state.zones.forEach(z => {
+                const orig = document.getElementById(z.id);
+                if (orig) {
+                    const clone = orig.cloneNode(true);
+                    clone.style.left = (z.x - minX) + 'px';
+                    clone.style.top = (z.y - minY) + 'px';
+                    clone.style.width = z.width + 'px';
+                    clone.style.height = z.height + 'px';
+                    clone.classList.remove('selected');
+                    // Hide resize handle
+                    const resizeHandle = clone.querySelector('.zone-resize');
+                    if (resizeHandle) resizeHandle.style.display = 'none';
+                    diagramArea.appendChild(clone);
+                }
+            });
             
             // Clone and position devices
             state.devices.forEach(d => {
@@ -1841,6 +2198,11 @@
                                 d.notes || '-'
                             ]
                         },
+                        'printer': {
+                            cols: ['Name', 'Manufacturer', 'Model', 'IP Address', 'MAC Address', 'VLAN', 'Notes'],
+                            widths: orientation === 'landscape' ? [35, 30, 35, 35, 40, 35, 60] : [24, 22, 25, 30, 35, 28, 26],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.model || '-', d.ip || '-', d.mac || '-', getVlanName(d.vlan), d.notes || '-']
+                        },
                         'server': {
                             cols: ['Name', 'Manufacturer', 'OS', 'IP Address', 'MAC Address', 'VLAN', 'Notes'],
                             widths: orientation === 'landscape' ? [35, 30, 35, 35, 40, 35, 60] : [24, 22, 25, 30, 35, 28, 26],
@@ -1866,8 +2228,8 @@
                         'desktop': 'Desktops', 'laptop': 'Laptops', 'cellphone': 'Cell Phones', 'tablet': 'Tablets',
                         'printer': 'Printers', 'otherendpoint': 'Other Endpoints', 'server': 'Servers', 'nas': 'NAS Devices',
                         'router': 'Internet Connection', 'firewall': 'Firewalls', 'switch': 'Switches', 'ap': 'Access Points',
-                        'vmhost': 'VM Hosts', 'vm': 'Virtual Machines', 'cloud': 'Cloud Services', 'onprem': 'On-Premises',
-                        'storage': 'Storage', 'phone': 'Desk Phones', 'camera': 'Security Cameras', 'iot': 'IoT Devices'
+                        'vmhost': 'VM Hosts', 'vm': 'Virtual Machines', 'storage': 'Storage', 'phone': 'Desk Phones', 
+                        'camera': 'Security Cameras', 'iot': 'IoT Devices'
                     };
                     
                     // Helper function to draw page header
@@ -1978,6 +2340,112 @@
                         yPos += 6; // Space between sections
                     });
                     
+                    // Add Zone Inventory if there are zones
+                    if (state.zones.length > 0) {
+                        // Check if we need a new page
+                        if (yPos > pageHeight - 60) {
+                            pdf.addPage();
+                            pageNum++;
+                            drawPageHeader('Zone Inventory');
+                            yPos = 24;
+                        }
+                        
+                        // Zone section header
+                        pdf.setFillColor(15, 113, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 8, 'F');
+                        pdf.setFontSize(9);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(255, 255, 255);
+                        pdf.text('Infrastructure Zones (' + state.zones.length + ')', 12, yPos + 1);
+                        yPos += 10;
+                        
+                        // Group zones by type
+                        const zonesByType = {};
+                        state.zones.forEach(z => {
+                            if (!zonesByType[z.type]) zonesByType[z.type] = [];
+                            zonesByType[z.type].push(z);
+                        });
+                        
+                        const zoneTypeNames = {
+                            'cloud': 'Cloud Zones',
+                            'onprem': 'On-Premises Zones',
+                            'mdf': 'MDF (Main Distribution Frame)',
+                            'idf': 'IDF (Intermediate Distribution Frame)',
+                            'ups': 'UPS Coverage'
+                        };
+                        
+                        Object.keys(zonesByType).forEach(zoneType => {
+                            const zones = zonesByType[zoneType];
+                            const typeName = zoneTypeNames[zoneType] || zoneType;
+                            
+                            // Check for page break
+                            if (yPos > pageHeight - 30) {
+                                pdf.addPage();
+                                pageNum++;
+                                drawPageHeader('Zone Inventory');
+                                yPos = 24;
+                            }
+                            
+                            // Sub-section header
+                            pdf.setFillColor(240, 240, 240);
+                            pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
+                            pdf.setFontSize(7);
+                            pdf.setFont('helvetica', 'bold');
+                            pdf.setTextColor(60, 60, 60);
+                            pdf.text(typeName, 12, yPos);
+                            yPos += 7;
+                            
+                            zones.forEach((z, i) => {
+                                if (yPos > pageHeight - 15) {
+                                    pdf.addPage();
+                                    pageNum++;
+                                    drawPageHeader('Zone Inventory');
+                                    yPos = 24;
+                                }
+                                
+                                // Alternate row background
+                                if (i % 2 === 0) {
+                                    pdf.setFillColor(250, 250, 250);
+                                } else {
+                                    pdf.setFillColor(255, 255, 255);
+                                }
+                                pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
+                                
+                                pdf.setFontSize(6);
+                                pdf.setFont('helvetica', 'normal');
+                                pdf.setTextColor(40, 40, 40);
+                                
+                                let details = z.name;
+                                if (zoneType === 'ups') {
+                                    const parts = [];
+                                    if (z.manufacturer) parts.push(z.manufacturer);
+                                    if (z.model) parts.push(z.model);
+                                    if (z.capacity) parts.push(z.capacity + ' VA');
+                                    if (z.runtime) parts.push(z.runtime + ' min runtime');
+                                    if (z.ip) parts.push('IP: ' + z.ip);
+                                    if (parts.length > 0) details += ' - ' + parts.join(', ');
+                                } else if (zoneType === 'cloud') {
+                                    const parts = [];
+                                    if (z.provider) parts.push(z.provider);
+                                    if (z.region) parts.push(z.region);
+                                    if (parts.length > 0) details += ' - ' + parts.join(', ');
+                                } else if (zoneType === 'mdf' || zoneType === 'idf' || zoneType === 'onprem') {
+                                    if (z.location) details += ' - ' + z.location;
+                                    if (zoneType === 'idf' && z.connectedMDF) {
+                                        const mdf = state.zones.find(zone => zone.id === z.connectedMDF);
+                                        if (mdf) details += ' (Connected to: ' + mdf.name + ')';
+                                    }
+                                }
+                                if (z.notes) details += ' | Notes: ' + z.notes;
+                                
+                                pdf.text(details.substring(0, 150), 12, yPos);
+                                yPos += 6;
+                            });
+                            
+                            yPos += 4;
+                        });
+                    }
+                    
                     // Footer for last page
                     pdf.setFontSize(8);
                     pdf.setTextColor(102, 102, 102);
@@ -1993,6 +2461,7 @@
             const data = { 
                 devices: state.devices, 
                 connections: state.connections, 
+                zones: state.zones,
                 vlans: state.vlans,
                 ssids: state.ssids,
                 config: state.config,
@@ -2035,13 +2504,18 @@
                                 state.panY = data.view.panY || 0;
                             }
                             document.querySelectorAll('.network-device').forEach(el => el.remove());
+                            document.querySelectorAll('.network-zone').forEach(el => el.remove());
+                            state.zones = data.zones || [];
                             state.devices.forEach(d => renderDevice(d));
+                            state.zones.forEach(z => renderZone(z));
                             drawConnections();
                             updateVlanSelect();
                             updateNetworkInfoBox();
                             updateCounts();
                             applyTransform();
-                            if (state.devices.length > 0) document.getElementById('emptyState').style.display = 'none';
+                            if (state.devices.length > 0 || state.zones.length > 0) {
+                                document.getElementById('emptyState').style.display = 'none';
+                            }
                         } catch (err) {
                             alert('Error loading project: ' + err.message);
                         }
