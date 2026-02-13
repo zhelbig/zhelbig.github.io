@@ -164,7 +164,8 @@
 
         /* Network info box */
         .network-info-box{position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);border:1px solid #e0e0e0;border-radius:14px;padding:16px;min-width:220px;max-width:280px;z-index:100;font-size:0.7rem;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
-        .network-info-box h4{font-size:0.8rem;font-weight:600;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #e0e0e0;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .network-info-box h4{font-size:0.8rem;font-weight:600;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #e0e0e0;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;transition:all 0.2s ease}
+        .network-info-box h4:hover{opacity:0.8;transform:translateX(2px)}
         .info-section{margin-bottom:12px}
         .info-section:last-child{margin-bottom:0}
         .info-section-title{font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--primary);margin-bottom:6px}
@@ -200,11 +201,14 @@
                 <span style="color:var(--text-muted);font-size:0.7rem;margin-right:6px;">Client:</span>
                 <input type="text" id="clientName" class="client-input" placeholder="Enter client name...">
             </div>
+            <div class="client-label">
+                <span style="color:var(--text-muted);font-size:0.7rem;margin-right:6px;">Location/Site:</span>
+                <input type="text" id="siteName" class="client-input" placeholder="Enter location...">
+            </div>
             <div class="header-actions">
                 <button class="btn" id="exportPdfBtn">&#x1F4C4; Export PDF</button>
                 <button class="btn" id="exportJsonBtn">&#x1F4BE; Save Project</button>
                 <button class="btn" id="importBtn">&#x1F4C2; Load Project</button>
-                <button class="btn" id="configBtn">&#x2699;&#xFE0F; Config</button>
                 <button class="btn btn-danger" id="clearBtn">&#x1F5D1;&#xFE0F; Clear</button>
             </div>
         </header>
@@ -274,7 +278,7 @@
                 <p>Drag devices from the sidebar onto the canvas</p>
             </div>
             <div class="network-info-box" id="networkInfoBox">
-                <h4>&#x2699;&#xFE0F; Network Configuration</h4>
+                <h4 onclick="openConfig()" style="cursor:pointer;" title="Click to edit configuration">&#x2699;&#xFE0F; Network Configuration <span style="font-size:0.6rem;color:var(--text-muted);font-weight:normal;">&#x270E; click to edit</span></h4>
                 <div class="info-section">
                     <div class="info-section-title">DNS</div>
                     <div class="info-row"><span class="info-label">Provider:</span><span class="info-value" id="infoDnsProvider">DNS Filter</span></div>
@@ -288,6 +292,10 @@
                 <div class="info-section">
                     <div class="info-section-title">VLANs</div>
                     <div class="vlan-tags" id="infoVlans"></div>
+                </div>
+                <div class="info-section">
+                    <div class="info-section-title">Wireless SSIDs</div>
+                    <div class="vlan-tags" id="infoSSIDs"></div>
                 </div>
             </div>
             <div class="pan-hint">Drag empty space to pan &#x2022; Scroll to zoom</div>
@@ -575,7 +583,12 @@
             document.getElementById('infoDnsPrimary').textContent = state.config.dnsPrimary;
             document.getElementById('infoDnsSecondary').textContent = state.config.dnsSecondary;
             document.getElementById('infoDhcp').textContent = state.config.dhcpType;
-            document.getElementById('infoVlans').innerHTML = state.vlans.map(v => '<span class="vlan-tag">VLAN ' + v.id + ' - ' + v.subnet + '</span>').join('');
+            document.getElementById('infoVlans').innerHTML = state.vlans.length > 0 
+                ? state.vlans.map(v => '<span class="vlan-tag">VLAN ' + v.id + ' - ' + v.subnet + '</span>').join('')
+                : '<span style="color:var(--text-muted);font-size:0.6rem;">None configured</span>';
+            document.getElementById('infoSSIDs').innerHTML = state.ssids.length > 0 
+                ? state.ssids.map(s => '<span class="vlan-tag">' + s.name + '</span>').join('')
+                : '<span style="color:var(--text-muted);font-size:0.6rem;">None configured</span>';
         }
 
         // Pan and zoom state
@@ -728,7 +741,6 @@
             document.getElementById('resetBtn').onclick = resetView;
             document.getElementById('wiredBtn').onclick = () => setConnType('wired');
             document.getElementById('wirelessBtn').onclick = () => setConnType('wireless');
-            document.getElementById('configBtn').onclick = openConfig;
             document.getElementById('clearBtn').onclick = clearAll;
             document.getElementById('exportPdfBtn').onclick = () => openModal('exportModal');
             document.getElementById('exportJsonBtn').onclick = exportJson;
@@ -1589,6 +1601,7 @@
         function generatePDF() {
             const title = document.getElementById('pdfTitle').value || 'Network Diagram';
             const client = document.getElementById('clientName').value || '';
+            const site = document.getElementById('siteName').value || '';
             const orientation = document.getElementById('pdfOrientation').value;
             const includeInventory = document.getElementById('includeInventory').checked;
             closeModal('exportModal');
@@ -1706,16 +1719,17 @@
                 const pageWidth = pdf.internal.pageSize.getWidth();
                 const pageHeight = pdf.internal.pageSize.getHeight();
                 
-                // Header - client name on left, "Network Diagram" centered
+                // Header - client/site on left, "Network Diagram" centered
                 pdf.setFillColor(0, 30, 98);
                 pdf.rect(0, 0, pageWidth, 16, 'F');
                 
-                // Client name on left
-                if (client) {
+                // Client and site on left
+                const headerLeft = [client, site].filter(Boolean).join(' - ');
+                if (headerLeft) {
                     pdf.setTextColor(234, 234, 234);
-                    pdf.setFontSize(11);
+                    pdf.setFontSize(10);
                     pdf.setFont('helvetica', 'bold');
-                    pdf.text(client, 10, 10);
+                    pdf.text(headerLeft, 10, 10);
                 }
                 
                 // "Network Diagram" centered
@@ -1860,11 +1874,12 @@
                     function drawPageHeader(pageTitle) {
                         pdf.setFillColor(0, 30, 98);
                         pdf.rect(0, 0, pageWidth, 16, 'F');
-                        if (client) {
+                        const headerLeft = [client, site].filter(Boolean).join(' - ');
+                        if (headerLeft) {
                             pdf.setTextColor(234, 234, 234);
-                            pdf.setFontSize(11);
+                            pdf.setFontSize(10);
                             pdf.setFont('helvetica', 'bold');
-                            pdf.text(client, 10, 10);
+                            pdf.text(headerLeft, 10, 10);
                         }
                         pdf.setTextColor(234, 234, 234);
                         pdf.setFontSize(12);
@@ -1978,9 +1993,11 @@
             const data = { 
                 devices: state.devices, 
                 connections: state.connections, 
-                vlans: state.vlans, 
+                vlans: state.vlans,
+                ssids: state.ssids,
                 config: state.config,
                 clientName: document.getElementById('clientName').value || '',
+                siteName: document.getElementById('siteName').value || '',
                 view: { zoom: state.zoom, panX: state.panX, panY: state.panY }
             };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -2004,9 +2021,13 @@
                             state.devices = data.devices || [];
                             state.connections = data.connections || [];
                             state.vlans = data.vlans || state.vlans;
+                            state.ssids = data.ssids || [];
                             state.config = data.config || state.config;
                             if (data.clientName) {
                                 document.getElementById('clientName').value = data.clientName;
+                            }
+                            if (data.siteName) {
+                                document.getElementById('siteName').value = data.siteName;
                             }
                             if (data.view) {
                                 state.zoom = data.view.zoom || 1;
