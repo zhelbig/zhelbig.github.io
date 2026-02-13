@@ -191,7 +191,7 @@
     <div class="app">
         <header class="header">
             <div class="logo">
-                 <div class="logo-icon">
+                <div class="logo-icon">
                     <img src="i-Tech Support Logo - small.jpg" alt="i-tech logo" />
                 </div>
                 <span class="logo-tool-name">Network Mapping Tool</span>
@@ -301,12 +301,35 @@
             <div class="panel-title">Properties</div>
             <div id="noSelect" style="text-align:center;padding:30px;color:var(--text-muted);"><p style="font-size:0.8rem;">Select a device to edit</p></div>
             <div id="deviceProps" style="display:none;">
-                <div class="form-group"><label class="form-label">Device Name</label><input type="text" class="form-input" id="propName"></div>
+                <div class="form-group" id="nameGroup"><label class="form-label" id="nameLabel">Device Name</label><input type="text" class="form-input" id="propName"></div>
+                <div id="networkEquipSection" style="display:none;">
+                    <div class="form-group"><label class="form-label">Manufacturer</label><input type="text" class="form-input" id="propNetEquipMfg" placeholder="e.g. Cisco, Ubiquiti" oninput="updateDeviceProp('manufacturer', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Model</label><input type="text" class="form-input" id="propNetEquipModel" placeholder="e.g. USW-24-POE" oninput="updateDeviceProp('model', this.value)"></div>
+                </div>
                 <div class="form-group" id="manufacturerGroup" style="display:none;"><label class="form-label">Manufacturer</label><select class="form-select" id="propManufacturer"></select></div>
                 <div class="form-group" id="osGroup" style="display:none;"><label class="form-label">Operating System</label><select class="form-select" id="propOS"></select></div>
-                <div class="form-group"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propIP" placeholder="192.168.1.1"></div>
-                <div class="form-group"><label class="form-label">MAC Address</label><input type="text" class="form-input" id="propMAC" placeholder="00:00:00:00:00:00"></div>
-                <div class="form-group">
+                <div id="routerSection" style="display:none;">
+                    <div class="form-group">
+                        <label class="form-label">Connection Type</label>
+                        <div style="display:flex;gap:16px;">
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8rem;color:var(--text-secondary);">
+                                <input type="radio" name="connType" id="propFiber" value="fiber" onchange="updateDeviceProp('connectionType', 'fiber')" style="accent-color:var(--primary);">
+                                Fiber
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8rem;color:var(--text-secondary);">
+                                <input type="radio" name="connType" id="propCoax" value="coax" onchange="updateDeviceProp('connectionType', 'coax')" style="accent-color:var(--primary);">
+                                Coax
+                            </label>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <div class="form-group" style="flex:1;"><label class="form-label">Download (Mbps)</label><input type="text" class="form-input" id="propDownload" placeholder="1000" oninput="updateDeviceProp('downloadSpeed', this.value)"></div>
+                        <div class="form-group" style="flex:1;"><label class="form-label">Upload (Mbps)</label><input type="text" class="form-input" id="propUpload" placeholder="100" oninput="updateDeviceProp('uploadSpeed', this.value)"></div>
+                    </div>
+                </div>
+                <div class="form-group" id="ipGroup"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propIP" placeholder="192.168.1.1"></div>
+                <div class="form-group" id="macGroup"><label class="form-label">MAC Address</label><input type="text" class="form-input" id="propMAC" placeholder="00:00:00:00:00:00"></div>
+                <div class="form-group" id="statusGroup">
                     <label class="form-label">Status</label>
                     <div class="status-btns">
                         <div class="status-btn" data-status="online"><div class="dot status-online"></div>Online</div>
@@ -1011,21 +1034,76 @@
         function showProps(d) {
             document.getElementById('noSelect').style.display = 'none';
             document.getElementById('deviceProps').style.display = 'block';
-            document.getElementById('propName').value = d.name;
-            document.getElementById('propIP').value = d.ip;
-            document.getElementById('propMAC').value = d.mac;
             document.getElementById('propNotes').value = d.notes;
-            document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === d.status));
+            
+            // Handle device name / ISP label for router
+            const nameGroup = document.getElementById('nameGroup');
+            const nameLabel = document.getElementById('nameLabel');
+            if (d.type === 'router') {
+                nameLabel.textContent = 'ISP';
+                nameGroup.style.display = 'block';
+            } else {
+                nameLabel.textContent = 'Device Name';
+                nameGroup.style.display = 'block';
+            }
+            document.getElementById('propName').value = d.name;
+            
+            // Handle IP/MAC fields - hide for router
+            const ipGroup = document.getElementById('ipGroup');
+            const macGroup = document.getElementById('macGroup');
+            if (d.type === 'router') {
+                ipGroup.style.display = 'none';
+                macGroup.style.display = 'none';
+            } else {
+                ipGroup.style.display = 'block';
+                macGroup.style.display = 'block';
+                document.getElementById('propIP').value = d.ip;
+                document.getElementById('propMAC').value = d.mac;
+            }
+            
+            // Handle status buttons - hide for router
+            const statusGroup = document.getElementById('statusGroup');
+            if (d.type === 'router') {
+                statusGroup.style.display = 'none';
+            } else {
+                statusGroup.style.display = 'block';
+                document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === d.status));
+            }
+            
+            // Handle Router section (connection type, speeds)
+            const routerSection = document.getElementById('routerSection');
+            if (d.type === 'router') {
+                routerSection.style.display = 'block';
+                document.getElementById('propFiber').checked = d.connectionType === 'fiber';
+                document.getElementById('propCoax').checked = d.connectionType === 'coax';
+                document.getElementById('propDownload').value = d.downloadSpeed || '';
+                document.getElementById('propUpload').value = d.uploadSpeed || '';
+            } else {
+                routerSection.style.display = 'none';
+            }
+            
             document.getElementById('vmSection').style.display = d.type === 'vmhost' ? 'block' : 'none';
             if (d.type === 'vmhost') renderVMList(d);
             
-            // Handle VLAN dropdown - hide for Access Points, Firewalls, and Switches
+            // Handle VLAN dropdown - hide for AP, Firewall, Switch, Cloud, On-Prem, Storage, Router
             const vlanGroup = document.getElementById('vlanGroup');
-            if (d.type === 'ap' || d.type === 'firewall' || d.type === 'switch') {
+            const hideVlanTypes = ['ap', 'firewall', 'switch', 'cloud', 'onprem', 'storage', 'router'];
+            if (hideVlanTypes.includes(d.type)) {
                 vlanGroup.style.display = 'none';
             } else {
                 vlanGroup.style.display = 'block';
                 document.getElementById('propVLAN').value = d.vlan;
+            }
+            
+            // Handle Network Equipment section (Manufacturer/Model for firewall, switch, ap)
+            const networkEquipSection = document.getElementById('networkEquipSection');
+            const networkEquipTypes = ['firewall', 'switch', 'ap'];
+            if (networkEquipTypes.includes(d.type)) {
+                networkEquipSection.style.display = 'block';
+                document.getElementById('propNetEquipMfg').value = d.manufacturer || '';
+                document.getElementById('propNetEquipModel').value = d.model || '';
+            } else {
+                networkEquipSection.style.display = 'none';
             }
             
             // Handle SSID section for Access Points
@@ -1057,10 +1135,10 @@
                 firewallSection.style.display = 'none';
             }
             
-            // Handle manufacturer dropdown
+            // Handle manufacturer dropdown - hide for network equipment types (they have text input now)
             const mfgGroup = document.getElementById('manufacturerGroup');
             const mfgSelect = document.getElementById('propManufacturer');
-            if (manufacturers[d.type]) {
+            if (manufacturers[d.type] && !networkEquipTypes.includes(d.type)) {
                 mfgGroup.style.display = 'block';
                 mfgSelect.innerHTML = '<option value="">-- Select --</option>' + 
                     manufacturers[d.type].map(m => '<option value="' + m + '"' + (d.manufacturer === m ? ' selected' : '') + '>' + m + '</option>').join('');
@@ -1717,32 +1795,37 @@
                     // Define columns per device type
                     const typeConfigs = {
                         'switch': {
-                            cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'Ports', 'PoE', 'VLANs', 'Notes'],
-                            widths: orientation === 'landscape' ? [35, 30, 35, 40, 15, 15, 50, 50] : [25, 22, 30, 35, 12, 12, 30, 24],
+                            cols: ['Name', 'Manufacturer', 'Model', 'IP Address', 'Ports', 'PoE', 'VLANs', 'Notes'],
+                            widths: orientation === 'landscape' ? [30, 28, 30, 35, 15, 15, 50, 67] : [22, 20, 22, 28, 12, 12, 40, 34],
                             getData: (d) => [
-                                d.name, d.manufacturer || '-', d.ip || '-', d.mac || '-',
+                                d.name, d.manufacturer || '-', d.model || '-', d.ip || '-',
                                 d.ports || '-', d.poe ? 'Yes' : 'No',
                                 d.assignedVlans ? d.assignedVlans.map(v => 'VLAN ' + v).join(', ') : '-',
                                 d.notes || '-'
                             ]
                         },
                         'firewall': {
-                            cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'Ports', 'Notes'],
-                            widths: orientation === 'landscape' ? [40, 35, 40, 45, 20, 90] : [28, 25, 32, 38, 15, 52],
-                            getData: (d) => [d.name, d.manufacturer || '-', d.ip || '-', d.mac || '-', d.ports || '-', d.notes || '-']
+                            cols: ['Name', 'Manufacturer', 'Model', 'IP Address', 'MAC Address', 'Ports', 'Notes'],
+                            widths: orientation === 'landscape' ? [35, 30, 35, 38, 42, 18, 72] : [24, 22, 24, 30, 35, 14, 41],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.model || '-', d.ip || '-', d.mac || '-', d.ports || '-', d.notes || '-']
                         },
                         'ap': {
-                            cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'SSIDs', 'Notes'],
-                            widths: orientation === 'landscape' ? [40, 35, 40, 45, 60, 50] : [28, 25, 32, 38, 40, 27],
+                            cols: ['Name', 'Manufacturer', 'Model', 'IP Address', 'MAC Address', 'SSIDs', 'Notes'],
+                            widths: orientation === 'landscape' ? [35, 30, 35, 38, 42, 50, 40] : [24, 22, 24, 30, 35, 35, 20],
                             getData: (d) => [
-                                d.name, d.manufacturer || '-', d.ip || '-', d.mac || '-',
+                                d.name, d.manufacturer || '-', d.model || '-', d.ip || '-', d.mac || '-',
                                 d.ssids ? d.ssids.join(', ') : '-', d.notes || '-'
                             ]
                         },
                         'router': {
-                            cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'VLAN', 'Notes'],
-                            widths: orientation === 'landscape' ? [40, 35, 40, 45, 40, 70] : [28, 25, 32, 38, 30, 37],
-                            getData: (d) => [d.name, d.manufacturer || '-', d.ip || '-', d.mac || '-', getVlanName(d.vlan), d.notes || '-']
+                            cols: ['ISP', 'Connection', 'Download', 'Upload', 'Notes'],
+                            widths: orientation === 'landscape' ? [50, 30, 40, 40, 110] : [35, 25, 35, 35, 60],
+                            getData: (d) => [
+                                d.name, d.connectionType || '-', 
+                                d.downloadSpeed ? d.downloadSpeed + ' Mbps' : '-',
+                                d.uploadSpeed ? d.uploadSpeed + ' Mbps' : '-',
+                                d.notes || '-'
+                            ]
                         },
                         'server': {
                             cols: ['Name', 'Manufacturer', 'OS', 'IP Address', 'MAC Address', 'VLAN', 'Notes'],
@@ -1768,7 +1851,7 @@
                     const typeNames = {
                         'desktop': 'Desktops', 'laptop': 'Laptops', 'cellphone': 'Cell Phones', 'tablet': 'Tablets',
                         'printer': 'Printers', 'otherendpoint': 'Other Endpoints', 'server': 'Servers', 'nas': 'NAS Devices',
-                        'router': 'Routers', 'firewall': 'Firewalls', 'switch': 'Switches', 'ap': 'Access Points',
+                        'router': 'Internet Connection', 'firewall': 'Firewalls', 'switch': 'Switches', 'ap': 'Access Points',
                         'vmhost': 'VM Hosts', 'vm': 'Virtual Machines', 'cloud': 'Cloud Services', 'onprem': 'On-Premises',
                         'storage': 'Storage', 'phone': 'Desk Phones', 'camera': 'Security Cameras', 'iot': 'IoT Devices'
                     };
