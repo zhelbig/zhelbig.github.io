@@ -249,6 +249,16 @@
         </header>
         <aside class="sidebar">
             <div class="sidebar-section">
+                <div class="sidebar-title">Zones (Drag to Create)</div>
+                <div class="device-palette">
+                    <div class="device-item zone-item" draggable="true" data-zone="mdf">MDF</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="idf">IDF</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="cloud"><span class="icon">&#x2601;&#xFE0F;</span>Cloud</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="onprem"><span class="icon">&#x1F3E2;</span>On-Prem</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="ups"><span class="icon">&#x1F50B;</span>UPS</div>
+                </div>
+            </div>
+            <div class="sidebar-section">
                 <div class="sidebar-title">Network Equipment</div>
                 <div class="device-palette">
                     <div class="device-item" draggable="true" data-type="router"><span class="icon">&#x1F4E1;</span>Router</div>
@@ -270,16 +280,6 @@
                     <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">&#x1F5A5;&#xFE0F;&#x1F5A5;&#xFE0F;</span>VM Host</div>
                     <div class="device-item" draggable="true" data-type="vm"><span class="icon">&#x1F5A5;&#xFE0F;</span>VM</div>
                     <div class="device-item" draggable="true" data-type="storage"><span class="icon">&#x1F4E6;</span>Storage</div>
-                </div>
-            </div>
-            <div class="sidebar-section">
-                <div class="sidebar-title">Zones (Drag to Create)</div>
-                <div class="device-palette">
-                    <div class="device-item zone-item" draggable="true" data-zone="cloud"><span class="icon">&#x2601;&#xFE0F;</span>Cloud</div>
-                    <div class="device-item zone-item" draggable="true" data-zone="onprem"><span class="icon">&#x1F3E2;</span>On-Prem</div>
-                    <div class="device-item zone-item" draggable="true" data-zone="mdf"><span class="icon">&#x1F3DB;&#xFE0F;</span>MDF</div>
-                    <div class="device-item zone-item" draggable="true" data-zone="idf"><span class="icon">&#x1F4E6;</span>IDF</div>
-                    <div class="device-item zone-item" draggable="true" data-zone="ups"><span class="icon">&#x1F50B;</span>UPS</div>
                 </div>
             </div>
             <div class="sidebar-section">
@@ -697,8 +697,8 @@
         const zoneTypes = {
             cloud: { name: 'Cloud', icon: '☁️', color: '#3b82f6' },
             onprem: { name: 'On-Prem', icon: '🏢', color: '#8b5cf6' },
-            mdf: { name: 'MDF', icon: '🏛️', color: '#22c55e' },
-            idf: { name: 'IDF', icon: '📦', color: '#f97316' },
+            mdf: { name: 'MDF', icon: '', color: '#22c55e' },
+            idf: { name: 'IDF', icon: '', color: '#f97316' },
             ups: { name: 'UPS', icon: '🔋', color: '#eab308' }
         };
 
@@ -1161,8 +1161,9 @@
             el.style.width = z.width + 'px';
             el.style.height = z.height + 'px';
             
+            const iconStyle = cfg.textIcon ? 'font-size:0.6rem;font-weight:bold;letter-spacing:-1px;color:' + (cfg.iconColor || 'inherit') + ';' : '';
             el.innerHTML = '<div class="zone-header">' +
-                '<span class="zone-icon">' + cfg.icon + '</span>' +
+                '<span class="zone-icon" style="' + iconStyle + '">' + cfg.icon + '</span>' +
                 '<span class="zone-name">' + z.name + '</span>' +
                 '<span class="zone-badge">' + cfg.name + '</span>' +
                 '</div>' +
@@ -2434,6 +2435,145 @@
                         pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 10, { align: 'right' });
                     }
                     
+                    // Add Cloud & On-Prem Environments section first
+                    const cloudOnpremZones = state.zones.filter(z => z.type === 'cloud' || z.type === 'onprem');
+                    if (cloudOnpremZones.length > 0) {
+                        // Section header
+                        pdf.setFillColor(15, 113, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 8, 'F');
+                        pdf.setFontSize(9);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(255, 255, 255);
+                        pdf.text('Cloud & On-Prem Environments (' + cloudOnpremZones.length + ')', 12, yPos + 1);
+                        yPos += 10;
+                        
+                        // Column headers
+                        const envCols = ['Name', 'Type', 'Provider/Location', 'Region', 'Notes'];
+                        const envWidths = orientation === 'landscape' ? [40, 30, 60, 50, 90] : [30, 25, 45, 35, 55];
+                        
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
+                        pdf.setFontSize(6);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(60, 60, 60);
+                        
+                        let xOffset = 10;
+                        envCols.forEach((col, i) => {
+                            pdf.text(col, xOffset + 1, yPos);
+                            xOffset += envWidths[i];
+                        });
+                        yPos += 6;
+                        
+                        // Environment rows
+                        pdf.setFont('helvetica', 'normal');
+                        cloudOnpremZones.forEach((z, i) => {
+                            if (yPos > pageHeight - 15) {
+                                pdf.addPage();
+                                pageNum++;
+                                drawPageHeader('Device List');
+                                yPos = 24;
+                            }
+                            
+                            if (i % 2 === 0) {
+                                pdf.setFillColor(250, 250, 250);
+                            } else {
+                                pdf.setFillColor(255, 255, 255);
+                            }
+                            pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
+                            
+                            pdf.setFontSize(6);
+                            pdf.setTextColor(40, 40, 40);
+                            
+                            const typeName = z.type === 'cloud' ? 'Cloud' : 'On-Premises';
+                            const providerLocation = z.type === 'cloud' ? (z.provider || '-') : (z.location || '-');
+                            const region = z.type === 'cloud' ? (z.region || '-') : '-';
+                            
+                            const rowData = [z.name, typeName, providerLocation, region, z.notes || '-'];
+                            let xOff = 10;
+                            rowData.forEach((val, j) => {
+                                const maxChars = Math.floor(envWidths[j] / 1.8);
+                                const truncated = String(val).substring(0, maxChars);
+                                pdf.text(truncated, xOff + 1, yPos);
+                                xOff += envWidths[j];
+                            });
+                            
+                            yPos += 6;
+                        });
+                        
+                        yPos += 6;
+                    }
+                    
+                    // Add UPS Units section
+                    const upsZones = state.zones.filter(z => z.type === 'ups');
+                    if (upsZones.length > 0) {
+                        // Check if we need a new page
+                        if (yPos > pageHeight - 40) {
+                            pdf.addPage();
+                            pageNum++;
+                            drawPageHeader('Device List');
+                            yPos = 24;
+                        }
+                        
+                        const upsConfig = typeConfigs['ups'];
+                        
+                        // Section header
+                        pdf.setFillColor(15, 113, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 8, 'F');
+                        pdf.setFontSize(9);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(255, 255, 255);
+                        pdf.text('UPS Units (' + upsZones.length + ')', 12, yPos + 1);
+                        yPos += 10;
+                        
+                        // Column headers
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
+                        pdf.setFontSize(6);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(60, 60, 60);
+                        
+                        let xOffset = 10;
+                        upsConfig.cols.forEach((col, i) => {
+                            pdf.text(col, xOffset + 1, yPos);
+                            xOffset += upsConfig.widths[i];
+                        });
+                        yPos += 6;
+                        
+                        // UPS rows
+                        pdf.setFont('helvetica', 'normal');
+                        upsZones.forEach((z, i) => {
+                            if (yPos > pageHeight - 15) {
+                                pdf.addPage();
+                                pageNum++;
+                                drawPageHeader('Device List');
+                                yPos = 24;
+                            }
+                            
+                            if (i % 2 === 0) {
+                                pdf.setFillColor(250, 250, 250);
+                            } else {
+                                pdf.setFillColor(255, 255, 255);
+                            }
+                            pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
+                            
+                            pdf.setFontSize(6);
+                            pdf.setTextColor(40, 40, 40);
+                            
+                            const rowData = [z.name, z.manufacturer || '-', z.model || '-', z.capacity || '-', z.runtime || '-', z.ip || '-', z.notes || '-'];
+                            let xOff = 10;
+                            rowData.forEach((val, j) => {
+                                const maxChars = Math.floor(upsConfig.widths[j] / 1.8);
+                                const truncated = String(val).substring(0, maxChars);
+                                pdf.text(truncated, xOff + 1, yPos);
+                                xOff += upsConfig.widths[j];
+                            });
+                            
+                            yPos += 6;
+                        });
+                        
+                        yPos += 6;
+                    }
+                    
                     // Process each device type
                     Object.keys(devicesByType).forEach(deviceType => {
                         const devices = devicesByType[deviceType];
@@ -2521,151 +2661,6 @@
                         
                         yPos += 6; // Space between sections
                     });
-                    
-                    // Add UPS zones as devices in the device list
-                    const upsZones = state.zones.filter(z => z.type === 'ups');
-                    if (upsZones.length > 0) {
-                        // Check if we need a new page
-                        if (yPos > pageHeight - 40) {
-                            pdf.addPage();
-                            pageNum++;
-                            drawPageHeader('Device List');
-                            yPos = 24;
-                        }
-                        
-                        const config = typeConfigs['ups'];
-                        
-                        // Section header
-                        pdf.setFillColor(15, 113, 240);
-                        pdf.rect(10, yPos - 4, pageWidth - 20, 8, 'F');
-                        pdf.setFontSize(9);
-                        pdf.setFont('helvetica', 'bold');
-                        pdf.setTextColor(255, 255, 255);
-                        pdf.text('UPS Units (' + upsZones.length + ')', 12, yPos + 1);
-                        yPos += 10;
-                        
-                        // Column headers
-                        pdf.setFillColor(240, 240, 240);
-                        pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
-                        pdf.setFontSize(6);
-                        pdf.setFont('helvetica', 'bold');
-                        pdf.setTextColor(60, 60, 60);
-                        
-                        let xOffset = 10;
-                        config.cols.forEach((col, i) => {
-                            pdf.text(col, xOffset + 1, yPos);
-                            xOffset += config.widths[i];
-                        });
-                        yPos += 6;
-                        
-                        // UPS rows
-                        pdf.setFont('helvetica', 'normal');
-                        upsZones.forEach((z, i) => {
-                            if (yPos > pageHeight - 15) {
-                                pdf.addPage();
-                                pageNum++;
-                                drawPageHeader('Device List');
-                                yPos = 24;
-                            }
-                            
-                            if (i % 2 === 0) {
-                                pdf.setFillColor(250, 250, 250);
-                            } else {
-                                pdf.setFillColor(255, 255, 255);
-                            }
-                            pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
-                            
-                            pdf.setFontSize(6);
-                            pdf.setTextColor(40, 40, 40);
-                            
-                            const rowData = [z.name, z.manufacturer || '-', z.model || '-', z.capacity || '-', z.runtime || '-', z.ip || '-', z.notes || '-'];
-                            let xOff = 10;
-                            rowData.forEach((val, j) => {
-                                const maxChars = Math.floor(config.widths[j] / 1.8);
-                                const truncated = String(val).substring(0, maxChars);
-                                pdf.text(truncated, xOff + 1, yPos);
-                                xOff += config.widths[j];
-                            });
-                            
-                            yPos += 6;
-                        });
-                        
-                        yPos += 6;
-                    }
-                    
-                    // Add Cloud & On-Prem Environments section
-                    const cloudOnpremZones = state.zones.filter(z => z.type === 'cloud' || z.type === 'onprem');
-                    if (cloudOnpremZones.length > 0) {
-                        // Check if we need a new page
-                        if (yPos > pageHeight - 50) {
-                            pdf.addPage();
-                            pageNum++;
-                            drawPageHeader('Device List');
-                            yPos = 24;
-                        }
-                        
-                        // Section header
-                        pdf.setFillColor(15, 113, 240);
-                        pdf.rect(10, yPos - 4, pageWidth - 20, 8, 'F');
-                        pdf.setFontSize(9);
-                        pdf.setFont('helvetica', 'bold');
-                        pdf.setTextColor(255, 255, 255);
-                        pdf.text('Cloud & On-Prem Environments (' + cloudOnpremZones.length + ')', 12, yPos + 1);
-                        yPos += 10;
-                        
-                        // Column headers
-                        const envCols = ['Name', 'Type', 'Provider/Location', 'Region', 'Notes'];
-                        const envWidths = orientation === 'landscape' ? [40, 30, 60, 50, 90] : [30, 25, 45, 35, 55];
-                        
-                        pdf.setFillColor(240, 240, 240);
-                        pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
-                        pdf.setFontSize(6);
-                        pdf.setFont('helvetica', 'bold');
-                        pdf.setTextColor(60, 60, 60);
-                        
-                        let xOffset = 10;
-                        envCols.forEach((col, i) => {
-                            pdf.text(col, xOffset + 1, yPos);
-                            xOffset += envWidths[i];
-                        });
-                        yPos += 6;
-                        
-                        // Environment rows
-                        pdf.setFont('helvetica', 'normal');
-                        cloudOnpremZones.forEach((z, i) => {
-                            if (yPos > pageHeight - 15) {
-                                pdf.addPage();
-                                pageNum++;
-                                drawPageHeader('Device List');
-                                yPos = 24;
-                            }
-                            
-                            if (i % 2 === 0) {
-                                pdf.setFillColor(250, 250, 250);
-                            } else {
-                                pdf.setFillColor(255, 255, 255);
-                            }
-                            pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
-                            
-                            pdf.setFontSize(6);
-                            pdf.setTextColor(40, 40, 40);
-                            
-                            const typeName = z.type === 'cloud' ? 'Cloud' : 'On-Premises';
-                            const providerLocation = z.type === 'cloud' ? (z.provider || '-') : (z.location || '-');
-                            const region = z.type === 'cloud' ? (z.region || '-') : '-';
-                            
-                            const rowData = [z.name, typeName, providerLocation, region, z.notes || '-'];
-                            let xOff = 10;
-                            rowData.forEach((val, j) => {
-                                const maxChars = Math.floor(envWidths[j] / 1.8);
-                                const truncated = String(val).substring(0, maxChars);
-                                pdf.text(truncated, xOff + 1, yPos);
-                                xOff += envWidths[j];
-                            });
-                            
-                            yPos += 6;
-                        });
-                    }
                     
                     // Footer for last page
                     pdf.setFontSize(8);
