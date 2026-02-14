@@ -342,6 +342,7 @@
             </div>
             <div class="pan-hint">Drag empty space to pan &#x2022; Scroll to zoom</div>
             <div class="controls">
+                <button class="btn" id="snapBtn" title="Toggle grid snapping">&#x1F9F2; Snap: On</button>
                 <button class="btn" id="zoomInBtn">&#x1F50D;+</button>
                 <button class="btn" id="zoomOutBtn">&#x1F50D;-</button>
                 <button class="btn" id="resetBtn">&#x1F3E0; Reset View</button>
@@ -719,6 +720,15 @@
         let zoneStart = { x: 0, y: 0 };
         let resizingZone = null;
         let resizeStart = { x: 0, y: 0, w: 0, h: 0 };
+        
+        // Grid snapping
+        const GRID_SIZE = 20; // Match the background grid size
+        let snapToGrid = true;
+        
+        function snapToGridValue(value) {
+            if (!snapToGrid) return value;
+            return Math.round(value / GRID_SIZE) * GRID_SIZE;
+        }
 
         function applyTransform() {
             const transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
@@ -756,8 +766,10 @@
                 e.preventDefault();
                 const itemType = e.dataTransfer.getData('itemType');
                 const rect = canvasArea.getBoundingClientRect();
-                const x = (e.clientX - rect.left - state.panX) / state.zoom + 4000 - 60;
-                const y = (e.clientY - rect.top - state.panY) / state.zoom + 4000 - 40;
+                const rawX = (e.clientX - rect.left - state.panX) / state.zoom + 4000 - 60;
+                const rawY = (e.clientY - rect.top - state.panY) / state.zoom + 4000 - 40;
+                const x = snapToGridValue(rawX);
+                const y = snapToGridValue(rawY);
                 
                 if (itemType === 'zone') {
                     const zoneType = e.dataTransfer.getData('zone');
@@ -793,8 +805,8 @@
                 if (draggingDevice) {
                     const dx = (e.clientX - dragStart.x) / state.zoom;
                     const dy = (e.clientY - dragStart.y) / state.zoom;
-                    draggingDevice.x = deviceStart.x + dx;
-                    draggingDevice.y = deviceStart.y + dy;
+                    draggingDevice.x = snapToGridValue(deviceStart.x + dx);
+                    draggingDevice.y = snapToGridValue(deviceStart.y + dy);
                     const el = document.getElementById(draggingDevice.id);
                     el.style.left = draggingDevice.x + 'px';
                     el.style.top = draggingDevice.y + 'px';
@@ -803,8 +815,8 @@
                 if (draggingZone) {
                     const dx = (e.clientX - dragStart.x) / state.zoom;
                     const dy = (e.clientY - dragStart.y) / state.zoom;
-                    draggingZone.x = zoneStart.x + dx;
-                    draggingZone.y = zoneStart.y + dy;
+                    draggingZone.x = snapToGridValue(zoneStart.x + dx);
+                    draggingZone.y = snapToGridValue(zoneStart.y + dy);
                     const el = document.getElementById(draggingZone.id);
                     el.style.left = draggingZone.x + 'px';
                     el.style.top = draggingZone.y + 'px';
@@ -812,8 +824,8 @@
                 if (resizingZone) {
                     const dx = (e.clientX - resizeStart.x) / state.zoom;
                     const dy = (e.clientY - resizeStart.y) / state.zoom;
-                    resizingZone.width = Math.max(150, resizeStart.w + dx);
-                    resizingZone.height = Math.max(100, resizeStart.h + dy);
+                    resizingZone.width = Math.max(150, snapToGridValue(resizeStart.w + dx));
+                    resizingZone.height = Math.max(100, snapToGridValue(resizeStart.h + dy));
                     const el = document.getElementById(resizingZone.id);
                     el.style.width = resizingZone.width + 'px';
                     el.style.height = resizingZone.height + 'px';
@@ -899,6 +911,11 @@
             document.getElementById('zoomInBtn').onclick = () => { state.zoom = Math.min(3, state.zoom + 0.1); applyTransform(); };
             document.getElementById('zoomOutBtn').onclick = () => { state.zoom = Math.max(0.25, state.zoom - 0.1); applyTransform(); };
             document.getElementById('resetBtn').onclick = resetView;
+            document.getElementById('snapBtn').onclick = () => {
+                snapToGrid = !snapToGrid;
+                document.getElementById('snapBtn').innerHTML = '&#x1F9F2; Snap: ' + (snapToGrid ? 'On' : 'Off');
+                document.getElementById('snapBtn').style.opacity = snapToGrid ? '1' : '0.6';
+            };
             document.getElementById('wiredBtn').onclick = () => setConnType('wired');
             document.getElementById('wirelessBtn').onclick = () => setConnType('wireless');
             document.getElementById('clearBtn').onclick = clearAll;
