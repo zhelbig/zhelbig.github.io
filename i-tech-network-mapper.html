@@ -240,9 +240,10 @@
                 <input type="text" id="siteName" class="client-input" placeholder="Enter location...">
             </div>
             <div class="header-actions">
+                <button class="btn" id="csvTemplatesBtn">&#x1F4CB; CSV Templates</button>
                 <button class="btn" id="exportPdfBtn">&#x1F4C4; Export PDF</button>
-                <button class="btn" id="exportJsonBtn">&#x1F4BE; Save Project</button>
-                <button class="btn" id="importBtn">&#x1F4C2; Load Project</button>
+                <button class="btn" id="saveProjectBtn">&#x1F4BE; Save Project</button>
+                <button class="btn" id="loadProjectBtn">&#x1F4C2; Load Project</button>
                 <button class="btn btn-danger" id="clearBtn">&#x1F5D1;&#xFE0F; Clear</button>
             </div>
         </header>
@@ -353,12 +354,14 @@
             <div id="noSelect" style="text-align:center;padding:30px;color:var(--text-muted);"><p style="font-size:0.8rem;">Select a device to edit</p></div>
             <div id="deviceProps" style="display:none;">
                 <div class="form-group" id="nameGroup"><label class="form-label" id="nameLabel">Device Name</label><input type="text" class="form-input" id="propName"></div>
+                <div class="form-group" id="ipGroup"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propIP" placeholder="192.168.1.1"></div>
                 <div id="networkEquipSection" style="display:none;">
                     <div class="form-group"><label class="form-label">Manufacturer</label><input type="text" class="form-input" id="propNetEquipMfg" placeholder="e.g. Cisco, Ubiquiti" oninput="updateDeviceProp('manufacturer', this.value)"></div>
                     <div class="form-group"><label class="form-label">Model</label><input type="text" class="form-input" id="propNetEquipModel" placeholder="e.g. USW-24-POE" oninput="updateDeviceProp('model', this.value)"></div>
                 </div>
                 <div class="form-group" id="manufacturerGroup" style="display:none;"><label class="form-label">Manufacturer</label><select class="form-select" id="propManufacturer"></select></div>
                 <div class="form-group" id="osGroup" style="display:none;"><label class="form-label">Operating System</label><select class="form-select" id="propOS"></select></div>
+                <div class="form-group" id="serialGroup" style="display:none;"><label class="form-label">Serial Number</label><input type="text" class="form-input" id="propSerial" placeholder="e.g. ABC123XYZ" oninput="updateDeviceProp('serial', this.value)"></div>
                 <div id="routerSection" style="display:none;">
                     <div class="form-group">
                         <label class="form-label">Connection Type</label>
@@ -378,7 +381,6 @@
                         <div class="form-group" style="flex:1;"><label class="form-label">Upload (Mbps)</label><input type="text" class="form-input" id="propUpload" placeholder="100" oninput="updateDeviceProp('uploadSpeed', this.value)"></div>
                     </div>
                 </div>
-                <div class="form-group" id="ipGroup"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propIP" placeholder="192.168.1.1"></div>
                 <div class="form-group" id="macGroup"><label class="form-label">MAC Address</label><input type="text" class="form-input" id="propMAC" placeholder="00:00:00:00:00:00"></div>
                 <div class="form-group" id="statusGroup">
                     <label class="form-label">Status</label>
@@ -439,6 +441,10 @@
                     <div class="form-label">Hosted VMs</div>
                     <div id="vmList"></div>
                     <button class="add-btn" id="addVMBtn" style="margin-top:8px;">+ Add VM</button>
+                </div>
+                <div id="connectedToSection" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--glass-border);">
+                    <div class="form-label" style="margin-bottom:8px;">Connected To</div>
+                    <div id="connectedToList" style="font-size:0.75rem;color:var(--text-muted);"></div>
                 </div>
                 <button class="btn btn-danger" style="width:100%;margin-top:16px;justify-content:center;" id="deleteBtn">&#x1F5D1;&#xFE0F; Delete Device</button>
             </div>
@@ -612,6 +618,56 @@
                 </div>
             </div>
             <div class="modal-footer"><button class="btn" onclick="closeModal('exportModal')">Cancel</button><button class="btn btn-primary" onclick="generatePDF()">Export PDF</button></div>
+        </div>
+    </div>
+    <div class="modal-bg" id="csvTemplatesModal">
+        <div class="modal" style="width:420px;">
+            <div class="modal-header"><h3>CSV Templates</h3><button class="modal-close" onclick="closeModal('csvTemplatesModal')">&times;</button></div>
+            <div class="modal-body">
+                <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;">Download a CSV template to fill in your devices. Each template has columns specific to that device category. Load the filled CSV using "Load Project".</p>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <button class="btn" onclick="downloadCSVTemplate('network')" style="justify-content:flex-start;">&#x1F4E1; Network Equipment</button>
+                    <button class="btn" onclick="downloadCSVTemplate('servers')" style="justify-content:flex-start;">&#x1F5A5;&#xFE0F; Servers</button>
+                    <button class="btn" onclick="downloadCSVTemplate('endpoints')" style="justify-content:flex-start;">&#x1F4BB; Endpoints</button>
+                    <button class="btn" onclick="downloadCSVTemplate('other')" style="justify-content:flex-start;">&#x1F310; Other Devices</button>
+                    <button class="btn" onclick="downloadCSVTemplate('all')" style="justify-content:flex-start;">&#x1F4CB; All Devices (Combined)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-bg" id="saveProjectModal">
+        <div class="modal" style="width:380px;">
+            <div class="modal-header"><h3>Save Project</h3><button class="modal-close" onclick="closeModal('saveProjectModal')">&times;</button></div>
+            <div class="modal-body">
+                <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;">Choose a format to save your project:</p>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <button class="btn btn-primary" onclick="exportJson()" style="justify-content:center;">&#x1F4BE; Save as JSON (Full Project)</button>
+                    <button class="btn" onclick="exportCSV()" style="justify-content:center;">&#x1F4CB; Save as CSV (Devices Only)</button>
+                </div>
+                <p style="font-size:0.65rem;color:var(--text-muted);margin-top:12px;">JSON includes all data (devices, connections, zones, settings). CSV exports device list only.</p>
+            </div>
+        </div>
+    </div>
+    <div class="modal-bg" id="loadProjectModal">
+        <div class="modal" style="width:420px;">
+            <div class="modal-header"><h3>Load Project</h3><button class="modal-close" onclick="closeModal('loadProjectModal')">&times;</button></div>
+            <div class="modal-body">
+                <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;">Load a project file or import devices from CSV:</p>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <input type="file" id="jsonFileInput" accept=".json" style="display:none;" onchange="handleJsonLoad(event)">
+                    <button class="btn btn-primary" onclick="document.getElementById('jsonFileInput').click()" style="justify-content:center;">&#x1F4C2; Load JSON Project</button>
+                    <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleCSVUpload(event)">
+                    <button class="btn" onclick="document.getElementById('csvFileInput').click()" style="justify-content:center;">&#x1F4CB; Import CSV Devices</button>
+                </div>
+                <div id="csvPreview" style="display:none;margin-top:12px;">
+                    <div class="form-label">Preview</div>
+                    <div id="csvPreviewContent" style="max-height:200px;overflow-y:auto;background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;font-size:0.7rem;font-family:'JetBrains Mono',monospace;"></div>
+                    <div style="margin-top:12px;display:flex;gap:8px;">
+                        <button class="btn btn-primary" onclick="importCSVDevices()" style="flex:1;justify-content:center;">&#x2714; Import Devices</button>
+                        <button class="btn" onclick="cancelCSVImport()" style="flex:1;justify-content:center;">Cancel</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <script>
@@ -874,6 +930,10 @@
                                 type: state.connType
                             });
                             updateCounts();
+                            // Refresh connected to list if either device is selected
+                            if (state.selected && (state.selected.id === targetDevice.device.id || state.selected.id === dragConnStart.device.id)) {
+                                renderConnectedToList(state.selected);
+                            }
                         }
                     }
                     
@@ -919,9 +979,10 @@
             document.getElementById('wiredBtn').onclick = () => setConnType('wired');
             document.getElementById('wirelessBtn').onclick = () => setConnType('wireless');
             document.getElementById('clearBtn').onclick = clearAll;
+            document.getElementById('csvTemplatesBtn').onclick = () => openModal('csvTemplatesModal');
             document.getElementById('exportPdfBtn').onclick = () => openModal('exportModal');
-            document.getElementById('exportJsonBtn').onclick = exportJson;
-            document.getElementById('importBtn').onclick = importData;
+            document.getElementById('saveProjectBtn').onclick = () => openModal('saveProjectModal');
+            document.getElementById('loadProjectBtn').onclick = () => openModal('loadProjectModal');
             document.getElementById('deleteBtn').onclick = deleteSelected;
             document.getElementById('addVMBtn').onclick = () => openModal('vmModal');
 
@@ -1228,6 +1289,10 @@
                         });
                         drawConnections();
                         updateCounts();
+                        // Refresh connected to list if either device is selected
+                        if (state.selected && (state.selected.id === device.id || state.selected.id === state.connecting.device.id)) {
+                            renderConnectedToList(state.selected);
+                        }
                     }
                 }
                 cancelConnect();
@@ -1399,11 +1464,12 @@
             }
             document.getElementById('propName').value = d.name;
             
-            // Handle IP/MAC fields - hide for router
+            // Handle IP/MAC fields - show IP for router, hide MAC
             const ipGroup = document.getElementById('ipGroup');
             const macGroup = document.getElementById('macGroup');
             if (d.type === 'router') {
-                ipGroup.style.display = 'none';
+                ipGroup.style.display = 'block';
+                document.getElementById('propIP').value = d.ip;
                 macGroup.style.display = 'none';
             } else {
                 ipGroup.style.display = 'block';
@@ -1516,6 +1582,75 @@
             } else {
                 osGroup.style.display = 'none';
             }
+            
+            // Handle Serial Number - show for desktop, laptop, server
+            const serialGroup = document.getElementById('serialGroup');
+            const serialTypes = ['desktop', 'laptop', 'server'];
+            if (serialTypes.includes(d.type)) {
+                serialGroup.style.display = 'block';
+                document.getElementById('propSerial').value = d.serial || '';
+            } else {
+                serialGroup.style.display = 'none';
+            }
+            
+            // Handle Connected To section
+            renderConnectedToList(d);
+        }
+        
+        function renderConnectedToList(d) {
+            const container = document.getElementById('connectedToList');
+            
+            // Find all connections involving this device
+            const connections = state.connections.filter(c => c.from === d.id || c.to === d.id);
+            
+            if (connections.length === 0) {
+                container.innerHTML = '<p style="font-size:0.7rem;color:var(--text-muted);text-align:center;padding:8px 0;">No connections</p>';
+                return;
+            }
+            
+            // Initialize parentPorts if not present
+            if (!d.parentPorts) d.parentPorts = {};
+            
+            let html = '';
+            connections.forEach((conn, index) => {
+                // Get the "other" device in the connection (the parent)
+                const parentId = conn.from === d.id ? conn.to : conn.from;
+                const parentDevice = state.devices.find(dev => dev.id === parentId);
+                
+                if (!parentDevice) return;
+                
+                const isWireless = conn.type === 'wireless';
+                const connIcon = isWireless ? '📶' : '🔌';
+                const portValue = d.parentPorts[parentId] || '';
+                
+                // Show "Wireless" tag for wireless connections, port input for wired
+                let portField;
+                if (isWireless) {
+                    portField = '<span style="display:inline-block;padding:4px 10px;background:rgba(192,132,252,0.15);border:1px solid rgba(192,132,252,0.3);border-radius:6px;font-size:0.65rem;color:#c084fc;font-weight:500;">Wireless</span>';
+                } else {
+                    portField = '<input type="text" class="form-input" style="width:60px;padding:4px 6px;font-size:0.7rem;text-align:center;" ' +
+                        'placeholder="Port" value="' + portValue + '" ' +
+                        'oninput="updateParentPort(\'' + parentId + '\', this.value)" ' +
+                        'title="Port on ' + parentDevice.name + '">';
+                }
+                
+                html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--glass-border);">' +
+                    '<span style="font-size:0.85rem;">' + connIcon + '</span>' +
+                    '<div style="flex:1;">' +
+                        '<div style="font-weight:500;color:var(--text-primary);font-size:0.75rem;">' + parentDevice.name + '</div>' +
+                        '<div style="font-size:0.65rem;color:var(--text-muted);">' + (types[parentDevice.type]?.name || parentDevice.type) + '</div>' +
+                    '</div>' +
+                    portField +
+                '</div>';
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function updateParentPort(parentId, portValue) {
+            if (!state.selected) return;
+            if (!state.selected.parentPorts) state.selected.parentPorts = {};
+            state.selected.parentPorts[parentId] = portValue;
         }
         
         function renderSwitchVLANList(d) {
@@ -2180,6 +2315,20 @@
                     
                     let yPos = 24;
                     
+                    // Helper to get connected device info with port
+                    function getConnectedTo(d) {
+                        const connections = state.connections.filter(c => c.from === d.id || c.to === d.id);
+                        if (connections.length === 0) return '-';
+                        
+                        return connections.map(conn => {
+                            const parentId = conn.from === d.id ? conn.to : conn.from;
+                            const parentDevice = state.devices.find(dev => dev.id === parentId);
+                            if (!parentDevice) return '';
+                            const port = d.parentPorts && d.parentPorts[parentId] ? ' (Port ' + d.parentPorts[parentId] + ')' : '';
+                            return parentDevice.name + port;
+                        }).filter(Boolean).join(', ') || '-';
+                    }
+                    
                     // Define columns per device type
                     const typeConfigs = {
                         'switch': {
@@ -2198,20 +2347,21 @@
                             getData: (d) => [d.name, d.manufacturer || '-', d.model || '-', d.ip || '-', d.mac || '-', d.ports || '-', d.notes || '-']
                         },
                         'ap': {
-                            cols: ['Name', 'Manufacturer', 'Model', 'IP Address', 'MAC Address', 'SSIDs', 'Notes'],
-                            widths: orientation === 'landscape' ? [35, 30, 35, 38, 42, 50, 40] : [24, 22, 24, 30, 35, 35, 20],
+                            cols: ['Name', 'Manufacturer', 'Model', 'IP Address', 'MAC Address', 'Connected To', 'SSIDs'],
+                            widths: orientation === 'landscape' ? [30, 25, 30, 35, 38, 45, 67] : [20, 18, 22, 28, 32, 35, 35],
                             getData: (d) => [
                                 d.name, d.manufacturer || '-', d.model || '-', d.ip || '-', d.mac || '-',
-                                d.ssids ? d.ssids.join(', ') : '-', d.notes || '-'
+                                getConnectedTo(d), d.ssids ? d.ssids.join(', ') : '-'
                             ]
                         },
                         'router': {
-                            cols: ['ISP', 'Connection', 'Download', 'Upload', 'Notes'],
-                            widths: orientation === 'landscape' ? [50, 30, 40, 40, 110] : [35, 25, 35, 35, 60],
+                            cols: ['ISP', 'Connection', 'Download', 'Upload', 'IP Address', 'Notes'],
+                            widths: orientation === 'landscape' ? [45, 28, 35, 35, 45, 82] : [30, 22, 30, 30, 38, 40],
                             getData: (d) => [
                                 d.name, d.connectionType || '-', 
                                 d.downloadSpeed ? d.downloadSpeed + ' Mbps' : '-',
                                 d.uploadSpeed ? d.uploadSpeed + ' Mbps' : '-',
+                                d.ip || '-',
                                 d.notes || '-'
                             ]
                         },
@@ -2220,23 +2370,38 @@
                             widths: orientation === 'landscape' ? [35, 30, 35, 35, 40, 35, 60] : [24, 22, 25, 30, 35, 28, 26],
                             getData: (d) => [d.name, d.manufacturer || '-', d.model || '-', d.ip || '-', d.mac || '-', getVlanName(d.vlan), d.notes || '-']
                         },
+                        'desktop': {
+                            cols: ['Name', 'Manufacturer', 'OS', 'Serial', 'IP Address', 'Connected To', 'Notes'],
+                            widths: orientation === 'landscape' ? [28, 24, 28, 28, 30, 50, 82] : [18, 16, 20, 20, 24, 40, 52],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.os || '-', d.serial || '-', d.ip || '-', getConnectedTo(d), d.notes || '-']
+                        },
+                        'laptop': {
+                            cols: ['Name', 'Manufacturer', 'OS', 'Serial', 'IP Address', 'Connected To', 'Notes'],
+                            widths: orientation === 'landscape' ? [28, 24, 28, 28, 30, 50, 82] : [18, 16, 20, 20, 24, 40, 52],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.os || '-', d.serial || '-', d.ip || '-', getConnectedTo(d), d.notes || '-']
+                        },
                         'server': {
-                            cols: ['Name', 'Manufacturer', 'OS', 'IP Address', 'MAC Address', 'VLAN', 'Notes'],
-                            widths: orientation === 'landscape' ? [35, 30, 35, 35, 40, 35, 60] : [24, 22, 25, 30, 35, 28, 26],
-                            getData: (d) => [d.name, d.manufacturer || '-', d.os || '-', d.ip || '-', d.mac || '-', getVlanName(d.vlan), d.notes || '-']
+                            cols: ['Name', 'Manufacturer', 'OS', 'Serial', 'IP Address', 'Connected To', 'Notes'],
+                            widths: orientation === 'landscape' ? [28, 24, 28, 28, 30, 50, 82] : [18, 16, 20, 20, 24, 40, 52],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.os || '-', d.serial || '-', d.ip || '-', getConnectedTo(d), d.notes || '-']
                         },
                         'vmhost': {
-                            cols: ['Name', 'Manufacturer', 'OS', 'IP Address', 'MAC Address', 'VMs', 'Notes'],
-                            widths: orientation === 'landscape' ? [35, 30, 35, 35, 40, 50, 45] : [24, 22, 25, 30, 35, 35, 19],
+                            cols: ['Name', 'Manufacturer', 'OS', 'IP Address', 'Connected To', 'VMs', 'Notes'],
+                            widths: orientation === 'landscape' ? [30, 28, 32, 32, 45, 50, 53] : [20, 20, 24, 26, 35, 35, 30],
                             getData: (d) => [
-                                d.name, d.manufacturer || '-', d.os || '-', d.ip || '-', d.mac || '-',
+                                d.name, d.manufacturer || '-', d.os || '-', d.ip || '-', getConnectedTo(d),
                                 d.vms ? d.vms.map(vm => vm.name).join(', ') : '-', d.notes || '-'
                             ]
                         },
+                        'ups': {
+                            cols: ['Name', 'Manufacturer', 'Model', 'Capacity (VA)', 'Runtime (min)', 'IP Address', 'Notes'],
+                            widths: orientation === 'landscape' ? [35, 30, 35, 30, 30, 40, 70] : [24, 22, 25, 22, 22, 32, 43],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.model || '-', d.capacity || '-', d.runtime || '-', d.ip || '-', d.notes || '-']
+                        },
                         'default': {
-                            cols: ['Name', 'Manufacturer', 'OS', 'IP Address', 'MAC Address', 'VLAN', 'Notes'],
-                            widths: orientation === 'landscape' ? [35, 30, 35, 35, 40, 35, 60] : [24, 22, 25, 30, 35, 28, 26],
-                            getData: (d) => [d.name, d.manufacturer || '-', d.os || '-', d.ip || '-', d.mac || '-', getVlanName(d.vlan), d.notes || '-']
+                            cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'Connected To', 'VLAN', 'Notes'],
+                            widths: orientation === 'landscape' ? [30, 28, 32, 38, 50, 28, 64] : [20, 20, 26, 32, 38, 22, 32],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.ip || '-', d.mac || '-', getConnectedTo(d), getVlanName(d.vlan), d.notes || '-']
                         }
                     };
                     
@@ -2246,7 +2411,7 @@
                         'printer': 'Printers', 'otherendpoint': 'Other Endpoints', 'server': 'Servers', 'nas': 'NAS Devices',
                         'router': 'Internet Connection', 'firewall': 'Firewalls', 'switch': 'Switches', 'ap': 'Access Points',
                         'vmhost': 'VM Hosts', 'vm': 'Virtual Machines', 'storage': 'Storage', 'phone': 'Desk Phones', 
-                        'camera': 'Security Cameras', 'iot': 'IoT Devices'
+                        'camera': 'Security Cameras', 'iot': 'IoT Devices', 'ups': 'UPS Units'
                     };
                     
                     // Helper function to draw page header
@@ -2357,109 +2522,148 @@
                         yPos += 6; // Space between sections
                     });
                     
-                    // Add Zone Inventory if there are zones
-                    if (state.zones.length > 0) {
+                    // Add UPS zones as devices in the device list
+                    const upsZones = state.zones.filter(z => z.type === 'ups');
+                    if (upsZones.length > 0) {
                         // Check if we need a new page
-                        if (yPos > pageHeight - 60) {
+                        if (yPos > pageHeight - 40) {
                             pdf.addPage();
                             pageNum++;
-                            drawPageHeader('Zone Inventory');
+                            drawPageHeader('Device List');
                             yPos = 24;
                         }
                         
-                        // Zone section header
+                        const config = typeConfigs['ups'];
+                        
+                        // Section header
                         pdf.setFillColor(15, 113, 240);
                         pdf.rect(10, yPos - 4, pageWidth - 20, 8, 'F');
                         pdf.setFontSize(9);
                         pdf.setFont('helvetica', 'bold');
                         pdf.setTextColor(255, 255, 255);
-                        pdf.text('Infrastructure Zones (' + state.zones.length + ')', 12, yPos + 1);
+                        pdf.text('UPS Units (' + upsZones.length + ')', 12, yPos + 1);
                         yPos += 10;
                         
-                        // Group zones by type
-                        const zonesByType = {};
-                        state.zones.forEach(z => {
-                            if (!zonesByType[z.type]) zonesByType[z.type] = [];
-                            zonesByType[z.type].push(z);
+                        // Column headers
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
+                        pdf.setFontSize(6);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(60, 60, 60);
+                        
+                        let xOffset = 10;
+                        config.cols.forEach((col, i) => {
+                            pdf.text(col, xOffset + 1, yPos);
+                            xOffset += config.widths[i];
                         });
+                        yPos += 6;
                         
-                        const zoneTypeNames = {
-                            'cloud': 'Cloud Zones',
-                            'onprem': 'On-Premises Zones',
-                            'mdf': 'MDF (Main Distribution Frame)',
-                            'idf': 'IDF (Intermediate Distribution Frame)',
-                            'ups': 'UPS Coverage'
-                        };
-                        
-                        Object.keys(zonesByType).forEach(zoneType => {
-                            const zones = zonesByType[zoneType];
-                            const typeName = zoneTypeNames[zoneType] || zoneType;
-                            
-                            // Check for page break
-                            if (yPos > pageHeight - 30) {
+                        // UPS rows
+                        pdf.setFont('helvetica', 'normal');
+                        upsZones.forEach((z, i) => {
+                            if (yPos > pageHeight - 15) {
                                 pdf.addPage();
                                 pageNum++;
-                                drawPageHeader('Zone Inventory');
+                                drawPageHeader('Device List');
                                 yPos = 24;
                             }
                             
-                            // Sub-section header
-                            pdf.setFillColor(240, 240, 240);
-                            pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
-                            pdf.setFontSize(7);
-                            pdf.setFont('helvetica', 'bold');
-                            pdf.setTextColor(60, 60, 60);
-                            pdf.text(typeName, 12, yPos);
-                            yPos += 7;
+                            if (i % 2 === 0) {
+                                pdf.setFillColor(250, 250, 250);
+                            } else {
+                                pdf.setFillColor(255, 255, 255);
+                            }
+                            pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
                             
-                            zones.forEach((z, i) => {
-                                if (yPos > pageHeight - 15) {
-                                    pdf.addPage();
-                                    pageNum++;
-                                    drawPageHeader('Zone Inventory');
-                                    yPos = 24;
-                                }
-                                
-                                // Alternate row background
-                                if (i % 2 === 0) {
-                                    pdf.setFillColor(250, 250, 250);
-                                } else {
-                                    pdf.setFillColor(255, 255, 255);
-                                }
-                                pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
-                                
-                                pdf.setFontSize(6);
-                                pdf.setFont('helvetica', 'normal');
-                                pdf.setTextColor(40, 40, 40);
-                                
-                                let details = z.name;
-                                if (zoneType === 'ups') {
-                                    const parts = [];
-                                    if (z.manufacturer) parts.push(z.manufacturer);
-                                    if (z.model) parts.push(z.model);
-                                    if (z.capacity) parts.push(z.capacity + ' VA');
-                                    if (z.runtime) parts.push(z.runtime + ' min runtime');
-                                    if (z.ip) parts.push('IP: ' + z.ip);
-                                    if (parts.length > 0) details += ' - ' + parts.join(', ');
-                                } else if (zoneType === 'cloud') {
-                                    const parts = [];
-                                    if (z.provider) parts.push(z.provider);
-                                    if (z.region) parts.push(z.region);
-                                    if (parts.length > 0) details += ' - ' + parts.join(', ');
-                                } else if (zoneType === 'mdf' || zoneType === 'idf' || zoneType === 'onprem') {
-                                    if (z.location) details += ' - ' + z.location;
-                                    if (zoneType === 'idf' && z.connectedMDF) {
-                                        const mdf = state.zones.find(zone => zone.id === z.connectedMDF);
-                                        if (mdf) details += ' (Connected to: ' + mdf.name + ')';
-                                    }
-                                }
-                                if (z.notes) details += ' | Notes: ' + z.notes;
-                                
-                                pdf.text(details.substring(0, 150), 12, yPos);
-                                yPos += 6;
+                            pdf.setFontSize(6);
+                            pdf.setTextColor(40, 40, 40);
+                            
+                            const rowData = [z.name, z.manufacturer || '-', z.model || '-', z.capacity || '-', z.runtime || '-', z.ip || '-', z.notes || '-'];
+                            let xOff = 10;
+                            rowData.forEach((val, j) => {
+                                const maxChars = Math.floor(config.widths[j] / 1.8);
+                                const truncated = String(val).substring(0, maxChars);
+                                pdf.text(truncated, xOff + 1, yPos);
+                                xOff += config.widths[j];
                             });
                             
-                            yPos += 4;
+                            yPos += 6;
+                        });
+                        
+                        yPos += 6;
+                    }
+                    
+                    // Add Cloud & On-Prem Environments section
+                    const cloudOnpremZones = state.zones.filter(z => z.type === 'cloud' || z.type === 'onprem');
+                    if (cloudOnpremZones.length > 0) {
+                        // Check if we need a new page
+                        if (yPos > pageHeight - 50) {
+                            pdf.addPage();
+                            pageNum++;
+                            drawPageHeader('Device List');
+                            yPos = 24;
+                        }
+                        
+                        // Section header
+                        pdf.setFillColor(15, 113, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 8, 'F');
+                        pdf.setFontSize(9);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(255, 255, 255);
+                        pdf.text('Cloud & On-Prem Environments (' + cloudOnpremZones.length + ')', 12, yPos + 1);
+                        yPos += 10;
+                        
+                        // Column headers
+                        const envCols = ['Name', 'Type', 'Provider/Location', 'Region', 'Notes'];
+                        const envWidths = orientation === 'landscape' ? [40, 30, 60, 50, 90] : [30, 25, 45, 35, 55];
+                        
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
+                        pdf.setFontSize(6);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(60, 60, 60);
+                        
+                        let xOffset = 10;
+                        envCols.forEach((col, i) => {
+                            pdf.text(col, xOffset + 1, yPos);
+                            xOffset += envWidths[i];
+                        });
+                        yPos += 6;
+                        
+                        // Environment rows
+                        pdf.setFont('helvetica', 'normal');
+                        cloudOnpremZones.forEach((z, i) => {
+                            if (yPos > pageHeight - 15) {
+                                pdf.addPage();
+                                pageNum++;
+                                drawPageHeader('Device List');
+                                yPos = 24;
+                            }
+                            
+                            if (i % 2 === 0) {
+                                pdf.setFillColor(250, 250, 250);
+                            } else {
+                                pdf.setFillColor(255, 255, 255);
+                            }
+                            pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
+                            
+                            pdf.setFontSize(6);
+                            pdf.setTextColor(40, 40, 40);
+                            
+                            const typeName = z.type === 'cloud' ? 'Cloud' : 'On-Premises';
+                            const providerLocation = z.type === 'cloud' ? (z.provider || '-') : (z.location || '-');
+                            const region = z.type === 'cloud' ? (z.region || '-') : '-';
+                            
+                            const rowData = [z.name, typeName, providerLocation, region, z.notes || '-'];
+                            let xOff = 10;
+                            rowData.forEach((val, j) => {
+                                const maxChars = Math.floor(envWidths[j] / 1.8);
+                                const truncated = String(val).substring(0, maxChars);
+                                pdf.text(truncated, xOff + 1, yPos);
+                                xOff += envWidths[j];
+                            });
+                            
+                            yPos += 6;
                         });
                     }
                     
@@ -2475,6 +2679,7 @@
         }
 
         function exportJson() {
+            closeModal('saveProjectModal');
             const data = { 
                 devices: state.devices, 
                 connections: state.connections, 
@@ -2492,55 +2697,357 @@
             a.download = 'network-project-' + new Date().toISOString().split('T')[0] + '.json';
             a.click();
         }
+        
+        function exportCSV() {
+            closeModal('saveProjectModal');
+            if (state.devices.length === 0) {
+                alert('No devices to export.');
+                return;
+            }
+            
+            // Build CSV with all device properties
+            const headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'Model', 'OS', 'Serial Number', 'Ports', 'PoE', 'Connection Type', 'Download Mbps', 'Upload Mbps', 'VLAN ID', 'Status', 'Notes'];
+            
+            let csvContent = headers.join(',') + '\n';
+            
+            state.devices.forEach(d => {
+                const row = [
+                    d.type || '',
+                    d.name || '',
+                    d.ip || '',
+                    d.mac || '',
+                    d.manufacturer || '',
+                    d.model || '',
+                    d.os || '',
+                    d.serial || '',
+                    d.ports || '',
+                    d.poe ? 'yes' : '',
+                    d.connectionType || '',
+                    d.downloadSpeed || '',
+                    d.uploadSpeed || '',
+                    d.vlan || '',
+                    d.status || '',
+                    d.notes || ''
+                ].map(cell => {
+                    const str = String(cell);
+                    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                        return '"' + str.replace(/"/g, '""') + '"';
+                    }
+                    return str;
+                });
+                csvContent += row.join(',') + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'network-devices-' + new Date().toISOString().split('T')[0] + '.csv';
+            a.click();
+        }
 
-        function importData() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-            input.onchange = e => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = evt => {
-                        try {
-                            const data = JSON.parse(evt.target.result);
-                            state.devices = data.devices || [];
-                            state.connections = data.connections || [];
-                            state.vlans = data.vlans || state.vlans;
-                            state.ssids = data.ssids || [];
-                            state.config = data.config || state.config;
-                            if (data.clientName) {
-                                document.getElementById('clientName').value = data.clientName;
-                            }
-                            if (data.siteName) {
-                                document.getElementById('siteName').value = data.siteName;
-                            }
-                            if (data.view) {
-                                state.zoom = data.view.zoom || 1;
-                                state.panX = data.view.panX || 0;
-                                state.panY = data.view.panY || 0;
-                            }
-                            document.querySelectorAll('.network-device').forEach(el => el.remove());
-                            document.querySelectorAll('.network-zone').forEach(el => el.remove());
-                            state.zones = data.zones || [];
-                            state.devices.forEach(d => renderDevice(d));
-                            state.zones.forEach(z => renderZone(z));
-                            drawConnections();
-                            updateVlanSelect();
-                            updateNetworkInfoBox();
-                            updateCounts();
-                            applyTransform();
-                            if (state.devices.length > 0 || state.zones.length > 0) {
-                                document.getElementById('emptyState').style.display = 'none';
-                            }
-                        } catch (err) {
-                            alert('Error loading project: ' + err.message);
-                        }
-                    };
-                    reader.readAsText(file);
+        function handleJsonLoad(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = evt => {
+                try {
+                    const data = JSON.parse(evt.target.result);
+                    state.devices = data.devices || [];
+                    state.connections = data.connections || [];
+                    state.vlans = data.vlans || state.vlans;
+                    state.ssids = data.ssids || [];
+                    state.config = data.config || state.config;
+                    if (data.clientName) {
+                        document.getElementById('clientName').value = data.clientName;
+                    }
+                    if (data.siteName) {
+                        document.getElementById('siteName').value = data.siteName;
+                    }
+                    if (data.view) {
+                        state.zoom = data.view.zoom || 1;
+                        state.panX = data.view.panX || 0;
+                        state.panY = data.view.panY || 0;
+                    }
+                    document.querySelectorAll('.network-device').forEach(el => el.remove());
+                    document.querySelectorAll('.network-zone').forEach(el => el.remove());
+                    state.zones = data.zones || [];
+                    state.devices.forEach(d => renderDevice(d));
+                    state.zones.forEach(z => renderZone(z));
+                    drawConnections();
+                    updateVlanSelect();
+                    updateNetworkInfoBox();
+                    updateCounts();
+                    applyTransform();
+                    closeModal('loadProjectModal');
+                    if (state.devices.length > 0 || state.zones.length > 0) {
+                        document.getElementById('emptyState').style.display = 'none';
+                    }
+                    // Reset file input
+                    document.getElementById('jsonFileInput').value = '';
+                } catch (err) {
+                    alert('Error loading project: ' + err.message);
                 }
             };
-            input.click();
+            reader.readAsText(file);
+        }
+
+        // CSV Import/Export functions
+        let pendingCSVData = [];
+        
+        function downloadCSVTemplate(templateType) {
+            closeModal('csvTemplatesModal');
+            let headers, rows, filename, typeList, statusList;
+            
+            if (templateType === 'network') {
+                // Network Equipment: Router, Firewall, Switch, Access Point
+                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'Model', 'Ports', 'PoE', 'Connection Type', 'Download Mbps', 'Upload Mbps', 'Status', 'Notes'];
+                rows = [
+                    ['router', 'Comcast Business', '203.0.113.50', '', '', '', '', '', 'fiber', '1000', '1000', '', 'Primary ISP'],
+                    ['firewall', 'Main Firewall', '192.168.1.1', '00:1A:2B:3C:4D:01', 'Fortinet', 'FortiGate 60F', '10', '', '', '', '', 'online', 'Edge firewall'],
+                    ['switch', 'Core Switch', '192.168.1.2', '00:1A:2B:3C:4D:02', 'Ubiquiti', 'USW-Pro-48-PoE', '48', 'yes', '', '', '', 'online', 'Main distribution'],
+                    ['switch', 'Floor 2 Switch', '192.168.1.3', '00:1A:2B:3C:4D:03', 'Ubiquiti', 'USW-24-PoE', '24', 'yes', '', '', '', 'online', ''],
+                    ['ap', 'AP - Lobby', '192.168.1.10', '00:1A:2B:3C:4D:10', 'Ubiquiti', 'U6-Pro', '', '', '', '', '', 'online', 'Main entrance'],
+                    ['ap', 'AP - Office', '192.168.1.11', '00:1A:2B:3C:4D:11', 'Ubiquiti', 'U6-LR', '', '', '', '', '', 'online', 'Open office area']
+                ];
+                typeList = '# Valid types: router, firewall, switch, ap';
+                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
+                filename = 'network-equipment-template.csv';
+            } else if (templateType === 'servers') {
+                // Servers and VM Hosts
+                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'VLAN ID', 'Status', 'Notes'];
+                rows = [
+                    ['server', 'DC01', '192.168.20.10', '00:1A:2B:3C:4D:20', 'Dell', 'Windows Server 2022', 'DELLSRV001', '20', 'online', 'Primary Domain Controller'],
+                    ['server', 'DC02', '192.168.20.11', '00:1A:2B:3C:4D:21', 'Dell', 'Windows Server 2022', 'DELLSRV002', '20', 'online', 'Secondary Domain Controller'],
+                    ['server', 'FS01', '192.168.20.20', '00:1A:2B:3C:4D:22', 'HP/HPE', 'Windows Server 2022', 'HPEFS001', '20', 'online', 'File Server'],
+                    ['server', 'SQL01', '192.168.20.30', '00:1A:2B:3C:4D:23', 'Dell', 'Windows Server 2022', 'DELLSQL001', '20', 'online', 'SQL Database Server'],
+                    ['server', 'WEB01', '192.168.20.40', '00:1A:2B:3C:4D:24', 'Dell', 'Ubuntu Server 22.04', 'DELLWEB001', '20', 'online', 'Web Server'],
+                    ['vmhost', 'ESXi-01', '192.168.20.5', '00:1A:2B:3C:4D:25', 'Dell', 'VMware ESXi', 'DELLESX001', '20', 'online', 'VMware Host'],
+                    ['nas', 'NAS01', '192.168.20.50', '00:1A:2B:3C:4D:26', 'Synology', '', 'SYNNAS001', '20', 'online', 'Backup Storage']
+                ];
+                typeList = '# Valid types: server, vmhost, nas';
+                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
+                filename = 'servers-template.csv';
+            } else if (templateType === 'endpoints') {
+                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'VLAN ID', 'Status', 'Notes'];
+                rows = [
+                    ['desktop', 'Reception PC', '192.168.1.100', '00:1A:2B:3C:4D:5E', 'Dell', 'Windows 11', 'SN123456789', '1', 'online', 'Front desk workstation'],
+                    ['laptop', 'Manager Laptop', '192.168.1.101', '00:1A:2B:3C:4D:5F', 'HP', 'Windows 11', 'HP987654321', '1', 'online', ''],
+                    ['cellphone', 'Company iPhone', '192.168.1.102', '', 'Apple', 'iOS 17', '', '1', 'online', ''],
+                    ['tablet', 'Conference Room iPad', '192.168.1.103', '', 'Apple', 'iPadOS 17', '', '1', 'online', 'Meeting room display'],
+                    ['printer', 'Main Printer', '192.168.1.200', '00:1A:2B:3C:4D:60', 'HP', '', '', '1', 'online', 'Model: LaserJet Pro M404n']
+                ];
+                typeList = '# Valid types: desktop, laptop, cellphone, tablet, printer, otherendpoint';
+                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
+                filename = 'endpoint-devices-template.csv';
+            } else if (templateType === 'other') {
+                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'VLAN ID', 'Status', 'Notes'];
+                rows = [
+                    ['phone', 'Desk Phone 1', '192.168.1.150', '00:1A:2B:3C:4D:70', 'Cisco', '10', 'online', 'Extension 101'],
+                    ['camera', 'Front Door Camera', '192.168.1.160', '00:1A:2B:3C:4D:71', 'Hikvision', '20', 'online', ''],
+                    ['iot', 'Smart Thermostat', '192.168.1.170', '00:1A:2B:3C:4D:72', 'Nest', '1', 'online', '']
+                ];
+                typeList = '# Valid types: phone, camera, iot, otherendpoint';
+                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
+                filename = 'other-devices-template.csv';
+            } else {
+                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'Model', 'VLAN ID', 'Status', 'Notes'];
+                rows = [
+                    ['router', 'ISP Router', '203.0.113.50', '', '', '', '', '', '', '', 'Primary ISP'],
+                    ['firewall', 'Firewall', '192.168.1.1', '', 'Fortinet', '', '', 'FortiGate 60F', '', 'online', ''],
+                    ['switch', 'Core Switch', '192.168.1.2', '', 'Ubiquiti', '', '', 'USW-Pro-48', '', 'online', ''],
+                    ['ap', 'Access Point', '192.168.1.10', '', 'Ubiquiti', '', '', 'U6-Pro', '', 'online', ''],
+                    ['server', 'Server 1', '192.168.20.10', '', 'Dell', 'Windows Server 2022', 'DELLSRV001', '', '20', 'online', ''],
+                    ['desktop', 'Workstation 1', '192.168.1.100', '', 'Dell', 'Windows 11', 'SN123456789', '', '1', 'online', ''],
+                    ['laptop', 'Laptop 1', '192.168.1.101', '', 'HP', 'Windows 11', 'HP987654321', '', '1', 'online', ''],
+                    ['printer', 'Printer 1', '192.168.1.200', '', 'HP', '', '', 'LaserJet Pro', '1', 'online', ''],
+                    ['phone', 'Desk Phone 1', '192.168.1.150', '', 'Cisco', '', '', '', '10', 'online', ''],
+                    ['camera', 'Camera 1', '192.168.1.160', '', 'Hikvision', '', '', '', '20', 'online', '']
+                ];
+                typeList = '# Valid types: router, firewall, switch, ap, server, vmhost, nas, desktop, laptop, cellphone, tablet, printer, phone, camera, iot, otherendpoint';
+                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
+                filename = 'all-devices-template.csv';
+            }
+            
+            let csvContent = typeList + '\n' + statusList + '\n' + headers.join(',') + '\n';
+            rows.forEach(row => {
+                csvContent += row.map(cell => {
+                    // Escape commas and quotes
+                    if (cell.includes(',') || cell.includes('"')) {
+                        return '"' + cell.replace(/"/g, '""') + '"';
+                    }
+                    return cell;
+                }).join(',') + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+        }
+        
+        function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                const lines = content.split('\n').filter(line => line.trim() && !line.trim().startsWith('#'));
+                
+                if (lines.length < 2) {
+                    alert('CSV file must have at least a header row and one data row.');
+                    return;
+                }
+                
+                const headers = parseCSVLine(lines[0]);
+                pendingCSVData = [];
+                
+                // Parse data rows
+                for (let i = 1; i < lines.length; i++) {
+                    const values = parseCSVLine(lines[i]);
+                    if (values.length === 0) continue;
+                    
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header.toLowerCase().replace(/\s+/g, '')] = values[index] || '';
+                    });
+                    
+                    // Validate type
+                    const validTypes = ['router', 'firewall', 'switch', 'ap', 'server', 'vmhost', 'nas', 'desktop', 'laptop', 'cellphone', 'tablet', 'printer', 'phone', 'camera', 'iot', 'otherendpoint', 'storage'];
+                    if (row.type && validTypes.includes(row.type.toLowerCase())) {
+                        pendingCSVData.push(row);
+                    }
+                }
+                
+                if (pendingCSVData.length === 0) {
+                    alert('No valid devices found in CSV. Make sure the Type column contains valid device types.');
+                    return;
+                }
+                
+                // Show preview
+                const previewDiv = document.getElementById('csvPreview');
+                const previewContent = document.getElementById('csvPreviewContent');
+                
+                let previewHTML = '<div style="color:var(--green);margin-bottom:8px;">Found ' + pendingCSVData.length + ' valid device(s):</div>';
+                pendingCSVData.slice(0, 10).forEach(row => {
+                    previewHTML += '<div style="padding:4px 0;border-bottom:1px solid var(--glass-border);">' +
+                        '<span style="color:var(--primary);">' + row.type + '</span> - ' +
+                        (row.name || 'Unnamed') +
+                        (row.ipaddress ? ' (' + row.ipaddress + ')' : '') +
+                        '</div>';
+                });
+                if (pendingCSVData.length > 10) {
+                    previewHTML += '<div style="color:var(--text-muted);padding-top:8px;">...and ' + (pendingCSVData.length - 10) + ' more</div>';
+                }
+                
+                previewContent.innerHTML = previewHTML;
+                previewDiv.style.display = 'block';
+            };
+            reader.readAsText(file);
+        }
+        
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    if (inQuotes && line[i + 1] === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            
+            return result;
+        }
+        
+        function importCSVDevices() {
+            if (pendingCSVData.length === 0) return;
+            
+            // Calculate grid layout for new devices
+            const gridCols = Math.ceil(Math.sqrt(pendingCSVData.length));
+            const spacing = 160;
+            const startX = 4000;
+            const startY = 4000;
+            
+            pendingCSVData.forEach((row, index) => {
+                state.counter++;
+                const col = index % gridCols;
+                const rowNum = Math.floor(index / gridCols);
+                const deviceType = row.type.toLowerCase();
+                
+                const device = {
+                    id: 'dev' + Date.now() + '_' + index,
+                    type: deviceType,
+                    name: row.name || (types[deviceType]?.name || 'Device') + ' ' + state.counter,
+                    ip: row.ipaddress || '',
+                    mac: row.macaddress || '',
+                    manufacturer: row.manufacturer || '',
+                    os: row.os || '',
+                    model: row.model || '',
+                    serial: row.serialnumber || '',
+                    vlan: row.vlanid || '',
+                    status: ['online', 'offline', 'warning', 'retired', 'decommissioned'].includes(row.status?.toLowerCase()) 
+                        ? row.status.toLowerCase() : 'online',
+                    notes: row.notes || '',
+                    x: snapToGridValue(startX + (col * spacing)),
+                    y: snapToGridValue(startY + (rowNum * spacing)),
+                    vms: deviceType === 'vmhost' ? [] : null
+                };
+                
+                // Handle network equipment specific fields
+                if (deviceType === 'router') {
+                    device.connectionType = row.connectiontype || '';
+                    device.downloadSpeed = row.downloadmbps || '';
+                    device.uploadSpeed = row.uploadmbps || '';
+                }
+                
+                if (deviceType === 'switch' || deviceType === 'firewall') {
+                    device.ports = row.ports || '';
+                }
+                
+                if (deviceType === 'switch') {
+                    device.poe = row.poe?.toLowerCase() === 'yes' || row.poe?.toLowerCase() === 'true';
+                    device.assignedVlans = [];
+                }
+                
+                state.devices.push(device);
+                renderDevice(device);
+            });
+            
+            const importedCount = pendingCSVData.length;
+            
+            updateCounts();
+            document.getElementById('emptyState').style.display = 'none';
+            
+            // Reset and close
+            cancelCSVImport();
+            closeModal('loadProjectModal');
+            
+            // Center view on new devices
+            resetView();
+            
+            alert('Successfully imported ' + importedCount + ' device(s)!');
+        }
+        
+        function cancelCSVImport() {
+            pendingCSVData = [];
+            document.getElementById('csvPreview').style.display = 'none';
+            document.getElementById('csvFileInput').value = '';
         }
     </script>
 </body>
