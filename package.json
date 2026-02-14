@@ -1,0 +1,19 @@
+{
+  "name": "zhelbig.github.io",
+  "version": "1.0.0",
+  "description": "Test",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:57309/git/zhelbig/zhelbig.github.io"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "vitest": "^4.0.18"
+  }
+}
