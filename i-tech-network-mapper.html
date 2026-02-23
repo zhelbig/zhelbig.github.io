@@ -77,7 +77,14 @@
         #connections{position:absolute;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
         .conn-wired{stroke:var(--primary);stroke-width:2;fill:none}
         .conn-wireless{stroke:var(--accent-purple);stroke-width:2;fill:none;stroke-dasharray:8,4}
-        .controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);padding:8px;border-radius:14px;border:1px solid #e0e0e0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+        .controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);padding:8px;border-radius:14px;border:1px solid #e0e0e0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+        .controls .ctrl-divider{width:1px;height:24px;background:#e0e0e0;margin:0 2px}
+        .controls .conn-toggle-bar{display:flex;background:#f0f0f0;border:1px solid #e0e0e0;border-radius:8px;padding:2px;gap:2px}
+        .controls .conn-toggle-bar button{padding:5px 10px;background:none;border:none;border-radius:6px;color:#666;cursor:pointer;font-size:0.7rem;font-weight:500;font-family:'Poppins',sans-serif;transition:all 0.2s;white-space:nowrap}
+        .controls .conn-toggle-bar button.active{background:#fff;color:#1a1a1a;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+        .controls .conn-toggle-bar button.wired-bar.active{color:var(--primary)}
+        .controls .conn-toggle-bar button.wireless-bar.active{color:var(--accent-purple)}
+        .btn.eraser-active{background:rgba(239,68,68,0.15) !important;border-color:rgba(239,68,68,0.5) !important;color:#ef4444 !important}
 
         /* Network devices */
         .network-device{position:absolute;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);border:2px solid #e0e0e0;border-radius:14px;padding:12px;min-width:120px;cursor:move;user-select:none;z-index:10;transition:border-color 0.3s,box-shadow 0.3s;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
@@ -187,6 +194,10 @@
         .zone-ups .zone-header{background:rgba(234,179,8,0.15)}
         .zone-ups .zone-badge{background:#eab308}
         
+        .zone-nvr{background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.5)}
+        .zone-nvr .zone-header{background:rgba(239,68,68,0.15)}
+        .zone-nvr .zone-badge{background:#ef4444}
+        
         .zone-item{border-style:dashed !important}
 
         /* Misc */
@@ -253,61 +264,55 @@
                 <div class="device-palette">
                     <div class="device-item zone-item" draggable="true" data-zone="mdf">MDF</div>
                     <div class="device-item zone-item" draggable="true" data-zone="idf">IDF</div>
-                    <div class="device-item zone-item" draggable="true" data-zone="cloud"><span class="icon">&#x2601;&#xFE0F;</span>Cloud</div>
-                    <div class="device-item zone-item" draggable="true" data-zone="onprem"><span class="icon">&#x1F3E2;</span>On-Prem</div>
-                    <div class="device-item zone-item" draggable="true" data-zone="ups"><span class="icon">&#x1F50B;</span>UPS</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="cloud"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a4 4 0 00-7.5-2A5 5 0 105 14h13a3 3 0 000-6z"/></svg></span>Cloud</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="onprem"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="10" y1="4" x2="10" y2="20"/><line x1="4" y1="15" x2="10" y2="15"/></svg></span>On-Prem</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="ups"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="18" rx="2"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/><path d="M13 10l-2 4h3l-2 4"/></svg></span>UPS</div>
+                    <div class="device-item zone-item" draggable="true" data-zone="nvr"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><circle cx="8" cy="12" r="0.5" fill="currentColor"/><line x1="14" y1="9" x2="20" y2="9"/><line x1="14" y1="12" x2="20" y2="12"/><line x1="14" y1="15" x2="20" y2="15"/></svg></span>NVR</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Network Equipment</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="router"><span class="icon">&#x1F4E1;</span>Router</div>
-                    <div class="device-item" draggable="true" data-type="firewall"><span class="icon">&#x1F6E1;&#xFE0F;</span>Firewall</div>
-                    <div class="device-item" draggable="true" data-type="switch"><span class="icon">&#x1F500;</span>Switch</div>
-                    <div class="device-item" draggable="true" data-type="ap"><span class="icon">&#x1F4F6;</span>Access Point</div>
+                    <div class="device-item" draggable="true" data-type="router"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="8" rx="2"/><circle cx="7" cy="14" r="1" fill="currentColor"/><line x1="12" y1="14" x2="19" y2="14"/><line x1="8" y1="4" x2="8" y2="10"/><line x1="16" y1="6" x2="16" y2="10"/><circle cx="8" cy="3" r="1.5"/><circle cx="16" cy="5" r="1.5"/></svg></span>Router</div>
+                    <div class="device-item" draggable="true" data-type="firewall"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><path d="M9 9v11"/><path d="M15 4v5"/><circle cx="6" cy="6.5" r="1" fill="currentColor"/><line x1="12" y1="13" x2="12" y2="17"/></svg></span>Firewall</div>
+                    <div class="device-item" draggable="true" data-type="switch"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"/><line x1="5" y1="11" x2="5" y2="14"/><line x1="7.5" y1="11" x2="7.5" y2="14"/><line x1="10" y1="11" x2="10" y2="14"/><line x1="12.5" y1="11" x2="12.5" y2="14"/><line x1="15" y1="11" x2="15" y2="14"/><line x1="17.5" y1="11" x2="17.5" y2="14"/><circle cx="20" cy="9.5" r="0.8" fill="currentColor"/></svg></span>Switch</div>
+                    <div class="device-item" draggable="true" data-type="ap"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a8 8 0 0112 0"/><path d="M8.5 10.5a5 5 0 017 0"/><path d="M11 13a2 2 0 012 0"/><circle cx="12" cy="15" r="1.5" fill="currentColor"/><line x1="12" y1="16.5" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg></span>Access Point</div>
+                    <div class="device-item" draggable="true" data-type="vpn"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 6V5a4 4 0 018 0v1"/><circle cx="12" cy="13" r="2"/><line x1="12" y1="15" x2="12" y2="16.5"/></svg></span>VPN</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Servers &amp; Storage</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="server"><span class="icon">&#x1F5A5;&#xFE0F;</span>Server</div>
-                    <div class="device-item" draggable="true" data-type="nas"><span class="icon">&#x1F4BE;</span>NAS</div>
+                    <div class="device-item" draggable="true" data-type="server"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="6" rx="1.5"/><rect x="4" y="10" width="16" height="6" rx="1.5"/><circle cx="7" cy="5" r="1" fill="currentColor"/><circle cx="7" cy="13" r="1" fill="currentColor"/><line x1="14" y1="5" x2="18" y2="5"/><line x1="14" y1="13" x2="18" y2="13"/><line x1="12" y1="18" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg></span>Server</div>
+                    <div class="device-item" draggable="true" data-type="nas"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/><circle cx="17" cy="7.5" r="1" fill="currentColor"/><circle cx="17" cy="12.5" r="1" fill="currentColor"/><circle cx="17" cy="17.5" r="1" fill="currentColor"/></svg></span>NAS</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Virtualization</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="vmhost"><span class="icon">&#x1F5A5;&#xFE0F;&#x1F5A5;&#xFE0F;</span>VM Host</div>
-                    <div class="device-item" draggable="true" data-type="vm"><span class="icon">&#x1F5A5;&#xFE0F;</span>VM</div>
-                    <div class="device-item" draggable="true" data-type="storage"><span class="icon">&#x1F4E6;</span>Storage</div>
+                    <div class="device-item" draggable="true" data-type="vmhost"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="6" rx="1.5"/><rect x="2" y="10" width="20" height="6" rx="1.5"/><circle cx="5" cy="5" r="1" fill="currentColor"/><circle cx="5" cy="13" r="1" fill="currentColor"/><circle cx="8" cy="5" r="1" fill="currentColor"/><circle cx="8" cy="13" r="1" fill="currentColor"/><line x1="14" y1="5" x2="20" y2="5"/><line x1="14" y1="13" x2="20" y2="13"/><line x1="12" y1="18" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg></span>VM Host</div>
+                    <div class="device-item" draggable="true" data-type="vm"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="1.5" stroke-dasharray="3,2"/><path d="M9 10l2 2 4-4"/></svg></span>VM</div>
+                    <div class="device-item" draggable="true" data-type="storage"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v4c0 1.66 3.58 3 8 3s8-1.34 8-3V6"/><path d="M4 10v4c0 1.66 3.58 3 8 3s8-1.34 8-3v-4"/></svg></span>Storage</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Endpoints</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="desktop"><span class="icon">&#x1F5A5;&#xFE0F;</span>Desktop</div>
-                    <div class="device-item" draggable="true" data-type="laptop"><span class="icon">&#x1F4BB;</span>Laptop</div>
-                    <div class="device-item" draggable="true" data-type="cellphone"><span class="icon">&#x1F4F1;</span>Cell Phone</div>
-                    <div class="device-item" draggable="true" data-type="tablet"><span class="icon">&#x1F4F2;</span>Tablet</div>
-                    <div class="device-item" draggable="true" data-type="printer"><span class="icon">&#x1F5A8;&#xFE0F;</span>Printer</div>
-                    <div class="device-item" draggable="true" data-type="otherendpoint"><span class="icon">&#x2753;</span>Other</div>
+                    <div class="device-item" draggable="true" data-type="desktop"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="12" rx="1.5"/><line x1="8" y1="19" x2="16" y2="19"/><line x1="12" y1="15" x2="12" y2="19"/></svg></span>Desktop</div>
+                    <div class="device-item" draggable="true" data-type="laptop"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a1 1 0 011-1h14a1 1 0 011 1v9H4V6z"/><path d="M2 17h20l-1.5 2H3.5L2 17z"/></svg></span>Laptop</div>
+                    <div class="device-item" draggable="true" data-type="cellphone"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="10" y1="18" x2="14" y2="18"/></svg></span>Cell Phone</div>
+                    <div class="device-item" draggable="true" data-type="tablet"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="19" r="1"/></svg></span>Tablet</div>
+                    <div class="device-item" draggable="true" data-type="printer"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="8" rx="1.5"/><rect x="7" y="3" width="10" height="7" rx="1"/><rect x="7" y="18" width="10" height="3" rx="0.5"/><circle cx="16" cy="13" r="1" fill="currentColor"/></svg></span>Printer</div>
+                    <div class="device-item" draggable="true" data-type="otherendpoint"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16" r="0.8" fill="currentColor"/></svg></span>Other</div>
                 </div>
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-title">Other</div>
                 <div class="device-palette">
-                    <div class="device-item" draggable="true" data-type="phone"><span class="icon">&#x260E;&#xFE0F;</span>Desk Phone</div>
-                    <div class="device-item" draggable="true" data-type="camera"><span class="icon">&#x1F4F9;</span>Security Cam</div>
-                    <div class="device-item" draggable="true" data-type="iot"><span class="icon">&#x1F310;</span>IoT</div>
+                    <div class="device-item" draggable="true" data-type="phone"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 5a2 2 0 012-2z"/></svg></span>Desk Phone</div>
+                    <div class="device-item" draggable="true" data-type="camera"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h2v8H4z" fill="currentColor" opacity="0.3"/><rect x="6" y="7" width="4" height="10" rx="1"/><rect x="10" y="8.5" width="10" height="7" rx="3.5"/><circle cx="17" cy="12" r="2"/><circle cx="17" cy="12" r="0.8" fill="currentColor"/></svg></span>Security Cam</div>
+                    <div class="device-item" draggable="true" data-type="iot"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><line x1="12" y1="3" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="3" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="21" y2="12"/></svg></span>IoT</div>
                 </div>
-            </div>
-            <div class="sidebar-section">
-                <div class="sidebar-title">Connection Type</div>
-                <div class="conn-toggle">
-                    <button class="wired active" id="wiredBtn">&#x2015; Wired</button>
-                    <button class="wireless" id="wirelessBtn">&#x2505; Wireless</button>
-                </div>
-                <p style="font-size:0.65rem;color:var(--text-muted);">Click circles on devices to connect.</p>
             </div>
         </aside>
         <main class="canvas-area" id="canvasArea">
@@ -343,10 +348,18 @@
             </div>
             <div class="pan-hint">Drag empty space to pan &#x2022; Scroll to zoom</div>
             <div class="controls">
-                <button class="btn" id="snapBtn" title="Toggle grid snapping">&#x1F9F2; Snap: On</button>
-                <button class="btn" id="zoomInBtn">&#x1F50D;+</button>
-                <button class="btn" id="zoomOutBtn">&#x1F50D;-</button>
-                <button class="btn" id="resetBtn">&#x1F3E0; Reset View</button>
+                <button class="btn" id="snapBtn" title="Toggle grid snapping">Snap: On</button>
+                <button class="btn" id="zoomInBtn">+</button>
+                <button class="btn" id="zoomOutBtn">-</button>
+                <button class="btn" id="resetBtn">Reset View</button>
+                <div class="ctrl-divider"></div>
+                <span style="font-size:0.7rem;color:#666;font-weight:500;white-space:nowrap;">Connections:</span>
+                <div class="conn-toggle-bar">
+                    <button class="wired-bar active" id="wiredBtn">Wired</button>
+                    <button class="wireless-bar" id="wirelessBtn">Wireless</button>
+                </div>
+                <div class="ctrl-divider"></div>
+                <button class="btn" id="eraserBtn" title="Click connections to delete them">Eraser</button>
             </div>
         </main>
         <aside class="props-panel">
@@ -433,6 +446,22 @@
                         </select>
                     </div>
                 </div>
+                <div id="vpnSection" style="display:none;">
+                    <div class="form-group"><label class="form-label">Manufacturer</label><input type="text" class="form-input" id="propVPNMfg" placeholder="e.g. Cisco, OpenVPN" oninput="updateDeviceProp('manufacturer', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Model / Software</label><input type="text" class="form-input" id="propVPNModel" placeholder="e.g. AnyConnect, WireGuard" oninput="updateDeviceProp('model', this.value)"></div>
+                    <div class="form-group"><label class="form-label">VPN Type</label>
+                        <select class="form-select" id="propVPNType" onchange="updateDeviceProp('vpnType', this.value)">
+                            <option value="">-- Select --</option>
+                            <option value="Site-to-Site">Site-to-Site</option>
+                            <option value="Remote Access">Remote Access</option>
+                            <option value="SSL VPN">SSL VPN</option>
+                            <option value="IPSec">IPSec</option>
+                            <option value="WireGuard">WireGuard</option>
+                            <option value="OpenVPN">OpenVPN</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="propNotes"></textarea></div>
                 <div id="printerSection" style="display:none;">
                     <div class="form-group"><label class="form-label">Model</label><input type="text" class="form-input" id="propPrinterModel" placeholder="e.g. LaserJet Pro M404n" oninput="updateDeviceProp('model', this.value)"></div>
@@ -469,6 +498,29 @@
                         <div class="form-group" style="flex:1;"><label class="form-label">Runtime (min)</label><input type="text" class="form-input" id="propUPSRuntime" placeholder="15" oninput="updateZoneProp('runtime', this.value)"></div>
                     </div>
                     <div class="form-group"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propUPSIP" placeholder="192.168.1.100" oninput="updateZoneProp('ip', this.value)"></div>
+                </div>
+                <div id="nvrPropsSection" style="display:none;">
+                    <div class="form-group"><label class="form-label">NVR Manufacturer</label>
+                        <select class="form-select" id="propNVRMfg" onchange="updateZoneProp('manufacturer', this.value)">
+                            <option value="">-- Select --</option>
+                            <option value="Hikvision">Hikvision</option>
+                            <option value="Dahua">Dahua</option>
+                            <option value="Reolink">Reolink</option>
+                            <option value="Uniview">Uniview</option>
+                            <option value="Axis">Axis</option>
+                            <option value="Milestone">Milestone</option>
+                            <option value="Blue Iris">Blue Iris (Software)</option>
+                            <option value="Ubiquiti">Ubiquiti (UniFi Protect)</option>
+                            <option value="Synology">Synology (Surveillance Station)</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label class="form-label">NVR Model</label><input type="text" class="form-input" id="propNVRModel" placeholder="e.g. DS-7608NI-I2" oninput="updateZoneProp('model', this.value)"></div>
+                    <div style="display:flex;gap:8px;">
+                        <div class="form-group" style="flex:1;"><label class="form-label">Channels</label><input type="text" class="form-input" id="propNVRChannels" placeholder="8" oninput="updateZoneProp('channels', this.value)"></div>
+                        <div class="form-group" style="flex:1;"><label class="form-label">Storage (TB)</label><input type="text" class="form-input" id="propNVRStorage" placeholder="4" oninput="updateZoneProp('storage', this.value)"></div>
+                    </div>
+                    <div class="form-group"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propNVRIP" placeholder="192.168.1.100" oninput="updateZoneProp('ip', this.value)"></div>
                 </div>
                 <div id="mdfPropsSection" style="display:none;">
                     <div class="form-group"><label class="form-label">Location/Room</label><input type="text" class="form-input" id="propMDFLocation" placeholder="e.g. Server Room 1" oninput="updateZoneProp('location', this.value)"></div>
@@ -695,24 +747,34 @@
         };
 
         const zoneTypes = {
-            cloud: { name: 'Cloud', icon: '☁️', color: '#3b82f6' },
-            onprem: { name: 'On-Prem', icon: '🏢', color: '#8b5cf6' },
+            cloud: { name: 'Cloud', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a4 4 0 00-7.5-2A5 5 0 105 14h13a3 3 0 000-6z"/></svg>', color: '#3b82f6' },
+            onprem: { name: 'On-Prem', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="10" y1="4" x2="10" y2="20"/><line x1="4" y1="15" x2="10" y2="15"/></svg>', color: '#8b5cf6' },
             mdf: { name: 'MDF', icon: '', color: '#22c55e' },
             idf: { name: 'IDF', icon: '', color: '#f97316' },
-            ups: { name: 'UPS', icon: '🔋', color: '#eab308' }
+            ups: { name: 'UPS', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="18" rx="2"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/><path d="M13 10l-2 4h3l-2 4"/></svg>', color: '#eab308' },
+            nvr: { name: 'NVR', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><line x1="14" y1="9" x2="20" y2="9"/><line x1="14" y1="12" x2="20" y2="12"/><line x1="14" y1="15" x2="20" y2="15"/></svg>', color: '#ef4444' }
         };
 
         const types = {
-            desktop: { name: 'Desktop', icon: '🖥️' }, laptop: { name: 'Laptop', icon: '💻' },
-            cellphone: { name: 'Cell Phone', icon: '📱' }, tablet: { name: 'Tablet', icon: '📲' },
-            otherendpoint: { name: 'Other Endpoint', icon: '❓' },
-            server: { name: 'Server', icon: '🖥️' }, nas: { name: 'NAS', icon: '💾' },
-            router: { name: 'Router', icon: '📡' }, switch: { name: 'Switch', icon: '🔀' },
-            firewall: { name: 'Firewall', icon: '🛡️' }, ap: { name: 'Access Point', icon: '📶' },
-            vmhost: { name: 'VM Host', icon: '🖥️🖥️' }, vm: { name: 'VM', icon: '🖥️' },
-            storage: { name: 'Storage', icon: '📦' }, printer: { name: 'Printer', icon: '🖨️' },
-            iot: { name: 'IoT', icon: '🌐' }, phone: { name: 'Desk Phone', icon: '☎️' },
-            camera: { name: 'Security Camera', icon: '📹' }
+            desktop: { name: 'Desktop', icon: 'svg-desktop', svgIcon: true },
+            laptop: { name: 'Laptop', icon: 'svg-laptop', svgIcon: true },
+            cellphone: { name: 'Cell Phone', icon: 'svg-cellphone', svgIcon: true },
+            tablet: { name: 'Tablet', icon: 'svg-tablet', svgIcon: true },
+            otherendpoint: { name: 'Other Endpoint', icon: 'svg-other', svgIcon: true },
+            server: { name: 'Server', icon: 'svg-server', svgIcon: true },
+            nas: { name: 'NAS', icon: 'svg-nas', svgIcon: true },
+            router: { name: 'Router', icon: 'svg-router', svgIcon: true },
+            switch: { name: 'Switch', icon: 'svg-switch', svgIcon: true },
+            firewall: { name: 'Firewall', icon: 'svg-firewall', svgIcon: true },
+            ap: { name: 'Access Point', icon: 'svg-ap', svgIcon: true },
+            vmhost: { name: 'VM Host', icon: 'svg-vmhost', svgIcon: true },
+            vm: { name: 'VM', icon: 'svg-vm', svgIcon: true },
+            storage: { name: 'Storage', icon: 'svg-storage', svgIcon: true },
+            printer: { name: 'Printer', icon: 'svg-printer', svgIcon: true },
+            iot: { name: 'IoT', icon: 'svg-iot', svgIcon: true },
+            phone: { name: 'Desk Phone', icon: 'svg-phone', svgIcon: true },
+            camera: { name: 'Security Camera', icon: 'svg-camera', svgIcon: true },
+            vpn: { name: 'VPN', icon: 'svg-vpn', svgIcon: true }
         };
 
         const manufacturers = {
@@ -735,6 +797,52 @@
             server: ['Windows Server 2022', 'Windows Server 2019', 'Windows Server 2016', 'Windows Server 2012 R2', 'Ubuntu Server 24.04', 'Ubuntu Server 22.04', 'Ubuntu Server 20.04', 'RHEL 9', 'RHEL 8', 'CentOS Stream 9', 'Rocky Linux 9', 'AlmaLinux 9', 'Debian 12', 'Debian 11', 'SUSE Linux Enterprise', 'VMware ESXi', 'Proxmox VE', 'Other'],
             vm: ['Windows Server 2022', 'Windows Server 2019', 'Windows Server 2016', 'Windows 11', 'Windows 10', 'Ubuntu Server 24.04', 'Ubuntu Server 22.04', 'Ubuntu 24.04', 'Ubuntu 22.04', 'RHEL 9', 'RHEL 8', 'CentOS Stream 9', 'Rocky Linux 9', 'AlmaLinux 9', 'Debian 12', 'Debian 11', 'Other Linux', 'Other']
         };
+
+        // SVG icon definitions - clean line-art style
+        const svgDefs = {
+            'svg-desktop': '<rect x="4" y="3" width="16" height="12" rx="1.5"/><line x1="8" y1="19" x2="16" y2="19"/><line x1="12" y1="15" x2="12" y2="19"/>',
+            'svg-laptop': '<path d="M4 6a1 1 0 011-1h14a1 1 0 011 1v9H4V6z"/><path d="M2 17h20l-1.5 2H3.5L2 17z"/>',
+            'svg-cellphone': '<rect x="7" y="2" width="10" height="20" rx="2"/><line x1="10" y1="18" x2="14" y2="18"/>',
+            'svg-tablet': '<rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="19" r="1"/>',
+            'svg-other': '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16" r="0.8" fill="currentStroke"/>',
+            'svg-server': '<rect x="4" y="2" width="16" height="6" rx="1.5"/><rect x="4" y="10" width="16" height="6" rx="1.5"/><circle cx="7" cy="5" r="1" fill="currentStroke"/><circle cx="7" cy="13" r="1" fill="currentStroke"/><line x1="14" y1="5" x2="18" y2="5"/><line x1="14" y1="13" x2="18" y2="13"/><line x1="12" y1="18" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/>',
+            'svg-nas': '<rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/><circle cx="17" cy="7.5" r="1" fill="currentStroke"/><circle cx="17" cy="12.5" r="1" fill="currentStroke"/><circle cx="17" cy="17.5" r="1" fill="currentStroke"/>',
+            'svg-router': '<rect x="3" y="10" width="18" height="8" rx="2"/><circle cx="7" cy="14" r="1" fill="currentStroke"/><line x1="12" y1="14" x2="19" y2="14"/><line x1="8" y1="4" x2="8" y2="10"/><line x1="16" y1="6" x2="16" y2="10"/><circle cx="8" cy="3" r="1.5"/><circle cx="16" cy="5" r="1.5"/>',
+            'svg-switch': '<rect x="2" y="7" width="20" height="10" rx="2"/><line x1="5" y1="11" x2="5" y2="14"/><line x1="7.5" y1="11" x2="7.5" y2="14"/><line x1="10" y1="11" x2="10" y2="14"/><line x1="12.5" y1="11" x2="12.5" y2="14"/><line x1="15" y1="11" x2="15" y2="14"/><line x1="17.5" y1="11" x2="17.5" y2="14"/><circle cx="20" cy="9.5" r="0.8" fill="currentStroke"/>',
+            'svg-firewall': '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><path d="M9 9v11"/><path d="M15 4v5"/><circle cx="6" cy="6.5" r="1" fill="currentStroke"/><line x1="12" y1="13" x2="12" y2="17"/>',
+            'svg-ap': '<path d="M6 8a8 8 0 0112 0"/><path d="M8.5 10.5a5 5 0 017 0"/><path d="M11 13a2 2 0 012 0"/><circle cx="12" cy="15" r="1.5" fill="currentStroke"/><line x1="12" y1="16.5" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/>',
+            'svg-vmhost': '<rect x="2" y="2" width="20" height="6" rx="1.5"/><rect x="2" y="10" width="20" height="6" rx="1.5"/><circle cx="5" cy="5" r="1" fill="currentStroke"/><circle cx="5" cy="13" r="1" fill="currentStroke"/><circle cx="8" cy="5" r="1" fill="currentStroke"/><circle cx="8" cy="13" r="1" fill="currentStroke"/><line x1="14" y1="5" x2="20" y2="5"/><line x1="14" y1="13" x2="20" y2="13"/><line x1="12" y1="18" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/>',
+            'svg-vm': '<rect x="4" y="4" width="16" height="12" rx="1.5" stroke-dasharray="3,2"/><path d="M9 10l2 2 4-4"/>',
+            'svg-storage': '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v4c0 1.66 3.58 3 8 3s8-1.34 8-3V6"/><path d="M4 10v4c0 1.66 3.58 3 8 3s8-1.34 8-3v-4"/>',
+            'svg-printer': '<rect x="5" y="10" width="14" height="8" rx="1.5"/><rect x="7" y="3" width="10" height="7" rx="1"/><rect x="7" y="18" width="10" height="3" rx="0.5"/><circle cx="16" cy="13" r="1" fill="currentStroke"/>',
+            'svg-iot': '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.5" fill="currentStroke"/><line x1="12" y1="3" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="3" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="21" y2="12"/>',
+            'svg-phone': '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 5a2 2 0 012-2z"/>',
+            'svg-camera': '<path d="M4 8h2v8H4z" fill="currentFill" opacity="0.3"/><rect x="6" y="7" width="4" height="10" rx="1"/><rect x="10" y="8.5" width="10" height="7" rx="3.5"/><circle cx="17" cy="12" r="2"/><circle cx="17" cy="12" r="0.8" fill="currentStroke"/>',
+            'svg-vpn': '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 6V5a4 4 0 018 0v1"/><circle cx="12" cy="13" r="2"/><line x1="12" y1="15" x2="12" y2="16.5"/>'
+        };
+
+        function getSvgIcon(name, size) {
+            const s = size || 24;
+            const paths = svgDefs[name];
+            if (!paths) return '';
+            const processed = paths.replace(/currentStroke/g, '#333').replace(/currentFill/g, '#ccc');
+            return '<svg xmlns="http://www.w3.org/2000/svg" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + processed + '</svg>';
+        }
+
+        function getSvgIconSidebar(name) {
+            const paths = svgDefs[name];
+            if (!paths) return '';
+            const processed = paths.replace(/currentStroke/g, 'currentColor').replace(/currentFill/g, 'currentColor');
+            return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + processed + '</svg>';
+        }
+
+        function getSvgIconForExport(name) {
+            // Generates SVG group for use inside exported SVG, centered around x=60
+            const paths = svgDefs[name];
+            if (!paths) return '';
+            const processed = paths.replace(/currentStroke/g, '#333').replace(/currentFill/g, '#ccc');
+            return '<g transform="translate(48, 10)"><g transform="scale(1.2)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#333" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + processed + '</svg></g></g>';
+        }
 
         const canvasArea = document.getElementById('canvasArea');
         const canvasWrapper = document.getElementById('canvasWrapper');
@@ -973,11 +1081,12 @@
             document.getElementById('resetBtn').onclick = resetView;
             document.getElementById('snapBtn').onclick = () => {
                 snapToGrid = !snapToGrid;
-                document.getElementById('snapBtn').innerHTML = '&#x1F9F2; Snap: ' + (snapToGrid ? 'On' : 'Off');
+                document.getElementById('snapBtn').textContent = 'Snap: ' + (snapToGrid ? 'On' : 'Off');
                 document.getElementById('snapBtn').style.opacity = snapToGrid ? '1' : '0.6';
             };
             document.getElementById('wiredBtn').onclick = () => setConnType('wired');
             document.getElementById('wirelessBtn').onclick = () => setConnType('wireless');
+            document.getElementById('eraserBtn').onclick = toggleEraser;
             document.getElementById('clearBtn').onclick = clearAll;
             document.getElementById('csvTemplatesBtn').onclick = () => openModal('csvTemplatesModal');
             document.getElementById('exportPdfBtn').onclick = () => openModal('exportModal');
@@ -999,7 +1108,11 @@
             document.getElementById('propOS').onchange = e => updateDeviceProp('os', e.target.value);
 
             document.addEventListener('keydown', e => {
-                if (e.key === 'Escape') { cancelConnect(); deselectAll(); }
+                if (e.key === 'Escape') { 
+                    cancelConnect(); 
+                    deselectAll(); 
+                    if (eraserMode) toggleEraser();
+                }
                 if (e.key === 'Delete') {
                     if (state.selected) deleteSelected();
                     if (state.selectedZone) deleteSelectedZone();
@@ -1013,8 +1126,87 @@
 
         function setConnType(type) {
             state.connType = type;
-            document.getElementById('wiredBtn').className = 'wired' + (type === 'wired' ? ' active' : '');
-            document.getElementById('wirelessBtn').className = 'wireless' + (type === 'wireless' ? ' active' : '');
+            document.getElementById('wiredBtn').className = 'wired-bar' + (type === 'wired' ? ' active' : '');
+            document.getElementById('wirelessBtn').className = 'wireless-bar' + (type === 'wireless' ? ' active' : '');
+        }
+
+        // Connection eraser mode
+        let eraserMode = false;
+        
+        function toggleEraser() {
+            eraserMode = !eraserMode;
+            const btn = document.getElementById('eraserBtn');
+            btn.classList.toggle('eraser-active', eraserMode);
+            
+            if (eraserMode) {
+                // Make connections clickable
+                svg.style.pointerEvents = 'all';
+                svg.style.cursor = 'crosshair';
+                connHint.textContent = 'Click a connection line to delete it';
+                connHint.classList.add('active');
+                drawConnectionsForEraser();
+            } else {
+                svg.style.pointerEvents = 'none';
+                svg.style.cursor = '';
+                connHint.classList.remove('active');
+                drawConnections();
+            }
+        }
+        
+        function drawConnectionsForEraser() {
+            // Rebuild SVG with clickable paths for eraser mode
+            let paths = '';
+            state.connections.forEach((conn, index) => {
+                const from = getConnectionPoint(conn.from, conn.fromPos);
+                const to = getConnectionPoint(conn.to, conn.toPos);
+                const midX = (from.x + to.x) / 2;
+                const midY = (from.y + to.y) / 2;
+                let path;
+                if (conn.fromPos === 'top' || conn.fromPos === 'bottom') {
+                    path = 'M' + from.x + ',' + from.y + ' C' + from.x + ',' + midY + ' ' + to.x + ',' + midY + ' ' + to.x + ',' + to.y;
+                } else {
+                    path = 'M' + from.x + ',' + from.y + ' C' + midX + ',' + from.y + ' ' + midX + ',' + to.y + ' ' + to.x + ',' + to.y;
+                }
+                // Invisible wide hit area
+                paths += '<path d="' + path + '" stroke="transparent" stroke-width="12" fill="none" style="cursor:crosshair;pointer-events:stroke;" data-conn-index="' + index + '"/>';
+                // Visible connection line
+                paths += '<path class="conn-' + conn.type + '" d="' + path + '" style="pointer-events:none;"/>';
+            });
+            svg.innerHTML = paths;
+            
+            // Add click handlers to hit areas
+            svg.querySelectorAll('[data-conn-index]').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const idx = parseInt(this.dataset.connIndex);
+                    if (idx >= 0 && idx < state.connections.length) {
+                        const conn = state.connections[idx];
+                        state.connections.splice(idx, 1);
+                        updateCounts();
+                        // Refresh connected to list if a device is selected
+                        if (state.selected) {
+                            renderConnectedToList(state.selected);
+                        }
+                        if (eraserMode) {
+                            drawConnectionsForEraser();
+                        } else {
+                            drawConnections();
+                        }
+                    }
+                });
+                el.addEventListener('mouseenter', function() {
+                    const idx = parseInt(this.dataset.connIndex);
+                    // Highlight the connection being hovered
+                    const visiblePath = this.nextElementSibling;
+                    if (visiblePath) {
+                        visiblePath.setAttribute('stroke', '#ef4444');
+                        visiblePath.setAttribute('stroke-width', '3');
+                    }
+                });
+                el.addEventListener('mouseleave', function() {
+                    if (eraserMode) drawConnectionsForEraser();
+                });
+            });
         }
 
         function createDevice(type, x, y) {
@@ -1043,8 +1235,13 @@
             el.style.left = d.x + 'px';
             el.style.top = d.y + 'px';
             
-            const iconClass = d.type === 'vmhost' ? 'device-icon vmhost-icon' : 'device-icon';
-            const iconContent = d.type === 'vmhost' ? '🖥️🖥️' : cfg.icon;
+            const iconClass = 'device-icon';
+            let iconContent;
+            if (cfg.svgIcon) {
+                iconContent = getSvgIcon(cfg.icon, 24);
+            } else {
+                iconContent = cfg.icon;
+            }
             
             el.innerHTML = '<div class="device-status status-' + d.status + '"></div>' +
                 '<div class="' + iconClass + '">' + iconContent + '</div>' +
@@ -1136,6 +1333,12 @@
                 zone.capacity = '';
                 zone.runtime = '';
                 zone.ip = '';
+            } else if (type === 'nvr') {
+                zone.manufacturer = '';
+                zone.model = '';
+                zone.channels = '';
+                zone.storage = '';
+                zone.ip = '';
             } else if (type === 'mdf' || type === 'idf') {
                 zone.location = '';
                 if (type === 'idf') zone.connectedMDF = '';
@@ -1218,6 +1421,7 @@
             
             // Hide all type-specific sections
             document.getElementById('upsPropsSection').style.display = 'none';
+            document.getElementById('nvrPropsSection').style.display = 'none';
             document.getElementById('mdfPropsSection').style.display = 'none';
             document.getElementById('idfPropsSection').style.display = 'none';
             document.getElementById('cloudPropsSection').style.display = 'none';
@@ -1231,6 +1435,13 @@
                 document.getElementById('propUPSCapacity').value = z.capacity || '';
                 document.getElementById('propUPSRuntime').value = z.runtime || '';
                 document.getElementById('propUPSIP').value = z.ip || '';
+            } else if (z.type === 'nvr') {
+                document.getElementById('nvrPropsSection').style.display = 'block';
+                document.getElementById('propNVRMfg').value = z.manufacturer || '';
+                document.getElementById('propNVRModel').value = z.model || '';
+                document.getElementById('propNVRChannels').value = z.channels || '';
+                document.getElementById('propNVRStorage').value = z.storage || '';
+                document.getElementById('propNVRIP').value = z.ip || '';
             } else if (z.type === 'mdf') {
                 document.getElementById('mdfPropsSection').style.display = 'block';
                 document.getElementById('propMDFLocation').value = z.location || '';
@@ -1505,7 +1716,7 @@
             
             // Handle VLAN dropdown - hide for AP, Firewall, Switch, Cloud, On-Prem, Storage, Router
             const vlanGroup = document.getElementById('vlanGroup');
-            const hideVlanTypes = ['ap', 'firewall', 'switch', 'cloud', 'onprem', 'storage', 'router'];
+            const hideVlanTypes = ['ap', 'firewall', 'switch', 'cloud', 'onprem', 'storage', 'router', 'vpn'];
             if (hideVlanTypes.includes(d.type)) {
                 vlanGroup.style.display = 'none';
             } else {
@@ -1551,6 +1762,17 @@
                 document.getElementById('propFirewallPorts').value = d.ports || '';
             } else {
                 firewallSection.style.display = 'none';
+            }
+            
+            // Handle VPN section
+            const vpnSection = document.getElementById('vpnSection');
+            if (d.type === 'vpn') {
+                vpnSection.style.display = 'block';
+                document.getElementById('propVPNMfg').value = d.manufacturer || '';
+                document.getElementById('propVPNModel').value = d.model || '';
+                document.getElementById('propVPNType').value = d.vpnType || '';
+            } else {
+                vpnSection.style.display = 'none';
             }
             
             // Handle Printer section
@@ -1621,7 +1843,9 @@
                 if (!parentDevice) return;
                 
                 const isWireless = conn.type === 'wireless';
-                const connIcon = isWireless ? '📶' : '🔌';
+                const connIcon = isWireless 
+                    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a8 8 0 0112 0"/><path d="M8.5 10.5a5 5 0 017 0"/><circle cx="12" cy="14" r="1.5" fill="#c084fc"/></svg>'
+                    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F71F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h6"/><circle cx="14" cy="12" r="3"/><path d="M17 12h3"/></svg>';
                 const portValue = d.parentPorts[parentId] || '';
                 
                 // Show "Wireless" tag for wireless connections, port input for wired
@@ -1806,7 +2030,7 @@
             }
             container.innerHTML = state.ssids.map((s, i) => {
                 const vlanInfo = s.vlan ? 'VLAN ' + s.vlan : 'No VLAN';
-                return '<div class="vlan-item"><span class="vlan-id" style="min-width:auto;">📶</span><span class="vlan-name" style="flex:1;">' + s.name + '</span><span class="vlan-subnet" style="font-size:0.6rem;">' + s.security + ' / ' + vlanInfo + '</span><button class="vlan-del" onclick="deleteSSID(' + i + ')">&times;</button></div>';
+                return '<div class="vlan-item"><span class="vlan-id" style="min-width:auto;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a8 8 0 0112 0"/><path d="M8.5 10.5a5 5 0 017 0"/><circle cx="12" cy="14" r="1.5" fill="var(--secondary)"/></svg></span><span class="vlan-name" style="flex:1;">' + s.name + '</span><span class="vlan-subnet" style="font-size:0.6rem;">' + s.security + ' / ' + vlanInfo + '</span><button class="vlan-del" onclick="deleteSSID(' + i + ')">&times;</button></div>';
             }).join('');
         }
         
@@ -2052,10 +2276,8 @@
                 const statusColors = { online: '#22c55e', offline: '#555', warning: '#f97316', retired: '#555', decommissioned: '#555' };
                 
                 let iconContent;
-                if (d.type === 'vmhost') {
-                    iconContent = `
-                        <text x="52" y="32" text-anchor="middle" font-size="14">🖥️</text>
-                        <text x="68" y="32" text-anchor="middle" font-size="14">🖥️</text>`;
+                if (cfg.svgIcon) {
+                    iconContent = getSvgIconForExport(cfg.icon);
                 } else {
                     iconContent = `<text x="60" y="30" text-anchor="middle" class="device-icon">${cfg.icon}</text>`;
                 }
@@ -2399,6 +2621,11 @@
                             widths: orientation === 'landscape' ? [35, 30, 35, 30, 30, 40, 70] : [24, 22, 25, 22, 22, 32, 43],
                             getData: (d) => [d.name, d.manufacturer || '-', d.model || '-', d.capacity || '-', d.runtime || '-', d.ip || '-', d.notes || '-']
                         },
+                        'vpn': {
+                            cols: ['Name', 'Manufacturer', 'Model', 'VPN Type', 'IP Address', 'Connected To', 'Notes'],
+                            widths: orientation === 'landscape' ? [30, 28, 32, 30, 35, 45, 70] : [20, 20, 24, 22, 28, 35, 41],
+                            getData: (d) => [d.name, d.manufacturer || '-', d.model || '-', d.vpnType || '-', d.ip || '-', getConnectedTo(d), d.notes || '-']
+                        },
                         'default': {
                             cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'Connected To', 'VLAN', 'Notes'],
                             widths: orientation === 'landscape' ? [30, 28, 32, 38, 50, 28, 64] : [20, 20, 26, 32, 38, 22, 32],
@@ -2412,7 +2639,8 @@
                         'printer': 'Printers', 'otherendpoint': 'Other Endpoints', 'server': 'Servers', 'nas': 'NAS Devices',
                         'router': 'Internet Connection', 'firewall': 'Firewalls', 'switch': 'Switches', 'ap': 'Access Points',
                         'vmhost': 'VM Hosts', 'vm': 'Virtual Machines', 'storage': 'Storage', 'phone': 'Desk Phones', 
-                        'camera': 'Security Cameras', 'iot': 'IoT Devices', 'ups': 'UPS Units'
+                        'camera': 'Security Cameras', 'iot': 'IoT Devices', 'ups': 'UPS Units', 'vpn': 'VPNs',
+                        'nvr': 'NVR Units'
                     };
                     
                     // Helper function to draw page header
@@ -2566,6 +2794,74 @@
                                 const truncated = String(val).substring(0, maxChars);
                                 pdf.text(truncated, xOff + 1, yPos);
                                 xOff += upsConfig.widths[j];
+                            });
+                            
+                            yPos += 6;
+                        });
+                        
+                        yPos += 6;
+                    }
+                    
+                    // Add NVR Units section
+                    const nvrZones = state.zones.filter(z => z.type === 'nvr');
+                    if (nvrZones.length > 0) {
+                        if (yPos > pageHeight - 40) {
+                            pdf.addPage();
+                            pageNum++;
+                            drawPageHeader('Device List');
+                            yPos = 24;
+                        }
+                        
+                        const nvrCols = ['Name', 'Manufacturer', 'Model', 'Channels', 'Storage (TB)', 'IP Address', 'Notes'];
+                        const nvrWidths = orientation === 'landscape' ? [35, 30, 35, 25, 30, 40, 75] : [24, 22, 25, 18, 22, 32, 47];
+                        
+                        pdf.setFillColor(15, 113, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 8, 'F');
+                        pdf.setFontSize(9);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(255, 255, 255);
+                        pdf.text('NVR Units (' + nvrZones.length + ')', 12, yPos + 1);
+                        yPos += 10;
+                        
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
+                        pdf.setFontSize(6);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setTextColor(60, 60, 60);
+                        
+                        let xOffset = 10;
+                        nvrCols.forEach((col, i) => {
+                            pdf.text(col, xOffset + 1, yPos);
+                            xOffset += nvrWidths[i];
+                        });
+                        yPos += 6;
+                        
+                        pdf.setFont('helvetica', 'normal');
+                        nvrZones.forEach((z, i) => {
+                            if (yPos > pageHeight - 15) {
+                                pdf.addPage();
+                                pageNum++;
+                                drawPageHeader('Device List');
+                                yPos = 24;
+                            }
+                            
+                            if (i % 2 === 0) {
+                                pdf.setFillColor(250, 250, 250);
+                            } else {
+                                pdf.setFillColor(255, 255, 255);
+                            }
+                            pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
+                            
+                            pdf.setFontSize(6);
+                            pdf.setTextColor(40, 40, 40);
+                            
+                            const rowData = [z.name, z.manufacturer || '-', z.model || '-', z.channels || '-', z.storage || '-', z.ip || '-', z.notes || '-'];
+                            let xOff = 10;
+                            rowData.forEach((val, j) => {
+                                const maxChars = Math.floor(nvrWidths[j] / 1.8);
+                                const truncated = String(val).substring(0, maxChars);
+                                pdf.text(truncated, xOff + 1, yPos);
+                                xOff += nvrWidths[j];
                             });
                             
                             yPos += 6;
@@ -2910,7 +3206,7 @@
                     });
                     
                     // Validate type
-                    const validTypes = ['router', 'firewall', 'switch', 'ap', 'server', 'vmhost', 'nas', 'desktop', 'laptop', 'cellphone', 'tablet', 'printer', 'phone', 'camera', 'iot', 'otherendpoint', 'storage'];
+                    const validTypes = ['router', 'firewall', 'switch', 'ap', 'server', 'vmhost', 'nas', 'desktop', 'laptop', 'cellphone', 'tablet', 'printer', 'phone', 'camera', 'iot', 'otherendpoint', 'storage', 'vpn'];
                     if (row.type && validTypes.includes(row.type.toLowerCase())) {
                         pendingCSVData.push(row);
                     }
