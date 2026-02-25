@@ -393,6 +393,8 @@
                         <div class="form-group" style="flex:1;"><label class="form-label">Download (Mbps)</label><input type="text" class="form-input" id="propDownload" placeholder="1000" oninput="updateDeviceProp('downloadSpeed', this.value)"></div>
                         <div class="form-group" style="flex:1;"><label class="form-label">Upload (Mbps)</label><input type="text" class="form-input" id="propUpload" placeholder="100" oninput="updateDeviceProp('uploadSpeed', this.value)"></div>
                     </div>
+                    <div class="form-group"><label class="form-label">Subnet Mask</label><input type="text" class="form-input" id="propSubnetMask" placeholder="255.255.255.0" oninput="updateDeviceProp('subnetMask', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Default Gateway</label><input type="text" class="form-input" id="propDefaultGateway" placeholder="192.168.1.1" oninput="updateDeviceProp('defaultGateway', this.value)"></div>
                 </div>
                 <div class="form-group" id="macGroup"><label class="form-label">MAC Address</label><input type="text" class="form-input" id="propMAC" placeholder="00:00:00:00:00:00"></div>
                 <div class="form-group" id="statusGroup">
@@ -1707,6 +1709,8 @@
                 document.getElementById('propCoax').checked = d.connectionType === 'coax';
                 document.getElementById('propDownload').value = d.downloadSpeed || '';
                 document.getElementById('propUpload').value = d.uploadSpeed || '';
+                document.getElementById('propSubnetMask').value = d.subnetMask || '';
+                document.getElementById('propDefaultGateway').value = d.defaultGateway || '';
             } else {
                 routerSection.style.display = 'none';
             }
@@ -2572,13 +2576,15 @@
                             ]
                         },
                         'router': {
-                            cols: ['ISP', 'Connection', 'Download', 'Upload', 'IP Address', 'Notes'],
-                            widths: orientation === 'landscape' ? [45, 28, 35, 35, 45, 82] : [30, 22, 30, 30, 38, 40],
+                            cols: ['ISP', 'Connection', 'Download', 'Upload', 'IP Address', 'Subnet Mask', 'Default Gateway', 'Notes'],
+                            widths: orientation === 'landscape' ? [36, 22, 26, 26, 36, 36, 36, 52] : [22, 16, 20, 20, 28, 28, 28, 28],
                             getData: (d) => [
-                                d.name, d.connectionType || '-', 
+                                d.name, d.connectionType || '-',
                                 d.downloadSpeed ? d.downloadSpeed + ' Mbps' : '-',
                                 d.uploadSpeed ? d.uploadSpeed + ' Mbps' : '-',
                                 d.ip || '-',
+                                d.subnetMask || '-',
+                                d.defaultGateway || '-',
                                 d.notes || '-'
                             ]
                         },
