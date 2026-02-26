@@ -101,8 +101,8 @@
         .waypoint-handle{position:absolute;width:12px;height:12px;background:#7c3aed;border:2px solid #fff;border-radius:50%;cursor:grab;z-index:50;transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,0.25);transition:background 0.15s}
         .waypoint-handle:hover{background:#5b21b6}
         .waypoint-handle.dragging{cursor:grabbing}
-        .seg-midpoint{position:absolute;width:10px;height:10px;background:rgba(124,58,237,0.5);border:2px solid #fff;border-radius:2px;cursor:grab;z-index:49;transform:translate(-50%,-50%) rotate(45deg);box-shadow:0 1px 3px rgba(0,0,0,0.15)}
-        .seg-midpoint:hover{background:#7c3aed}
+        .seg-midpoint{position:absolute;width:10px;height:10px;background:rgba(124,58,237,0.35);border:2px solid rgba(124,58,237,0.6);border-radius:2px;cursor:grab;z-index:49;transform:translate(-50%,-50%) rotate(45deg);box-shadow:0 1px 3px rgba(0,0,0,0.15)}
+        .seg-midpoint:hover{background:#7c3aed;border-color:#7c3aed}
         #waypointLayer{position:absolute;width:100%;height:100%;left:0;top:0;pointer-events:none;z-index:45}
         #waypointLayer.active{pointer-events:all}
 
@@ -389,8 +389,8 @@
                 <div class="conn-toolbar-row">
                     <span class="conn-toolbar-label">Route</span>
                     <div class="conn-toggle-bar">
-                        <button class="curved-bar active" id="curvedBtn">&#x2935; Curved</button>
-                        <button class="ortho-bar" id="orthoBtn">&#x250C; Orthogonal</button>
+                        <button class="curved-bar active" id="curvedBtn">Curved</button>
+                        <button class="ortho-bar" id="orthoBtn">Angled</button>
                     </div>
                 </div>
                 <div class="conn-toolbar-row">
@@ -928,7 +928,7 @@
         let resizeStart = { x: 0, y: 0, w: 0, h: 0 };
         
         // Grid snapping
-        const GRID_SIZE = 20; // Match the background grid size
+        const GRID_SIZE = 10; // Match the background grid size
         let snapToGrid = true;
         
         function snapToGridValue(value) {
@@ -1314,51 +1314,59 @@
             waypointLayer.classList.add('active');
             if (!conn.waypoints) return;
 
+            const from = getConnectionPoint(conn.from, conn.fromPos);
+            const to   = getConnectionPoint(conn.to,   conn.toPos);
+
+            // Helper: create a draggable midpoint diamond that inserts a new waypoint at insertIdx
+            function makeMidpoint(mx, my, insertIdx) {
+                const mid = document.createElement('div');
+                mid.className = 'seg-midpoint';
+                mid.style.left = mx + 'px';
+                mid.style.top  = my + 'px';
+                mid.title = 'Drag to add a new corner here';
+                mid.addEventListener('mousedown', function(e) {
+                    e.stopPropagation();
+                    conn.waypoints.splice(insertIdx, 0, { x: mx, y: my });
+                    draggingWaypoint = { conn: conn, index: insertIdx };
+                    wpDragStart = { x: e.clientX, y: e.clientY };
+                    wpOriginal  = { x: mx, y: my };
+                    e.preventDefault();
+                    drawConnectionsForRouteEdit();
+                    renderWaypointHandles(conn);
+                });
+                waypointLayer.appendChild(mid);
+            }
+
+            // Build the full ordered list of points: source → waypoints → target
+            const allPoints = [from, ...conn.waypoints, to];
+
+            // Midpoint on every segment (between allPoints[i] and allPoints[i+1])
+            // inserting at waypoint index i (between wp[i-1] and wp[i])
+            for (let i = 0; i < allPoints.length - 1; i++) {
+                const a = allPoints[i];
+                const b = allPoints[i + 1];
+                makeMidpoint((a.x + b.x) / 2, (a.y + b.y) / 2, i);
+            }
+
+            // Corner handles for each existing waypoint
             conn.waypoints.forEach((wp, i) => {
-                // Draggable corner handle
                 const handle = document.createElement('div');
                 handle.className = 'waypoint-handle';
                 handle.style.left = wp.x + 'px';
-                handle.style.top = wp.y + 'px';
+                handle.style.top  = wp.y + 'px';
                 handle.title = 'Drag to move this corner';
                 handle.addEventListener('mousedown', function(e) {
                     e.stopPropagation();
                     draggingWaypoint = { conn: conn, index: i };
                     wpDragStart = { x: e.clientX, y: e.clientY };
-                    wpOriginal = { x: wp.x, y: wp.y };
+                    wpOriginal  = { x: wp.x, y: wp.y };
                     handle.classList.add('dragging');
                     e.preventDefault();
                 });
                 waypointLayer.appendChild(handle);
-
-                // Segment mid-point add-waypoint handle (between wp[i] and wp[i+1])
-                if (i < conn.waypoints.length - 1) {
-                    const next = conn.waypoints[i + 1];
-                    const mx = (wp.x + next.x) / 2;
-                    const my = (wp.y + next.y) / 2;
-                    const mid = document.createElement('div');
-                    mid.className = 'seg-midpoint';
-                    mid.style.left = mx + 'px';
-                    mid.style.top = my + 'px';
-                    mid.title = 'Drag to add a new corner here';
-                    mid.addEventListener('mousedown', function(e) {
-                        e.stopPropagation();
-                        // Insert a new waypoint between i and i+1
-                        conn.waypoints.splice(i + 1, 0, { x: mx, y: my });
-                        draggingWaypoint = { conn: conn, index: i + 1 };
-                        wpDragStart = { x: e.clientX, y: e.clientY };
-                        wpOriginal = { x: mx, y: my };
-                        e.preventDefault();
-                        drawConnectionsForRouteEdit();
-                        renderWaypointHandles(conn);
-                    });
-                    waypointLayer.appendChild(mid);
-                }
             });
 
-            // "Reset route" small label
-            const from = getConnectionPoint(conn.from, conn.fromPos);
-            const to = getConnectionPoint(conn.to, conn.toPos);
+            // Reset button
             const resetBtn = document.createElement('div');
             resetBtn.style.cssText = 'position:absolute;left:' + ((from.x + to.x)/2 - 28) + 'px;top:' + ((from.y + to.y)/2 - 24) + 'px;' +
                 'background:#7c3aed;color:#fff;font-size:0.6rem;font-family:Poppins,sans-serif;font-weight:600;padding:3px 7px;' +
