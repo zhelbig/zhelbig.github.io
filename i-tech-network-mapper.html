@@ -76,8 +76,14 @@
         #connections{position:absolute;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
         .conn-wired{stroke:var(--primary);stroke-width:2;fill:none}
         .conn-wireless{stroke:var(--accent-purple);stroke-width:2;fill:none;stroke-dasharray:8,4}
+        .conn-vpn{stroke:#d4a017;stroke-width:3.5;fill:none;opacity:0.85}
+        .conn-vpn-outline{stroke:rgba(212,160,23,0.25);stroke-width:8;fill:none}
         .controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);padding:8px;border-radius:14px;border:1px solid #e0e0e0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
         .controls .ctrl-divider{width:1px;height:24px;background:#e0e0e0;margin:0 2px}
+        .undo-redo{position:absolute;top:16px;left:16px;display:flex;gap:4px;z-index:100}
+        .undo-redo button{width:36px;height:36px;border-radius:10px;border:1px solid #e0e0e0;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#555;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+        .undo-redo button:hover:not(:disabled){background:#fff;border-color:var(--primary);color:var(--primary);box-shadow:0 2px 12px rgba(15,113,240,0.15)}
+        .undo-redo button:disabled{opacity:0.35;cursor:default}
         .btn.eraser-active{background:rgba(239,68,68,0.15) !important;border-color:rgba(239,68,68,0.5) !important;color:#ef4444 !important}
 
         /* Connection toolbar - floating bottom-right */
@@ -90,6 +96,7 @@
         .conn-toggle-bar button.active{background:#fff;color:#1a1a1a;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
         .conn-toggle-bar button.wired-bar.active{color:var(--primary)}
         .conn-toggle-bar button.wireless-bar.active{color:var(--accent-purple)}
+        .conn-toggle-bar button.vpn-bar.active{color:#d4a017}
         .conn-toggle-bar button.curved-bar.active{color:#059669}
         .conn-toggle-bar button.ortho-bar.active{color:#7c3aed}
         .conn-eraser-btn{flex:1;padding:5px 8px;background:none;border:1px solid #e0e0e0;border-radius:6px;color:#888;cursor:pointer;font-size:0.68rem;font-weight:500;font-family:'Poppins',sans-serif;transition:all 0.2s;text-align:center}
@@ -367,6 +374,10 @@
                 </div>
             </div>
             <div class="pan-hint">Drag empty space to pan &#x2022; Scroll to zoom</div>
+            <div class="undo-redo">
+                <button id="undoBtn" title="Undo (Ctrl+Z)" disabled>&#x21B6;</button>
+                <button id="redoBtn" title="Redo (Ctrl+Y)" disabled>&#x21B7;</button>
+            </div>
             <div class="controls">
                 <button class="btn" id="snapBtn" title="Toggle grid snapping">Snap: On</button>
                 <button class="btn" id="zoomInBtn">+</button>
@@ -383,6 +394,7 @@
                     <div class="conn-toggle-bar">
                         <button class="wired-bar active" id="wiredBtn">&#x1F5A7; Wired</button>
                         <button class="wireless-bar" id="wirelessBtn">&#x1F4F6; Wireless</button>
+                        <button class="vpn-bar" id="vpnBtn">&#x1F510; VPN</button>
                     </div>
                 </div>
                 <div class="conn-toolbar-row">
@@ -512,8 +524,14 @@
                     <button class="add-btn" id="addVMBtn" style="margin-top:8px;">+ Add VM</button>
                 </div>
                 <div id="connectedToSection" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--glass-border);">
-                    <div class="form-label" style="margin-bottom:8px;">Connected To</div>
-                    <div id="connectedToList" style="font-size:0.75rem;color:var(--text-muted);"></div>
+                    <div id="upstreamSection">
+                        <div class="form-label" style="margin-bottom:6px;">&#x2B06;&#xFE0F; Upstream <span style="font-weight:400;text-transform:none;letter-spacing:0;">(Parent)</span></div>
+                        <div id="upstreamList" style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px;"></div>
+                    </div>
+                    <div id="downstreamSection">
+                        <div class="form-label" style="margin-bottom:6px;">&#x2B07;&#xFE0F; Downstream <span style="font-weight:400;text-transform:none;letter-spacing:0;">(Children)</span></div>
+                        <div id="downstreamList" style="font-size:0.75rem;color:var(--text-muted);"></div>
+                    </div>
                 </div>
                 <button class="btn btn-danger" style="width:100%;margin-top:16px;justify-content:center;" id="deleteBtn">&#x1F5D1;&#xFE0F; Delete Device</button>
             </div>
@@ -785,6 +803,74 @@
             counter: 0,
             zoneCounter: 0
         };
+
+        const undoStack = [];
+        const redoStack = [];
+        const MAX_UNDO = 50;
+
+        function getStateSnapshot() {
+            return JSON.stringify({
+                devices: state.devices,
+                connections: state.connections,
+                zones: state.zones,
+                vlans: state.vlans,
+                ssids: state.ssids,
+                config: state.config,
+                counter: state.counter,
+                zoneCounter: state.zoneCounter
+            });
+        }
+
+        function saveState() {
+            undoStack.push(getStateSnapshot());
+            if (undoStack.length > MAX_UNDO) undoStack.shift();
+            redoStack.length = 0;
+            updateUndoRedoBtns();
+        }
+
+        function restoreSnapshot(snapshot) {
+            const data = JSON.parse(snapshot);
+            state.devices = data.devices;
+            state.connections = data.connections;
+            state.zones = data.zones;
+            state.vlans = data.vlans;
+            state.ssids = data.ssids;
+            state.config = data.config;
+            state.counter = data.counter;
+            state.zoneCounter = data.zoneCounter;
+            deselectAll();
+            document.querySelectorAll('.network-device').forEach(el => el.remove());
+            document.querySelectorAll('.network-zone').forEach(el => el.remove());
+            state.devices.forEach(d => renderDevice(d));
+            state.zones.forEach(z => renderZone(z));
+            drawConnections();
+            updateVlanSelect();
+            updateNetworkInfoBox();
+            updateCounts();
+            document.getElementById('emptyState').style.display =
+                (state.devices.length === 0 && state.zones.length === 0) ? 'block' : 'none';
+        }
+
+        function undo() {
+            if (undoStack.length === 0) return;
+            redoStack.push(getStateSnapshot());
+            restoreSnapshot(undoStack.pop());
+            updateUndoRedoBtns();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            undoStack.push(getStateSnapshot());
+            restoreSnapshot(redoStack.pop());
+            updateUndoRedoBtns();
+        }
+
+        function updateUndoRedoBtns() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+            if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+        }
 
         const zoneTypes = {
             cloud: { name: 'Cloud', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a4 4 0 00-7.5-2A5 5 0 105 14h13a3 3 0 000-6z"/></svg>', color: '#3b82f6' },
@@ -1070,11 +1156,12 @@
                             (c.from === targetDevice.device.id && c.to === dragConnStart.device.id)
                         );
                         if (!exists) {
+                            saveState();
                             state.connections.push({
                                 id: 'conn' + Date.now(),
-                                from: dragConnStart.device.id, 
+                                from: dragConnStart.device.id,
                                 fromPos: dragConnStart.pos,
-                                to: targetDevice.device.id, 
+                                to: targetDevice.device.id,
                                 toPos: targetDevice.pos,
                                 type: state.connType,
                                 routingStyle: state.routingStyle
@@ -1126,8 +1213,11 @@
                 document.getElementById('snapBtn').textContent = 'Snap: ' + (snapToGrid ? 'On' : 'Off');
                 document.getElementById('snapBtn').style.opacity = snapToGrid ? '1' : '0.6';
             };
+            document.getElementById('undoBtn').onclick = undo;
+            document.getElementById('redoBtn').onclick = redo;
             document.getElementById('wiredBtn').onclick = () => setConnType('wired');
             document.getElementById('wirelessBtn').onclick = () => setConnType('wireless');
+            document.getElementById('vpnBtn').onclick = () => setConnType('vpn');
             document.getElementById('curvedBtn').onclick = () => setRoutingStyle('curved');
             document.getElementById('orthoBtn').onclick = () => setRoutingStyle('orthogonal');
             document.getElementById('editRouteBtn').onclick = toggleEditRoute;
@@ -1153,9 +1243,11 @@
             document.getElementById('propOS').onchange = e => updateDeviceProp('os', e.target.value);
 
             document.addEventListener('keydown', e => {
-                if (e.key === 'Escape') { 
-                    cancelConnect(); 
-                    deselectAll(); 
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+                if (e.key === 'Escape') {
+                    cancelConnect();
+                    deselectAll();
                     if (eraserMode) toggleEraser();
                     if (editRouteMode) toggleEditRoute();
                 }
@@ -1174,6 +1266,7 @@
             state.connType = type;
             document.getElementById('wiredBtn').className = 'wired-bar' + (type === 'wired' ? ' active' : '');
             document.getElementById('wirelessBtn').className = 'wireless-bar' + (type === 'wireless' ? ' active' : '');
+            document.getElementById('vpnBtn').className = 'vpn-bar' + (type === 'vpn' ? ' active' : '');
         }
 
         function setRoutingStyle(style) {
@@ -1277,8 +1370,10 @@
                 if (conn.routingStyle === 'orthogonal') {
                     const isEditing = editingConn && editingConn.id === conn.id;
                     paths += '<path d="' + path + '" stroke="transparent" stroke-width="10" fill="none" style="cursor:pointer;pointer-events:stroke;" data-edit-conn="' + index + '"/>';
+                    if (conn.type === 'vpn') paths += '<path class="conn-vpn-outline" d="' + path + '" style="pointer-events:none;"/>';
                     paths += '<path class="conn-' + conn.type + '" d="' + path + '" style="pointer-events:none;"' + (isEditing ? ' stroke-dasharray="6,3" stroke-width="2.5"' : '') + '/>';
                 } else {
+                    if (conn.type === 'vpn') paths += '<path class="conn-vpn-outline" d="' + path + '"/>';
                     paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
                 }
             });
@@ -1436,9 +1531,8 @@
                 const from = getConnectionPoint(conn.from, conn.fromPos);
                 const to = getConnectionPoint(conn.to, conn.toPos);
                 const path = buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
-                // Invisible wide hit area
                 paths += '<path d="' + path + '" stroke="transparent" stroke-width="12" fill="none" style="cursor:crosshair;pointer-events:stroke;" data-conn-index="' + index + '"/>';
-                // Visible connection line
+                if (conn.type === 'vpn') paths += '<path class="conn-vpn-outline" d="' + path + '" style="pointer-events:none;"/>';
                 paths += '<path class="conn-' + conn.type + '" d="' + path + '" style="pointer-events:none;"/>';
             });
             svg.innerHTML = paths;
@@ -1449,6 +1543,7 @@
                     e.stopPropagation();
                     const idx = parseInt(this.dataset.connIndex);
                     if (idx >= 0 && idx < state.connections.length) {
+                        saveState();
                         const conn = state.connections[idx];
                         state.connections.splice(idx, 1);
                         updateCounts();
@@ -1479,6 +1574,7 @@
         }
 
         function createDevice(type, x, y) {
+            saveState();
             state.counter++;
             const cfg = types[type];
             const device = {
@@ -1526,6 +1622,7 @@
             el.addEventListener('mousedown', function(e) {
                 if (e.target.classList.contains('conn-point')) return;
                 e.stopPropagation();
+                saveState();
                 draggingDevice = d;
                 dragStart.x = e.clientX;
                 dragStart.y = e.clientY;
@@ -1585,6 +1682,7 @@
 
         // Zone functions
         function createZone(type, x, y) {
+            saveState();
             state.zoneCounter++;
             const cfg = zoneTypes[type];
             const zone = {
@@ -1741,6 +1839,7 @@
 
         function deleteSelectedZone() {
             if (!state.selectedZone) return;
+            saveState();
             const id = state.selectedZone.id;
             state.zones = state.zones.filter(z => z.id !== id);
             document.getElementById(id).remove();
@@ -1763,6 +1862,7 @@
                         (c.from === device.id && c.to === state.connecting.device.id)
                     );
                     if (!exists) {
+                        saveState();
                         state.connections.push({
                             id: 'conn' + Date.now(),
                             from: state.connecting.device.id, fromPos: state.connecting.pos,
@@ -1814,6 +1914,9 @@
                 const from = getConnectionPoint(conn.from, conn.fromPos);
                 const to = getConnectionPoint(conn.to, conn.toPos);
                 const path = buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
+                if (conn.type === 'vpn') {
+                    paths += '<path class="conn-vpn-outline" d="' + path + '"/>';
+                }
                 paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
             });
             return paths;
@@ -1831,8 +1934,9 @@
                 const from = dragConnStart;
                 const to = dragConnCurrent;
                 const path = buildConnPath(from, to, from.pos, state.routingStyle);
-                const strokeColor = state.connType === 'wired' ? '#0F71F0' : '#c084fc';
-                paths += '<path d="' + path + '" stroke="' + strokeColor + '" stroke-width="2" fill="none" stroke-dasharray="5,5" opacity="0.7"/>';
+                const strokeColor = state.connType === 'vpn' ? '#d4a017' : state.connType === 'wired' ? '#0F71F0' : '#c084fc';
+                const sw = state.connType === 'vpn' ? '3.5' : '2';
+                paths += '<path d="' + path + '" stroke="' + strokeColor + '" stroke-width="' + sw + '" fill="none" stroke-dasharray="5,5" opacity="0.7"/>';
             }
             svg.innerHTML = paths;
         }
@@ -1996,56 +2100,92 @@
             renderConnectedToList(d);
         }
         
+        function getConnIcon(connType) {
+            if (connType === 'wireless') return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a8 8 0 0112 0"/><path d="M8.5 10.5a5 5 0 017 0"/><circle cx="12" cy="14" r="1.5" fill="#c084fc"/></svg>';
+            if (connType === 'vpn') return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4a017" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="8" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>';
+            return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F71F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h6"/><circle cx="14" cy="12" r="3"/><path d="M17 12h3"/></svg>';
+        }
+
+        function getConnBadge(connType) {
+            if (connType === 'wireless') return '<span style="display:inline-block;padding:3px 8px;background:rgba(192,132,252,0.15);border:1px solid rgba(192,132,252,0.3);border-radius:6px;font-size:0.6rem;color:#c084fc;font-weight:500;">Wireless</span>';
+            if (connType === 'vpn') return '<span style="display:inline-block;padding:3px 8px;background:rgba(212,160,23,0.15);border:1px solid rgba(212,160,23,0.3);border-radius:6px;font-size:0.6rem;color:#d4a017;font-weight:500;">VPN</span>';
+            return null;
+        }
+
         function renderConnectedToList(d) {
-            const container = document.getElementById('connectedToList');
-            
-            // Find all connections involving this device
+            const upstreamContainer = document.getElementById('upstreamList');
+            const downstreamContainer = document.getElementById('downstreamList');
             const connections = state.connections.filter(c => c.from === d.id || c.to === d.id);
-            
-            if (connections.length === 0) {
-                container.innerHTML = '<p style="font-size:0.7rem;color:var(--text-muted);text-align:center;padding:8px 0;">No connections</p>';
-                return;
-            }
-            
-            // Initialize parentPorts if not present
+
             if (!d.parentPorts) d.parentPorts = {};
-            
-            let html = '';
-            connections.forEach((conn, index) => {
-                // Get the "other" device in the connection (the parent)
-                const parentId = conn.from === d.id ? conn.to : conn.from;
-                const parentDevice = state.devices.find(dev => dev.id === parentId);
-                
-                if (!parentDevice) return;
-                
-                const isWireless = conn.type === 'wireless';
-                const connIcon = isWireless 
-                    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a8 8 0 0112 0"/><path d="M8.5 10.5a5 5 0 017 0"/><circle cx="12" cy="14" r="1.5" fill="#c084fc"/></svg>'
-                    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F71F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h6"/><circle cx="14" cy="12" r="3"/><path d="M17 12h3"/></svg>';
-                const portValue = d.parentPorts[parentId] || '';
-                
-                // Show "Wireless" tag for wireless connections, port input for wired
-                let portField;
-                if (isWireless) {
-                    portField = '<span style="display:inline-block;padding:4px 10px;background:rgba(192,132,252,0.15);border:1px solid rgba(192,132,252,0.3);border-radius:6px;font-size:0.65rem;color:#c084fc;font-weight:500;">Wireless</span>';
+
+            const upstream = [];
+            const downstream = [];
+
+            connections.forEach(conn => {
+                const isFrom = conn.from === d.id;
+                const otherId = isFrom ? conn.to : conn.from;
+                const otherDevice = state.devices.find(dev => dev.id === otherId);
+                if (!otherDevice) return;
+                if (isFrom) {
+                    upstream.push({ conn, device: otherDevice });
                 } else {
-                    portField = '<input type="text" class="form-input" style="width:60px;padding:4px 6px;font-size:0.7rem;text-align:center;" ' +
-                        'placeholder="Port" value="' + portValue + '" ' +
-                        'oninput="updateParentPort(\'' + parentId + '\', this.value)" ' +
-                        'title="Port on ' + parentDevice.name + '">';
+                    downstream.push({ conn, device: otherDevice });
                 }
-                
-                html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--glass-border);">' +
-                    '<span style="font-size:0.85rem;">' + connIcon + '</span>' +
-                    '<div style="flex:1;">' +
-                        '<div style="font-weight:500;color:var(--text-primary);font-size:0.75rem;">' + parentDevice.name + '</div>' +
-                        '<div style="font-size:0.65rem;color:var(--text-muted);">' + (types[parentDevice.type]?.name || parentDevice.type) + '</div>' +
+            });
+
+            function buildConnRow(entry, d) {
+                const { conn, device } = entry;
+                const connIcon = getConnIcon(conn.type);
+                const badge = getConnBadge(conn.type);
+                const portValue = d.parentPorts[device.id] || '';
+
+                let portField;
+                if (badge) {
+                    portField = badge;
+                } else {
+                    portField = '<input type="text" class="form-input" style="width:55px;padding:3px 5px;font-size:0.65rem;text-align:center;" ' +
+                        'placeholder="Port" value="' + portValue + '" ' +
+                        'oninput="updateParentPort(\'' + device.id + '\', this.value)" ' +
+                        'title="Port on ' + device.name + '">';
+                }
+
+                return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--glass-border);">' +
+                    '<span>' + connIcon + '</span>' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-weight:500;color:var(--text-primary);font-size:0.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + device.name + '</div>' +
+                        '<div style="font-size:0.6rem;color:var(--text-muted);">' + (types[device.type]?.name || device.type) + '</div>' +
                     '</div>' +
                     portField +
+                    '<button onclick="flipConnection(\'' + conn.id + '\')" title="Flip direction" style="background:none;border:1px solid var(--glass-border);border-radius:4px;cursor:pointer;padding:2px 4px;color:var(--text-muted);font-size:0.7rem;line-height:1;">&#x21C5;</button>' +
                 '</div>';
-            });
-            
-            container.innerHTML = html;
+            }
+
+            if (upstream.length === 0) {
+                upstreamContainer.innerHTML = '<p style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:4px 0;">None</p>';
+            } else {
+                upstreamContainer.innerHTML = upstream.map(e => buildConnRow(e, d)).join('');
+            }
+
+            if (downstream.length === 0) {
+                downstreamContainer.innerHTML = '<p style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:4px 0;">None</p>';
+            } else {
+                downstreamContainer.innerHTML = downstream.map(e => buildConnRow(e, d)).join('');
+            }
+        }
+
+        function flipConnection(connId) {
+            const conn = state.connections.find(c => c.id === connId);
+            if (!conn) return;
+            saveState();
+            const tmpFrom = conn.from;
+            const tmpFromPos = conn.fromPos;
+            conn.from = conn.to;
+            conn.fromPos = conn.toPos;
+            conn.to = tmpFrom;
+            conn.toPos = tmpFromPos;
+            drawConnections();
+            if (state.selected) renderConnectedToList(state.selected);
         }
         
         function updateParentPort(parentId, portValue) {
@@ -2151,6 +2291,7 @@
 
         function deleteSelected() {
             if (!state.selected) return;
+            saveState();
             const id = state.selected.id;
             state.connections = state.connections.filter(c => c.from !== id && c.to !== id);
             state.devices = state.devices.filter(d => d.id !== id);
@@ -2311,6 +2452,7 @@
 
         function clearAll() {
             if (confirm('Clear all devices and connections?')) {
+                saveState();
                 state.devices = [];
                 state.connections = [];
                 state.counter = 0;
@@ -2408,6 +2550,8 @@
             .device-icon { font-size: 20px; }
             .conn-wired { stroke: #ff3b3b; stroke-width: 2; fill: none; }
             .conn-wireless { stroke: #c084fc; stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
+            .conn-vpn { stroke: #d4a017; stroke-width: 3.5; fill: none; opacity: 0.85; }
+            .conn-vpn-outline { stroke: rgba(212,160,23,0.25); stroke-width: 8; fill: none; }
         </style>
     </defs>
     <rect width="100%" height="100%" fill="#050505"/>
@@ -2426,6 +2570,7 @@
                 // Offset any custom waypoints too
                 const offsetWaypoints = (conn.waypoints || []).map(wp => ({ x: wp.x - minX, y: wp.y - minY }));
                 const path = buildConnPath(offsetFrom, offsetTo, conn.fromPos, conn.routingStyle || 'curved', offsetWaypoints);
+                if (conn.type === 'vpn') svgContent += `<path d="${path}" class="conn-vpn-outline"/>`;
                 svgContent += `<path d="${path}" class="conn-${conn.type}"/>`;
             });
             
@@ -2539,9 +2684,11 @@
                 // Offset any custom waypoints too
                 const offsetWaypoints = (conn.waypoints || []).map(wp => ({ x: wp.x - minX, y: wp.y - minY }));
                 const path = buildConnPath(offsetFrom, offsetTo, conn.fromPos, conn.routingStyle || 'curved', offsetWaypoints);
-                const strokeColor = conn.type === 'wired' ? '#0F71F0' : '#c084fc';
+                const strokeColor = conn.type === 'vpn' ? '#d4a017' : conn.type === 'wired' ? '#0F71F0' : '#c084fc';
                 const dashArray = conn.type === 'wireless' ? 'stroke-dasharray="8,4"' : '';
-                paths += `<path d="${path}" stroke="${strokeColor}" stroke-width="2" fill="none" ${dashArray}/>`;
+                const sw = conn.type === 'vpn' ? '3.5' : '2';
+                if (conn.type === 'vpn') paths += `<path d="${path}" stroke="rgba(212,160,23,0.25)" stroke-width="8" fill="none"/>`;
+                paths += `<path d="${path}" stroke="${strokeColor}" stroke-width="${sw}" fill="none" ${dashArray}/>`;
             });
             tempSvg.innerHTML = paths;
             
