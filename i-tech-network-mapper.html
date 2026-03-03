@@ -20,8 +20,6 @@
             --text:#EAEAEA;--text-secondary:#D8D7DF;--text-muted:#8a8daf;
             --green:#22c55e;--yellow:#eab308;--orange:#EF7225;--red-soft:#ef4444;
             --accent-purple:#c084fc;
-            --titan-white:#D8D7DF;
-            --white-smoke:#EAEAEA;
         }
         body{font-family:'Poppins',sans-serif;background:linear-gradient(135deg,var(--dark),var(--darker));color:var(--text);overflow:hidden;height:100vh;line-height:1.6}
 
@@ -47,6 +45,7 @@
         .client-input{background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:6px 12px;color:var(--text);font-size:0.85rem;font-family:'Poppins',sans-serif;width:200px;outline:none;transition:border-color 0.3s}
         .client-input:focus{border-color:rgba(15,113,240,0.5)}
         .client-input::placeholder{color:var(--text-muted)}
+        .client-label-text{color:var(--text-muted);font-size:0.7rem;margin-right:6px}
         .header-actions{display:flex;gap:8px;margin-left:auto}
 
         /* Buttons */
@@ -263,11 +262,11 @@
                 <span class="logo-tool-name">Network Mapping Tool</span>
             </div>
             <div class="client-label">
-                <span style="color:var(--text-muted);font-size:0.7rem;margin-right:6px;">Client:</span>
+                <span class="client-label-text">Client:</span>
                 <input type="text" id="clientName" class="client-input" placeholder="Enter client name...">
             </div>
             <div class="client-label">
-                <span style="color:var(--text-muted);font-size:0.7rem;margin-right:6px;">Location/Site:</span>
+                <span class="client-label-text">Location/Site:</span>
                 <input type="text" id="siteName" class="client-input" placeholder="Enter location...">
             </div>
             <div class="header-actions">
@@ -784,8 +783,7 @@
             panX: 0,
             panY: 0,
             counter: 0,
-            zoneCounter: 0,
-            exportFormat: 'pdf'
+            zoneCounter: 0
         };
 
         const zoneTypes = {
@@ -830,9 +828,10 @@
             vm: ['VMware', 'Hyper-V', 'Proxmox', 'KVM', 'VirtualBox', 'Xen', 'Other']
         };
 
+        const _desktopOS = ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'];
         const operatingSystems = {
-            desktop: ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'],
-            laptop: ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'],
+            desktop: _desktopOS,
+            laptop: _desktopOS,
             cellphone: ['iOS 17', 'iOS 16', 'iOS 15', 'Android 14', 'Android 13', 'Android 12', 'Android 11', 'Android 10', 'Other'],
             tablet: ['iPadOS 17', 'iPadOS 16', 'iPadOS 15', 'Android 14', 'Android 13', 'Android 12', 'Windows 11', 'Windows 10', 'Fire OS', 'Chrome OS', 'Other'],
             otherendpoint: ['Windows', 'macOS', 'Linux', 'Android', 'iOS', 'Embedded', 'Proprietary', 'Other'],
@@ -1809,9 +1808,7 @@
             }
         }
 
-        function drawConnections() {
-            // If in edit route mode, use that renderer instead
-            if (editRouteMode) { drawConnectionsForRouteEdit(); return; }
+        function buildConnectionPaths() {
             let paths = '';
             state.connections.forEach(conn => {
                 const from = getConnectionPoint(conn.from, conn.fromPos);
@@ -1819,21 +1816,17 @@
                 const path = buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
                 paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
             });
-            svg.innerHTML = paths;
+            return paths;
+        }
+
+        function drawConnections() {
+            if (editRouteMode) { drawConnectionsForRouteEdit(); return; }
+            svg.innerHTML = buildConnectionPaths();
             svg.style.pointerEvents = 'none';
         }
-        
+
         function drawConnectionsWithDrag() {
-            let paths = '';
-            // Draw existing connections
-            state.connections.forEach(conn => {
-                const from = getConnectionPoint(conn.from, conn.fromPos);
-                const to = getConnectionPoint(conn.to, conn.toPos);
-                const path = buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
-                paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
-            });
-            
-            // Draw the dragging connection line
+            let paths = buildConnectionPaths();
             if (isDraggingConnection && dragConnStart.device) {
                 const from = dragConnStart;
                 const to = dragConnCurrent;
@@ -1841,7 +1834,6 @@
                 const strokeColor = state.connType === 'wired' ? '#0F71F0' : '#c084fc';
                 paths += '<path d="' + path + '" stroke="' + strokeColor + '" stroke-width="2" fill="none" stroke-dasharray="5,5" opacity="0.7"/>';
             }
-            
             svg.innerHTML = paths;
         }
         
@@ -1912,166 +1904,95 @@
             document.getElementById('zoneProps').style.display = 'none';
         }
 
+        function showSection(id, show) {
+            document.getElementById(id).style.display = show ? 'block' : 'none';
+        }
+
         function showProps(d) {
-            document.getElementById('noSelect').style.display = 'none';
-            document.getElementById('deviceProps').style.display = 'block';
+            showSection('noSelect', false);
+            showSection('deviceProps', true);
             document.getElementById('propNotes').value = d.notes;
-            
-            // Handle device name / ISP label for router
-            const nameGroup = document.getElementById('nameGroup');
-            const nameLabel = document.getElementById('nameLabel');
-            if (d.type === 'router') {
-                nameLabel.textContent = 'ISP';
-                nameGroup.style.display = 'block';
-            } else {
-                nameLabel.textContent = 'Device Name';
-                nameGroup.style.display = 'block';
-            }
+
+            document.getElementById('nameLabel').textContent = d.type === 'router' ? 'ISP' : 'Device Name';
             document.getElementById('propName').value = d.name;
-            
-            // Handle IP/MAC fields - show IP for router, hide MAC
-            const ipGroup = document.getElementById('ipGroup');
-            const macGroup = document.getElementById('macGroup');
-            if (d.type === 'router') {
-                ipGroup.style.display = 'block';
-                document.getElementById('propIP').value = d.ip;
-                macGroup.style.display = 'none';
-            } else {
-                ipGroup.style.display = 'block';
-                macGroup.style.display = 'block';
-                document.getElementById('propIP').value = d.ip;
-                document.getElementById('propMAC').value = d.mac;
-            }
-            
-            // Handle status buttons - hide for router
-            const statusGroup = document.getElementById('statusGroup');
-            if (d.type === 'router') {
-                statusGroup.style.display = 'none';
-            } else {
-                statusGroup.style.display = 'block';
+
+            document.getElementById('propIP').value = d.ip;
+            showSection('macGroup', d.type !== 'router');
+            if (d.type !== 'router') document.getElementById('propMAC').value = d.mac;
+
+            showSection('statusGroup', d.type !== 'router');
+            if (d.type !== 'router') {
                 document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === d.status));
             }
-            
-            // Handle Router section (connection type, speeds)
-            const routerSection = document.getElementById('routerSection');
-            if (d.type === 'router') {
-                routerSection.style.display = 'block';
+
+            const isRouter = d.type === 'router';
+            showSection('routerSection', isRouter);
+            if (isRouter) {
                 document.getElementById('propFiber').checked = d.connectionType === 'fiber';
                 document.getElementById('propCoax').checked = d.connectionType === 'coax';
                 document.getElementById('propDownload').value = d.downloadSpeed || '';
                 document.getElementById('propUpload').value = d.uploadSpeed || '';
                 document.getElementById('propSubnetMask').value = d.subnetMask || '';
                 document.getElementById('propDefaultGateway').value = d.defaultGateway || '';
-            } else {
-                routerSection.style.display = 'none';
             }
-            
-            document.getElementById('vmSection').style.display = d.type === 'vmhost' ? 'block' : 'none';
+
+            showSection('vmSection', d.type === 'vmhost');
             if (d.type === 'vmhost') renderVMList(d);
-            
-            // Handle VLAN dropdown - hide for AP, Firewall, Switch, Cloud, On-Prem, Storage, Router
-            const vlanGroup = document.getElementById('vlanGroup');
+
             const hideVlanTypes = ['ap', 'firewall', 'switch', 'cloud', 'onprem', 'storage', 'router', 'vpn'];
-            if (hideVlanTypes.includes(d.type)) {
-                vlanGroup.style.display = 'none';
-            } else {
-                vlanGroup.style.display = 'block';
-                document.getElementById('propVLAN').value = d.vlan;
-            }
-            
-            // Handle Network Equipment section (Manufacturer/Model for firewall, switch, ap)
-            const networkEquipSection = document.getElementById('networkEquipSection');
+            const showVlan = !hideVlanTypes.includes(d.type);
+            showSection('vlanGroup', showVlan);
+            if (showVlan) document.getElementById('propVLAN').value = d.vlan;
+
             const networkEquipTypes = ['firewall', 'switch', 'ap'];
-            if (networkEquipTypes.includes(d.type)) {
-                networkEquipSection.style.display = 'block';
+            const isNetworkEquip = networkEquipTypes.includes(d.type);
+            showSection('networkEquipSection', isNetworkEquip);
+            if (isNetworkEquip) {
                 document.getElementById('propNetEquipMfg').value = d.manufacturer || '';
                 document.getElementById('propNetEquipModel').value = d.model || '';
-            } else {
-                networkEquipSection.style.display = 'none';
             }
-            
-            // Handle SSID section for Access Points
-            const ssidSection = document.getElementById('ssidSection');
-            if (d.type === 'ap') {
-                ssidSection.style.display = 'block';
-                renderAPSSIDList(d);
-            } else {
-                ssidSection.style.display = 'none';
-            }
-            
-            // Handle Switch section
-            const switchSection = document.getElementById('switchSection');
+
+            showSection('ssidSection', d.type === 'ap');
+            if (d.type === 'ap') renderAPSSIDList(d);
+
+            showSection('switchSection', d.type === 'switch');
             if (d.type === 'switch') {
-                switchSection.style.display = 'block';
                 document.getElementById('propSwitchPorts').value = d.ports || '';
                 document.getElementById('propPOE').checked = d.poe || false;
                 renderSwitchVLANList(d);
-            } else {
-                switchSection.style.display = 'none';
             }
-            
-            // Handle Firewall section
-            const firewallSection = document.getElementById('firewallSection');
-            if (d.type === 'firewall') {
-                firewallSection.style.display = 'block';
-                document.getElementById('propFirewallPorts').value = d.ports || '';
-            } else {
-                firewallSection.style.display = 'none';
-            }
-            
-            // Handle VPN section
-            const vpnSection = document.getElementById('vpnSection');
+
+            showSection('firewallSection', d.type === 'firewall');
+            if (d.type === 'firewall') document.getElementById('propFirewallPorts').value = d.ports || '';
+
+            showSection('vpnSection', d.type === 'vpn');
             if (d.type === 'vpn') {
-                vpnSection.style.display = 'block';
                 document.getElementById('propVPNMfg').value = d.manufacturer || '';
                 document.getElementById('propVPNModel').value = d.model || '';
                 document.getElementById('propVPNType').value = d.vpnType || '';
-            } else {
-                vpnSection.style.display = 'none';
             }
-            
-            // Handle Printer section
-            const printerSection = document.getElementById('printerSection');
-            if (d.type === 'printer') {
-                printerSection.style.display = 'block';
-                document.getElementById('propPrinterModel').value = d.model || '';
-            } else {
-                printerSection.style.display = 'none';
-            }
-            
-            // Handle manufacturer dropdown - hide for network equipment types (they have text input now)
-            const mfgGroup = document.getElementById('manufacturerGroup');
-            const mfgSelect = document.getElementById('propManufacturer');
-            if (manufacturers[d.type] && !networkEquipTypes.includes(d.type)) {
-                mfgGroup.style.display = 'block';
-                mfgSelect.innerHTML = '<option value="">-- Select --</option>' + 
+
+            showSection('printerSection', d.type === 'printer');
+            if (d.type === 'printer') document.getElementById('propPrinterModel').value = d.model || '';
+
+            const hasMfg = manufacturers[d.type] && !isNetworkEquip;
+            showSection('manufacturerGroup', hasMfg);
+            if (hasMfg) {
+                document.getElementById('propManufacturer').innerHTML = '<option value="">-- Select --</option>' +
                     manufacturers[d.type].map(m => '<option value="' + m + '"' + (d.manufacturer === m ? ' selected' : '') + '>' + m + '</option>').join('');
-            } else {
-                mfgGroup.style.display = 'none';
             }
-            
-            // Handle OS dropdown
-            const osGroup = document.getElementById('osGroup');
-            const osSelect = document.getElementById('propOS');
-            if (operatingSystems[d.type]) {
-                osGroup.style.display = 'block';
-                osSelect.innerHTML = '<option value="">-- Select --</option>' + 
+
+            const hasOS = !!operatingSystems[d.type];
+            showSection('osGroup', hasOS);
+            if (hasOS) {
+                document.getElementById('propOS').innerHTML = '<option value="">-- Select --</option>' +
                     operatingSystems[d.type].map(o => '<option value="' + o + '"' + (d.os === o ? ' selected' : '') + '>' + o + '</option>').join('');
-            } else {
-                osGroup.style.display = 'none';
             }
-            
-            // Handle Serial Number - show for desktop, laptop, server
-            const serialGroup = document.getElementById('serialGroup');
+
             const serialTypes = ['desktop', 'laptop', 'server'];
-            if (serialTypes.includes(d.type)) {
-                serialGroup.style.display = 'block';
-                document.getElementById('propSerial').value = d.serial || '';
-            } else {
-                serialGroup.style.display = 'none';
-            }
-            
-            // Handle Connected To section
+            showSection('serialGroup', serialTypes.includes(d.type));
+            if (serialTypes.includes(d.type)) document.getElementById('propSerial').value = d.serial || '';
+
             renderConnectedToList(d);
         }
         
@@ -2403,22 +2324,6 @@
             }
         }
 
-        function setExportFormat(format) {
-            state.exportFormat = format;
-            document.getElementById('formatPdfBtn').classList.toggle('active', format === 'pdf');
-            document.getElementById('formatSvgBtn').classList.toggle('active', format === 'svg');
-            document.getElementById('orientationGroup').style.display = format === 'pdf' ? 'block' : 'none';
-            document.getElementById('exportBtn').textContent = format === 'pdf' ? 'Export PDF' : 'Export SVG';
-        }
-
-        function doExport() {
-            if (state.exportFormat === 'svg') {
-                generateSVG();
-            } else {
-                generatePDF();
-            }
-        }
-
         function getVlanName(vlanId) {
             const vlan = state.vlans.find(v => v.id === vlanId);
             return vlan ? `VLAN ${vlan.id} - ${vlan.name}` : 'None';
@@ -2714,30 +2619,8 @@
                     pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 10, { align: 'right' });
                 }
                 
-                // Header - client/site on left, "Network Diagram" centered
-                pdf.setFillColor(0, 30, 98);
-                pdf.rect(0, 0, pageWidth, 16, 'F');
-                
-                // Client and site on left
-                const headerLeft = [client, site].filter(Boolean).join(' - ');
-                if (headerLeft) {
-                    pdf.setTextColor(234, 234, 234);
-                    pdf.setFontSize(10);
-                    pdf.setFont('helvetica', 'bold');
-                    pdf.text(headerLeft, 10, 10);
-                }
-                
-                // "Network Diagram" centered
-                pdf.setTextColor(234, 234, 234);
-                pdf.setFontSize(12);
-                pdf.setFont('helvetica', 'bold');
-                pdf.text('Network Diagram', pageWidth / 2, 10, { align: 'center' });
-                
-                // Date on right
-                pdf.setFontSize(9);
-                pdf.setFont('helvetica', 'normal');
-                pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 10, { align: 'right' });
-                
+                drawPageHeader('Network Diagram');
+
                 // Calculate image dimensions to fit and center
                 const imgData = canvasImg.toDataURL('image/png');
                 const availableWidth = pageWidth - 10;
@@ -3437,28 +3320,23 @@
         // CSV Import/Export functions
         let pendingCSVData = [];
         
-        function downloadCSVTemplate(templateType) {
-            closeModal('csvTemplatesModal');
-            let headers, rows, filename, typeList, statusList;
-            
-            if (templateType === 'network') {
-                // Network Equipment: Router, Firewall, Switch, Access Point
-                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'Model', 'Ports', 'PoE', 'Connection Type', 'Download Mbps', 'Upload Mbps', 'Status', 'Notes'];
-                rows = [
+        const CSV_TEMPLATES = {
+            network: {
+                headers: ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'Model', 'Ports', 'PoE', 'Connection Type', 'Download Mbps', 'Upload Mbps', 'Status', 'Notes'],
+                rows: [
                     ['router', 'Comcast Business', '203.0.113.50', '', '', '', '', '', 'fiber', '1000', '1000', '', 'Primary ISP'],
                     ['firewall', 'Main Firewall', '192.168.1.1', '00:1A:2B:3C:4D:01', 'Fortinet', 'FortiGate 60F', '10', '', '', '', '', 'online', 'Edge firewall'],
                     ['switch', 'Core Switch', '192.168.1.2', '00:1A:2B:3C:4D:02', 'Ubiquiti', 'USW-Pro-48-PoE', '48', 'yes', '', '', '', 'online', 'Main distribution'],
                     ['switch', 'Floor 2 Switch', '192.168.1.3', '00:1A:2B:3C:4D:03', 'Ubiquiti', 'USW-24-PoE', '24', 'yes', '', '', '', 'online', ''],
                     ['ap', 'AP - Lobby', '192.168.1.10', '00:1A:2B:3C:4D:10', 'Ubiquiti', 'U6-Pro', '', '', '', '', '', 'online', 'Main entrance'],
                     ['ap', 'AP - Office', '192.168.1.11', '00:1A:2B:3C:4D:11', 'Ubiquiti', 'U6-LR', '', '', '', '', '', 'online', 'Open office area']
-                ];
-                typeList = '# Valid types: router, firewall, switch, ap';
-                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
-                filename = 'network-equipment-template.csv';
-            } else if (templateType === 'servers') {
-                // Servers and VM Hosts
-                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'VLAN ID', 'Status', 'Notes'];
-                rows = [
+                ],
+                typeList: '# Valid types: router, firewall, switch, ap',
+                filename: 'network-equipment-template.csv'
+            },
+            servers: {
+                headers: ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'VLAN ID', 'Status', 'Notes'],
+                rows: [
                     ['server', 'DC01', '192.168.20.10', '00:1A:2B:3C:4D:20', 'Dell', 'Windows Server 2022', 'DELLSRV001', '20', 'online', 'Primary Domain Controller'],
                     ['server', 'DC02', '192.168.20.11', '00:1A:2B:3C:4D:21', 'Dell', 'Windows Server 2022', 'DELLSRV002', '20', 'online', 'Secondary Domain Controller'],
                     ['server', 'FS01', '192.168.20.20', '00:1A:2B:3C:4D:22', 'HP/HPE', 'Windows Server 2022', 'HPEFS001', '20', 'online', 'File Server'],
@@ -3466,35 +3344,35 @@
                     ['server', 'WEB01', '192.168.20.40', '00:1A:2B:3C:4D:24', 'Dell', 'Ubuntu Server 22.04', 'DELLWEB001', '20', 'online', 'Web Server'],
                     ['vmhost', 'ESXi-01', '192.168.20.5', '00:1A:2B:3C:4D:25', 'Dell', 'VMware ESXi', 'DELLESX001', '20', 'online', 'VMware Host'],
                     ['nas', 'NAS01', '192.168.20.50', '00:1A:2B:3C:4D:26', 'Synology', '', 'SYNNAS001', '20', 'online', 'Backup Storage']
-                ];
-                typeList = '# Valid types: server, vmhost, nas';
-                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
-                filename = 'servers-template.csv';
-            } else if (templateType === 'endpoints') {
-                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'VLAN ID', 'Status', 'Notes'];
-                rows = [
+                ],
+                typeList: '# Valid types: server, vmhost, nas',
+                filename: 'servers-template.csv'
+            },
+            endpoints: {
+                headers: ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'VLAN ID', 'Status', 'Notes'],
+                rows: [
                     ['desktop', 'Reception PC', '192.168.1.100', '00:1A:2B:3C:4D:5E', 'Dell', 'Windows 11', 'SN123456789', '1', 'online', 'Front desk workstation'],
                     ['laptop', 'Manager Laptop', '192.168.1.101', '00:1A:2B:3C:4D:5F', 'HP', 'Windows 11', 'HP987654321', '1', 'online', ''],
                     ['cellphone', 'Company iPhone', '192.168.1.102', '', 'Apple', 'iOS 17', '', '1', 'online', ''],
                     ['tablet', 'Conference Room iPad', '192.168.1.103', '', 'Apple', 'iPadOS 17', '', '1', 'online', 'Meeting room display'],
                     ['printer', 'Main Printer', '192.168.1.200', '00:1A:2B:3C:4D:60', 'HP', '', '', '1', 'online', 'Model: LaserJet Pro M404n']
-                ];
-                typeList = '# Valid types: desktop, laptop, cellphone, tablet, printer, otherendpoint';
-                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
-                filename = 'endpoint-devices-template.csv';
-            } else if (templateType === 'other') {
-                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'VLAN ID', 'Status', 'Notes'];
-                rows = [
+                ],
+                typeList: '# Valid types: desktop, laptop, cellphone, tablet, printer, otherendpoint',
+                filename: 'endpoint-devices-template.csv'
+            },
+            other: {
+                headers: ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'VLAN ID', 'Status', 'Notes'],
+                rows: [
                     ['phone', 'Desk Phone 1', '192.168.1.150', '00:1A:2B:3C:4D:70', 'Cisco', '10', 'online', 'Extension 101'],
                     ['camera', 'Front Door Camera', '192.168.1.160', '00:1A:2B:3C:4D:71', 'Hikvision', '20', 'online', ''],
                     ['iot', 'Smart Thermostat', '192.168.1.170', '00:1A:2B:3C:4D:72', 'Nest', '1', 'online', '']
-                ];
-                typeList = '# Valid types: phone, camera, iot, otherendpoint';
-                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
-                filename = 'other-devices-template.csv';
-            } else {
-                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'Model', 'VLAN ID', 'Status', 'Notes'];
-                rows = [
+                ],
+                typeList: '# Valid types: phone, camera, iot, otherendpoint',
+                filename: 'other-devices-template.csv'
+            },
+            all: {
+                headers: ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'Model', 'VLAN ID', 'Status', 'Notes'],
+                rows: [
                     ['router', 'ISP Router', '203.0.113.50', '', '', '', '', '', '', '', 'Primary ISP'],
                     ['firewall', 'Firewall', '192.168.1.1', '', 'Fortinet', '', '', 'FortiGate 60F', '', 'online', ''],
                     ['switch', 'Core Switch', '192.168.1.2', '', 'Ubiquiti', '', '', 'USW-Pro-48', '', 'online', ''],
@@ -3505,27 +3383,29 @@
                     ['printer', 'Printer 1', '192.168.1.200', '', 'HP', '', '', 'LaserJet Pro', '1', 'online', ''],
                     ['phone', 'Desk Phone 1', '192.168.1.150', '', 'Cisco', '', '', '', '10', 'online', ''],
                     ['camera', 'Camera 1', '192.168.1.160', '', 'Hikvision', '', '', '', '20', 'online', '']
-                ];
-                typeList = '# Valid types: router, firewall, switch, ap, server, vmhost, nas, desktop, laptop, cellphone, tablet, printer, phone, camera, iot, otherendpoint';
-                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
-                filename = 'all-devices-template.csv';
+                ],
+                typeList: '# Valid types: router, firewall, switch, ap, server, vmhost, nas, desktop, laptop, cellphone, tablet, printer, phone, camera, iot, otherendpoint',
+                filename: 'all-devices-template.csv'
             }
-            
-            let csvContent = typeList + '\n' + statusList + '\n' + headers.join(',') + '\n';
-            rows.forEach(row => {
+        };
+        const _statusComment = '# Valid statuses: online, offline, warning, retired, decommissioned';
+
+        function downloadCSVTemplate(templateType) {
+            closeModal('csvTemplatesModal');
+            const tmpl = CSV_TEMPLATES[templateType] || CSV_TEMPLATES.all;
+            let csvContent = tmpl.typeList + '\n' + _statusComment + '\n' + tmpl.headers.join(',') + '\n';
+            tmpl.rows.forEach(row => {
                 csvContent += row.map(cell => {
-                    // Escape commas and quotes
                     if (cell.includes(',') || cell.includes('"')) {
                         return '"' + cell.replace(/"/g, '""') + '"';
                     }
                     return cell;
                 }).join(',') + '\n';
             });
-            
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = filename;
+            a.download = tmpl.filename;
             a.click();
         }
         
