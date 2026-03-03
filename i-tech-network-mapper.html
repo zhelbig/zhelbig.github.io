@@ -2970,7 +2970,7 @@
                         },
                         'ap': {
                             cols: ['Name', 'Manufacturer', 'Model', 'IP Address', 'MAC Address', 'Connected To', 'SSIDs'],
-                            widths: orientation === 'landscape' ? [30, 25, 30, 35, 38, 62, 50] : [20, 18, 22, 28, 32, 50, 20],
+                            widths: orientation === 'landscape' ? [30, 20, 30, 35, 38, 67, 50] : [20, 13, 22, 28, 32, 55, 20],
                             getData: (d) => [
                                 d.name, d.manufacturer || '-', d.model || '-', d.ip || '-', d.mac || '-',
                                 getConnectedTo(d), d.ssids ? d.ssids.join(', ') : '-'
@@ -2996,22 +2996,22 @@
                         },
                         'desktop': {
                             cols: ['Name', 'Manufacturer', 'OS', 'Serial', 'IP Address', 'Connected To', 'Notes'],
-                            widths: orientation === 'landscape' ? [28, 24, 28, 28, 30, 65, 67] : [18, 16, 20, 20, 24, 55, 37],
+                            widths: orientation === 'landscape' ? [28, 19, 28, 28, 30, 70, 67] : [18, 11, 20, 20, 24, 60, 37],
                             getData: (d) => [d.name, d.manufacturer || '-', d.os || '-', d.serial || '-', d.ip || '-', getConnectedTo(d), d.notes || '-']
                         },
                         'laptop': {
                             cols: ['Name', 'Manufacturer', 'OS', 'Serial', 'IP Address', 'Connected To', 'Notes'],
-                            widths: orientation === 'landscape' ? [28, 24, 28, 28, 30, 65, 67] : [18, 16, 20, 20, 24, 55, 37],
+                            widths: orientation === 'landscape' ? [28, 19, 28, 28, 30, 70, 67] : [18, 11, 20, 20, 24, 60, 37],
                             getData: (d) => [d.name, d.manufacturer || '-', d.os || '-', d.serial || '-', d.ip || '-', getConnectedTo(d), d.notes || '-']
                         },
                         'server': {
                             cols: ['Name', 'Manufacturer', 'OS', 'Serial', 'IP Address', 'Connected To', 'Notes'],
-                            widths: orientation === 'landscape' ? [28, 24, 28, 28, 30, 65, 67] : [18, 16, 20, 20, 24, 55, 37],
+                            widths: orientation === 'landscape' ? [28, 19, 28, 28, 30, 70, 67] : [18, 11, 20, 20, 24, 60, 37],
                             getData: (d) => [d.name, d.manufacturer || '-', d.os || '-', d.serial || '-', d.ip || '-', getConnectedTo(d), d.notes || '-']
                         },
                         'vmhost': {
                             cols: ['Name', 'Manufacturer', 'OS', 'IP Address', 'Connected To', 'VMs', 'Notes'],
-                            widths: orientation === 'landscape' ? [30, 28, 32, 32, 60, 50, 38] : [20, 20, 24, 26, 50, 28, 22],
+                            widths: orientation === 'landscape' ? [30, 23, 32, 32, 65, 50, 38] : [20, 15, 24, 26, 55, 28, 22],
                             getData: (d) => [
                                 d.name, d.manufacturer || '-', d.os || '-', d.ip || '-', getConnectedTo(d),
                                 d.vms ? d.vms.map(vm => vm.name).join(', ') : '-', d.notes || '-'
@@ -3024,12 +3024,12 @@
                         },
                         'vpn': {
                             cols: ['Name', 'Manufacturer', 'Model', 'VPN Type', 'IP Address', 'Connected To', 'Notes'],
-                            widths: orientation === 'landscape' ? [30, 28, 32, 30, 35, 60, 55] : [20, 20, 24, 22, 28, 50, 26],
+                            widths: orientation === 'landscape' ? [30, 23, 32, 30, 35, 65, 55] : [20, 15, 24, 22, 28, 55, 26],
                             getData: (d) => [d.name, d.manufacturer || '-', d.model || '-', d.vpnType || '-', d.ip || '-', getConnectedTo(d), d.notes || '-']
                         },
                         'default': {
                             cols: ['Name', 'Manufacturer', 'IP Address', 'MAC Address', 'Connected To', 'VLAN', 'Notes'],
-                            widths: orientation === 'landscape' ? [30, 28, 32, 38, 65, 28, 49] : [20, 20, 26, 32, 52, 16, 24],
+                            widths: orientation === 'landscape' ? [30, 23, 32, 38, 70, 28, 49] : [20, 15, 26, 32, 57, 16, 24],
                             getData: (d) => [d.name, d.manufacturer || '-', d.ip || '-', d.mac || '-', getConnectedTo(d), getVlanName(d.vlan), d.notes || '-']
                         }
                     };
