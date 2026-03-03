@@ -20,8 +20,6 @@
             --text:#EAEAEA;--text-secondary:#D8D7DF;--text-muted:#8a8daf;
             --green:#22c55e;--yellow:#eab308;--orange:#EF7225;--red-soft:#ef4444;
             --accent-purple:#c084fc;
-            --titan-white:#D8D7DF;
-            --white-smoke:#EAEAEA;
         }
         body{font-family:'Poppins',sans-serif;background:linear-gradient(135deg,var(--dark),var(--darker));color:var(--text);overflow:hidden;height:100vh;line-height:1.6}
 
@@ -47,6 +45,7 @@
         .client-input{background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:6px 12px;color:var(--text);font-size:0.85rem;font-family:'Poppins',sans-serif;width:200px;outline:none;transition:border-color 0.3s}
         .client-input:focus{border-color:rgba(15,113,240,0.5)}
         .client-input::placeholder{color:var(--text-muted)}
+        .client-label-text{color:var(--text-muted);font-size:0.7rem;margin-right:6px}
         .header-actions{display:flex;gap:8px;margin-left:auto}
 
         /* Buttons */
@@ -77,8 +76,14 @@
         #connections{position:absolute;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
         .conn-wired{stroke:var(--primary);stroke-width:2;fill:none}
         .conn-wireless{stroke:var(--accent-purple);stroke-width:2;fill:none;stroke-dasharray:8,4}
+        .conn-vpn{stroke:#d4a017;stroke-width:3.5;fill:none;opacity:0.85}
+        .conn-vpn-outline{stroke:rgba(212,160,23,0.25);stroke-width:8;fill:none}
         .controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);padding:8px;border-radius:14px;border:1px solid #e0e0e0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
         .controls .ctrl-divider{width:1px;height:24px;background:#e0e0e0;margin:0 2px}
+        .undo-redo{position:absolute;top:16px;left:16px;display:flex;gap:4px;z-index:100}
+        .undo-redo button{width:36px;height:36px;border-radius:10px;border:1px solid #e0e0e0;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#555;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+        .undo-redo button:hover:not(:disabled){background:#fff;border-color:var(--primary);color:var(--primary);box-shadow:0 2px 12px rgba(15,113,240,0.15)}
+        .undo-redo button:disabled{opacity:0.35;cursor:default}
         .btn.eraser-active{background:rgba(239,68,68,0.15) !important;border-color:rgba(239,68,68,0.5) !important;color:#ef4444 !important}
 
         /* Connection toolbar - floating bottom-right */
@@ -91,6 +96,7 @@
         .conn-toggle-bar button.active{background:#fff;color:#1a1a1a;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
         .conn-toggle-bar button.wired-bar.active{color:var(--primary)}
         .conn-toggle-bar button.wireless-bar.active{color:var(--accent-purple)}
+        .conn-toggle-bar button.vpn-bar.active{color:#d4a017}
         .conn-toggle-bar button.curved-bar.active{color:#059669}
         .conn-toggle-bar button.ortho-bar.active{color:#7c3aed}
         .conn-eraser-btn{flex:1;padding:5px 8px;background:none;border:1px solid #e0e0e0;border-radius:6px;color:#888;cursor:pointer;font-size:0.68rem;font-weight:500;font-family:'Poppins',sans-serif;transition:all 0.2s;text-align:center}
@@ -263,11 +269,11 @@
                 <span class="logo-tool-name">Network Mapping Tool</span>
             </div>
             <div class="client-label">
-                <span style="color:var(--text-muted);font-size:0.7rem;margin-right:6px;">Client:</span>
+                <span class="client-label-text">Client:</span>
                 <input type="text" id="clientName" class="client-input" placeholder="Enter client name...">
             </div>
             <div class="client-label">
-                <span style="color:var(--text-muted);font-size:0.7rem;margin-right:6px;">Location/Site:</span>
+                <span class="client-label-text">Location/Site:</span>
                 <input type="text" id="siteName" class="client-input" placeholder="Enter location...">
             </div>
             <div class="header-actions">
@@ -368,6 +374,10 @@
                 </div>
             </div>
             <div class="pan-hint">Drag empty space to pan &#x2022; Scroll to zoom</div>
+            <div class="undo-redo">
+                <button id="undoBtn" title="Undo (Ctrl+Z)" disabled>&#x21B6;</button>
+                <button id="redoBtn" title="Redo (Ctrl+Y)" disabled>&#x21B7;</button>
+            </div>
             <div class="controls">
                 <button class="btn" id="snapBtn" title="Toggle grid snapping">Snap: On</button>
                 <button class="btn" id="zoomInBtn">+</button>
@@ -384,6 +394,7 @@
                     <div class="conn-toggle-bar">
                         <button class="wired-bar active" id="wiredBtn">&#x1F5A7; Wired</button>
                         <button class="wireless-bar" id="wirelessBtn">&#x1F4F6; Wireless</button>
+                        <button class="vpn-bar" id="vpnBtn">&#x1F510; VPN</button>
                     </div>
                 </div>
                 <div class="conn-toolbar-row">
@@ -513,8 +524,14 @@
                     <button class="add-btn" id="addVMBtn" style="margin-top:8px;">+ Add VM</button>
                 </div>
                 <div id="connectedToSection" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--glass-border);">
-                    <div class="form-label" style="margin-bottom:8px;">Connected To</div>
-                    <div id="connectedToList" style="font-size:0.75rem;color:var(--text-muted);"></div>
+                    <div id="upstreamSection">
+                        <div class="form-label" style="margin-bottom:6px;">&#x2B06;&#xFE0F; Upstream <span style="font-weight:400;text-transform:none;letter-spacing:0;">(Parent)</span></div>
+                        <div id="upstreamList" style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px;"></div>
+                    </div>
+                    <div id="downstreamSection">
+                        <div class="form-label" style="margin-bottom:6px;">&#x2B07;&#xFE0F; Downstream <span style="font-weight:400;text-transform:none;letter-spacing:0;">(Children)</span></div>
+                        <div id="downstreamList" style="font-size:0.75rem;color:var(--text-muted);"></div>
+                    </div>
                 </div>
                 <button class="btn btn-danger" style="width:100%;margin-top:16px;justify-content:center;" id="deleteBtn">&#x1F5D1;&#xFE0F; Delete Device</button>
             </div>
@@ -784,9 +801,76 @@
             panX: 0,
             panY: 0,
             counter: 0,
-            zoneCounter: 0,
-            exportFormat: 'pdf'
+            zoneCounter: 0
         };
+
+        const undoStack = [];
+        const redoStack = [];
+        const MAX_UNDO = 50;
+
+        function getStateSnapshot() {
+            return JSON.stringify({
+                devices: state.devices,
+                connections: state.connections,
+                zones: state.zones,
+                vlans: state.vlans,
+                ssids: state.ssids,
+                config: state.config,
+                counter: state.counter,
+                zoneCounter: state.zoneCounter
+            });
+        }
+
+        function saveState() {
+            undoStack.push(getStateSnapshot());
+            if (undoStack.length > MAX_UNDO) undoStack.shift();
+            redoStack.length = 0;
+            updateUndoRedoBtns();
+        }
+
+        function restoreSnapshot(snapshot) {
+            const data = JSON.parse(snapshot);
+            state.devices = data.devices;
+            state.connections = data.connections;
+            state.zones = data.zones;
+            state.vlans = data.vlans;
+            state.ssids = data.ssids;
+            state.config = data.config;
+            state.counter = data.counter;
+            state.zoneCounter = data.zoneCounter;
+            deselectAll();
+            document.querySelectorAll('.network-device').forEach(el => el.remove());
+            document.querySelectorAll('.network-zone').forEach(el => el.remove());
+            state.devices.forEach(d => renderDevice(d));
+            state.zones.forEach(z => renderZone(z));
+            drawConnections();
+            updateVlanSelect();
+            updateNetworkInfoBox();
+            updateCounts();
+            document.getElementById('emptyState').style.display =
+                (state.devices.length === 0 && state.zones.length === 0) ? 'block' : 'none';
+        }
+
+        function undo() {
+            if (undoStack.length === 0) return;
+            redoStack.push(getStateSnapshot());
+            restoreSnapshot(undoStack.pop());
+            updateUndoRedoBtns();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            undoStack.push(getStateSnapshot());
+            restoreSnapshot(redoStack.pop());
+            updateUndoRedoBtns();
+        }
+
+        function updateUndoRedoBtns() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+            if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+        }
 
         const zoneTypes = {
             cloud: { name: 'Cloud', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a4 4 0 00-7.5-2A5 5 0 105 14h13a3 3 0 000-6z"/></svg>', color: '#3b82f6' },
@@ -830,9 +914,10 @@
             vm: ['VMware', 'Hyper-V', 'Proxmox', 'KVM', 'VirtualBox', 'Xen', 'Other']
         };
 
+        const _desktopOS = ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'];
         const operatingSystems = {
-            desktop: ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'],
-            laptop: ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'],
+            desktop: _desktopOS,
+            laptop: _desktopOS,
             cellphone: ['iOS 17', 'iOS 16', 'iOS 15', 'Android 14', 'Android 13', 'Android 12', 'Android 11', 'Android 10', 'Other'],
             tablet: ['iPadOS 17', 'iPadOS 16', 'iPadOS 15', 'Android 14', 'Android 13', 'Android 12', 'Windows 11', 'Windows 10', 'Fire OS', 'Chrome OS', 'Other'],
             otherendpoint: ['Windows', 'macOS', 'Linux', 'Android', 'iOS', 'Embedded', 'Proprietary', 'Other'],
@@ -1071,11 +1156,12 @@
                             (c.from === targetDevice.device.id && c.to === dragConnStart.device.id)
                         );
                         if (!exists) {
+                            saveState();
                             state.connections.push({
                                 id: 'conn' + Date.now(),
-                                from: dragConnStart.device.id, 
+                                from: dragConnStart.device.id,
                                 fromPos: dragConnStart.pos,
-                                to: targetDevice.device.id, 
+                                to: targetDevice.device.id,
                                 toPos: targetDevice.pos,
                                 type: state.connType,
                                 routingStyle: state.routingStyle
@@ -1127,8 +1213,11 @@
                 document.getElementById('snapBtn').textContent = 'Snap: ' + (snapToGrid ? 'On' : 'Off');
                 document.getElementById('snapBtn').style.opacity = snapToGrid ? '1' : '0.6';
             };
+            document.getElementById('undoBtn').onclick = undo;
+            document.getElementById('redoBtn').onclick = redo;
             document.getElementById('wiredBtn').onclick = () => setConnType('wired');
             document.getElementById('wirelessBtn').onclick = () => setConnType('wireless');
+            document.getElementById('vpnBtn').onclick = () => setConnType('vpn');
             document.getElementById('curvedBtn').onclick = () => setRoutingStyle('curved');
             document.getElementById('orthoBtn').onclick = () => setRoutingStyle('orthogonal');
             document.getElementById('editRouteBtn').onclick = toggleEditRoute;
@@ -1154,9 +1243,11 @@
             document.getElementById('propOS').onchange = e => updateDeviceProp('os', e.target.value);
 
             document.addEventListener('keydown', e => {
-                if (e.key === 'Escape') { 
-                    cancelConnect(); 
-                    deselectAll(); 
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+                if (e.key === 'Escape') {
+                    cancelConnect();
+                    deselectAll();
                     if (eraserMode) toggleEraser();
                     if (editRouteMode) toggleEditRoute();
                 }
@@ -1175,6 +1266,7 @@
             state.connType = type;
             document.getElementById('wiredBtn').className = 'wired-bar' + (type === 'wired' ? ' active' : '');
             document.getElementById('wirelessBtn').className = 'wireless-bar' + (type === 'wireless' ? ' active' : '');
+            document.getElementById('vpnBtn').className = 'vpn-bar' + (type === 'vpn' ? ' active' : '');
         }
 
         function setRoutingStyle(style) {
@@ -1278,8 +1370,10 @@
                 if (conn.routingStyle === 'orthogonal') {
                     const isEditing = editingConn && editingConn.id === conn.id;
                     paths += '<path d="' + path + '" stroke="transparent" stroke-width="10" fill="none" style="cursor:pointer;pointer-events:stroke;" data-edit-conn="' + index + '"/>';
+                    if (conn.type === 'vpn') paths += '<path class="conn-vpn-outline" d="' + path + '" style="pointer-events:none;"/>';
                     paths += '<path class="conn-' + conn.type + '" d="' + path + '" style="pointer-events:none;"' + (isEditing ? ' stroke-dasharray="6,3" stroke-width="2.5"' : '') + '/>';
                 } else {
+                    if (conn.type === 'vpn') paths += '<path class="conn-vpn-outline" d="' + path + '"/>';
                     paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
                 }
             });
@@ -1437,9 +1531,8 @@
                 const from = getConnectionPoint(conn.from, conn.fromPos);
                 const to = getConnectionPoint(conn.to, conn.toPos);
                 const path = buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
-                // Invisible wide hit area
                 paths += '<path d="' + path + '" stroke="transparent" stroke-width="12" fill="none" style="cursor:crosshair;pointer-events:stroke;" data-conn-index="' + index + '"/>';
-                // Visible connection line
+                if (conn.type === 'vpn') paths += '<path class="conn-vpn-outline" d="' + path + '" style="pointer-events:none;"/>';
                 paths += '<path class="conn-' + conn.type + '" d="' + path + '" style="pointer-events:none;"/>';
             });
             svg.innerHTML = paths;
@@ -1450,6 +1543,7 @@
                     e.stopPropagation();
                     const idx = parseInt(this.dataset.connIndex);
                     if (idx >= 0 && idx < state.connections.length) {
+                        saveState();
                         const conn = state.connections[idx];
                         state.connections.splice(idx, 1);
                         updateCounts();
@@ -1480,6 +1574,7 @@
         }
 
         function createDevice(type, x, y) {
+            saveState();
             state.counter++;
             const cfg = types[type];
             const device = {
@@ -1527,6 +1622,7 @@
             el.addEventListener('mousedown', function(e) {
                 if (e.target.classList.contains('conn-point')) return;
                 e.stopPropagation();
+                saveState();
                 draggingDevice = d;
                 dragStart.x = e.clientX;
                 dragStart.y = e.clientY;
@@ -1586,6 +1682,7 @@
 
         // Zone functions
         function createZone(type, x, y) {
+            saveState();
             state.zoneCounter++;
             const cfg = zoneTypes[type];
             const zone = {
@@ -1742,6 +1839,7 @@
 
         function deleteSelectedZone() {
             if (!state.selectedZone) return;
+            saveState();
             const id = state.selectedZone.id;
             state.zones = state.zones.filter(z => z.id !== id);
             document.getElementById(id).remove();
@@ -1764,6 +1862,7 @@
                         (c.from === device.id && c.to === state.connecting.device.id)
                     );
                     if (!exists) {
+                        saveState();
                         state.connections.push({
                             id: 'conn' + Date.now(),
                             from: state.connecting.device.id, fromPos: state.connecting.pos,
@@ -1809,39 +1908,36 @@
             }
         }
 
-        function drawConnections() {
-            // If in edit route mode, use that renderer instead
-            if (editRouteMode) { drawConnectionsForRouteEdit(); return; }
+        function buildConnectionPaths() {
             let paths = '';
             state.connections.forEach(conn => {
                 const from = getConnectionPoint(conn.from, conn.fromPos);
                 const to = getConnectionPoint(conn.to, conn.toPos);
                 const path = buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
+                if (conn.type === 'vpn') {
+                    paths += '<path class="conn-vpn-outline" d="' + path + '"/>';
+                }
                 paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
             });
-            svg.innerHTML = paths;
+            return paths;
+        }
+
+        function drawConnections() {
+            if (editRouteMode) { drawConnectionsForRouteEdit(); return; }
+            svg.innerHTML = buildConnectionPaths();
             svg.style.pointerEvents = 'none';
         }
-        
+
         function drawConnectionsWithDrag() {
-            let paths = '';
-            // Draw existing connections
-            state.connections.forEach(conn => {
-                const from = getConnectionPoint(conn.from, conn.fromPos);
-                const to = getConnectionPoint(conn.to, conn.toPos);
-                const path = buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
-                paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
-            });
-            
-            // Draw the dragging connection line
+            let paths = buildConnectionPaths();
             if (isDraggingConnection && dragConnStart.device) {
                 const from = dragConnStart;
                 const to = dragConnCurrent;
                 const path = buildConnPath(from, to, from.pos, state.routingStyle);
-                const strokeColor = state.connType === 'wired' ? '#0F71F0' : '#c084fc';
-                paths += '<path d="' + path + '" stroke="' + strokeColor + '" stroke-width="2" fill="none" stroke-dasharray="5,5" opacity="0.7"/>';
+                const strokeColor = state.connType === 'vpn' ? '#d4a017' : state.connType === 'wired' ? '#0F71F0' : '#c084fc';
+                const sw = state.connType === 'vpn' ? '3.5' : '2';
+                paths += '<path d="' + path + '" stroke="' + strokeColor + '" stroke-width="' + sw + '" fill="none" stroke-dasharray="5,5" opacity="0.7"/>';
             }
-            
             svg.innerHTML = paths;
         }
         
@@ -1912,219 +2008,184 @@
             document.getElementById('zoneProps').style.display = 'none';
         }
 
+        function showSection(id, show) {
+            document.getElementById(id).style.display = show ? 'block' : 'none';
+        }
+
         function showProps(d) {
-            document.getElementById('noSelect').style.display = 'none';
-            document.getElementById('deviceProps').style.display = 'block';
+            showSection('noSelect', false);
+            showSection('deviceProps', true);
             document.getElementById('propNotes').value = d.notes;
-            
-            // Handle device name / ISP label for router
-            const nameGroup = document.getElementById('nameGroup');
-            const nameLabel = document.getElementById('nameLabel');
-            if (d.type === 'router') {
-                nameLabel.textContent = 'ISP';
-                nameGroup.style.display = 'block';
-            } else {
-                nameLabel.textContent = 'Device Name';
-                nameGroup.style.display = 'block';
-            }
+
+            document.getElementById('nameLabel').textContent = d.type === 'router' ? 'ISP' : 'Device Name';
             document.getElementById('propName').value = d.name;
-            
-            // Handle IP/MAC fields - show IP for router, hide MAC
-            const ipGroup = document.getElementById('ipGroup');
-            const macGroup = document.getElementById('macGroup');
-            if (d.type === 'router') {
-                ipGroup.style.display = 'block';
-                document.getElementById('propIP').value = d.ip;
-                macGroup.style.display = 'none';
-            } else {
-                ipGroup.style.display = 'block';
-                macGroup.style.display = 'block';
-                document.getElementById('propIP').value = d.ip;
-                document.getElementById('propMAC').value = d.mac;
-            }
-            
-            // Handle status buttons - hide for router
-            const statusGroup = document.getElementById('statusGroup');
-            if (d.type === 'router') {
-                statusGroup.style.display = 'none';
-            } else {
-                statusGroup.style.display = 'block';
+
+            document.getElementById('propIP').value = d.ip;
+            showSection('macGroup', d.type !== 'router');
+            if (d.type !== 'router') document.getElementById('propMAC').value = d.mac;
+
+            showSection('statusGroup', d.type !== 'router');
+            if (d.type !== 'router') {
                 document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === d.status));
             }
-            
-            // Handle Router section (connection type, speeds)
-            const routerSection = document.getElementById('routerSection');
-            if (d.type === 'router') {
-                routerSection.style.display = 'block';
+
+            const isRouter = d.type === 'router';
+            showSection('routerSection', isRouter);
+            if (isRouter) {
                 document.getElementById('propFiber').checked = d.connectionType === 'fiber';
                 document.getElementById('propCoax').checked = d.connectionType === 'coax';
                 document.getElementById('propDownload').value = d.downloadSpeed || '';
                 document.getElementById('propUpload').value = d.uploadSpeed || '';
                 document.getElementById('propSubnetMask').value = d.subnetMask || '';
                 document.getElementById('propDefaultGateway').value = d.defaultGateway || '';
-            } else {
-                routerSection.style.display = 'none';
             }
-            
-            document.getElementById('vmSection').style.display = d.type === 'vmhost' ? 'block' : 'none';
+
+            showSection('vmSection', d.type === 'vmhost');
             if (d.type === 'vmhost') renderVMList(d);
-            
-            // Handle VLAN dropdown - hide for AP, Firewall, Switch, Cloud, On-Prem, Storage, Router
-            const vlanGroup = document.getElementById('vlanGroup');
+
             const hideVlanTypes = ['ap', 'firewall', 'switch', 'cloud', 'onprem', 'storage', 'router', 'vpn'];
-            if (hideVlanTypes.includes(d.type)) {
-                vlanGroup.style.display = 'none';
-            } else {
-                vlanGroup.style.display = 'block';
-                document.getElementById('propVLAN').value = d.vlan;
-            }
-            
-            // Handle Network Equipment section (Manufacturer/Model for firewall, switch, ap)
-            const networkEquipSection = document.getElementById('networkEquipSection');
+            const showVlan = !hideVlanTypes.includes(d.type);
+            showSection('vlanGroup', showVlan);
+            if (showVlan) document.getElementById('propVLAN').value = d.vlan;
+
             const networkEquipTypes = ['firewall', 'switch', 'ap'];
-            if (networkEquipTypes.includes(d.type)) {
-                networkEquipSection.style.display = 'block';
+            const isNetworkEquip = networkEquipTypes.includes(d.type);
+            showSection('networkEquipSection', isNetworkEquip);
+            if (isNetworkEquip) {
                 document.getElementById('propNetEquipMfg').value = d.manufacturer || '';
                 document.getElementById('propNetEquipModel').value = d.model || '';
-            } else {
-                networkEquipSection.style.display = 'none';
             }
-            
-            // Handle SSID section for Access Points
-            const ssidSection = document.getElementById('ssidSection');
-            if (d.type === 'ap') {
-                ssidSection.style.display = 'block';
-                renderAPSSIDList(d);
-            } else {
-                ssidSection.style.display = 'none';
-            }
-            
-            // Handle Switch section
-            const switchSection = document.getElementById('switchSection');
+
+            showSection('ssidSection', d.type === 'ap');
+            if (d.type === 'ap') renderAPSSIDList(d);
+
+            showSection('switchSection', d.type === 'switch');
             if (d.type === 'switch') {
-                switchSection.style.display = 'block';
                 document.getElementById('propSwitchPorts').value = d.ports || '';
                 document.getElementById('propPOE').checked = d.poe || false;
                 renderSwitchVLANList(d);
-            } else {
-                switchSection.style.display = 'none';
             }
-            
-            // Handle Firewall section
-            const firewallSection = document.getElementById('firewallSection');
-            if (d.type === 'firewall') {
-                firewallSection.style.display = 'block';
-                document.getElementById('propFirewallPorts').value = d.ports || '';
-            } else {
-                firewallSection.style.display = 'none';
-            }
-            
-            // Handle VPN section
-            const vpnSection = document.getElementById('vpnSection');
+
+            showSection('firewallSection', d.type === 'firewall');
+            if (d.type === 'firewall') document.getElementById('propFirewallPorts').value = d.ports || '';
+
+            showSection('vpnSection', d.type === 'vpn');
             if (d.type === 'vpn') {
-                vpnSection.style.display = 'block';
                 document.getElementById('propVPNMfg').value = d.manufacturer || '';
                 document.getElementById('propVPNModel').value = d.model || '';
                 document.getElementById('propVPNType').value = d.vpnType || '';
-            } else {
-                vpnSection.style.display = 'none';
             }
-            
-            // Handle Printer section
-            const printerSection = document.getElementById('printerSection');
-            if (d.type === 'printer') {
-                printerSection.style.display = 'block';
-                document.getElementById('propPrinterModel').value = d.model || '';
-            } else {
-                printerSection.style.display = 'none';
-            }
-            
-            // Handle manufacturer dropdown - hide for network equipment types (they have text input now)
-            const mfgGroup = document.getElementById('manufacturerGroup');
-            const mfgSelect = document.getElementById('propManufacturer');
-            if (manufacturers[d.type] && !networkEquipTypes.includes(d.type)) {
-                mfgGroup.style.display = 'block';
-                mfgSelect.innerHTML = '<option value="">-- Select --</option>' + 
+
+            showSection('printerSection', d.type === 'printer');
+            if (d.type === 'printer') document.getElementById('propPrinterModel').value = d.model || '';
+
+            const hasMfg = manufacturers[d.type] && !isNetworkEquip;
+            showSection('manufacturerGroup', hasMfg);
+            if (hasMfg) {
+                document.getElementById('propManufacturer').innerHTML = '<option value="">-- Select --</option>' +
                     manufacturers[d.type].map(m => '<option value="' + m + '"' + (d.manufacturer === m ? ' selected' : '') + '>' + m + '</option>').join('');
-            } else {
-                mfgGroup.style.display = 'none';
             }
-            
-            // Handle OS dropdown
-            const osGroup = document.getElementById('osGroup');
-            const osSelect = document.getElementById('propOS');
-            if (operatingSystems[d.type]) {
-                osGroup.style.display = 'block';
-                osSelect.innerHTML = '<option value="">-- Select --</option>' + 
+
+            const hasOS = !!operatingSystems[d.type];
+            showSection('osGroup', hasOS);
+            if (hasOS) {
+                document.getElementById('propOS').innerHTML = '<option value="">-- Select --</option>' +
                     operatingSystems[d.type].map(o => '<option value="' + o + '"' + (d.os === o ? ' selected' : '') + '>' + o + '</option>').join('');
-            } else {
-                osGroup.style.display = 'none';
             }
-            
-            // Handle Serial Number - show for desktop, laptop, server
-            const serialGroup = document.getElementById('serialGroup');
+
             const serialTypes = ['desktop', 'laptop', 'server'];
-            if (serialTypes.includes(d.type)) {
-                serialGroup.style.display = 'block';
-                document.getElementById('propSerial').value = d.serial || '';
-            } else {
-                serialGroup.style.display = 'none';
-            }
-            
-            // Handle Connected To section
+            showSection('serialGroup', serialTypes.includes(d.type));
+            if (serialTypes.includes(d.type)) document.getElementById('propSerial').value = d.serial || '';
+
             renderConnectedToList(d);
         }
         
+        function getConnIcon(connType) {
+            if (connType === 'wireless') return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a8 8 0 0112 0"/><path d="M8.5 10.5a5 5 0 017 0"/><circle cx="12" cy="14" r="1.5" fill="#c084fc"/></svg>';
+            if (connType === 'vpn') return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4a017" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="8" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>';
+            return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F71F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h6"/><circle cx="14" cy="12" r="3"/><path d="M17 12h3"/></svg>';
+        }
+
+        function getConnBadge(connType) {
+            if (connType === 'wireless') return '<span style="display:inline-block;padding:3px 8px;background:rgba(192,132,252,0.15);border:1px solid rgba(192,132,252,0.3);border-radius:6px;font-size:0.6rem;color:#c084fc;font-weight:500;">Wireless</span>';
+            if (connType === 'vpn') return '<span style="display:inline-block;padding:3px 8px;background:rgba(212,160,23,0.15);border:1px solid rgba(212,160,23,0.3);border-radius:6px;font-size:0.6rem;color:#d4a017;font-weight:500;">VPN</span>';
+            return null;
+        }
+
         function renderConnectedToList(d) {
-            const container = document.getElementById('connectedToList');
-            
-            // Find all connections involving this device
+            const upstreamContainer = document.getElementById('upstreamList');
+            const downstreamContainer = document.getElementById('downstreamList');
             const connections = state.connections.filter(c => c.from === d.id || c.to === d.id);
-            
-            if (connections.length === 0) {
-                container.innerHTML = '<p style="font-size:0.7rem;color:var(--text-muted);text-align:center;padding:8px 0;">No connections</p>';
-                return;
-            }
-            
-            // Initialize parentPorts if not present
+
             if (!d.parentPorts) d.parentPorts = {};
-            
-            let html = '';
-            connections.forEach((conn, index) => {
-                // Get the "other" device in the connection (the parent)
-                const parentId = conn.from === d.id ? conn.to : conn.from;
-                const parentDevice = state.devices.find(dev => dev.id === parentId);
-                
-                if (!parentDevice) return;
-                
-                const isWireless = conn.type === 'wireless';
-                const connIcon = isWireless 
-                    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a8 8 0 0112 0"/><path d="M8.5 10.5a5 5 0 017 0"/><circle cx="12" cy="14" r="1.5" fill="#c084fc"/></svg>'
-                    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F71F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h6"/><circle cx="14" cy="12" r="3"/><path d="M17 12h3"/></svg>';
-                const portValue = d.parentPorts[parentId] || '';
-                
-                // Show "Wireless" tag for wireless connections, port input for wired
-                let portField;
-                if (isWireless) {
-                    portField = '<span style="display:inline-block;padding:4px 10px;background:rgba(192,132,252,0.15);border:1px solid rgba(192,132,252,0.3);border-radius:6px;font-size:0.65rem;color:#c084fc;font-weight:500;">Wireless</span>';
+
+            const upstream = [];
+            const downstream = [];
+
+            connections.forEach(conn => {
+                const isFrom = conn.from === d.id;
+                const otherId = isFrom ? conn.to : conn.from;
+                const otherDevice = state.devices.find(dev => dev.id === otherId);
+                if (!otherDevice) return;
+                if (isFrom) {
+                    upstream.push({ conn, device: otherDevice });
                 } else {
-                    portField = '<input type="text" class="form-input" style="width:60px;padding:4px 6px;font-size:0.7rem;text-align:center;" ' +
-                        'placeholder="Port" value="' + portValue + '" ' +
-                        'oninput="updateParentPort(\'' + parentId + '\', this.value)" ' +
-                        'title="Port on ' + parentDevice.name + '">';
+                    downstream.push({ conn, device: otherDevice });
                 }
-                
-                html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--glass-border);">' +
-                    '<span style="font-size:0.85rem;">' + connIcon + '</span>' +
-                    '<div style="flex:1;">' +
-                        '<div style="font-weight:500;color:var(--text-primary);font-size:0.75rem;">' + parentDevice.name + '</div>' +
-                        '<div style="font-size:0.65rem;color:var(--text-muted);">' + (types[parentDevice.type]?.name || parentDevice.type) + '</div>' +
+            });
+
+            function buildConnRow(entry, d) {
+                const { conn, device } = entry;
+                const connIcon = getConnIcon(conn.type);
+                const badge = getConnBadge(conn.type);
+                const portValue = d.parentPorts[device.id] || '';
+
+                let portField;
+                if (badge) {
+                    portField = badge;
+                } else {
+                    portField = '<input type="text" class="form-input" style="width:55px;padding:3px 5px;font-size:0.65rem;text-align:center;" ' +
+                        'placeholder="Port" value="' + portValue + '" ' +
+                        'oninput="updateParentPort(\'' + device.id + '\', this.value)" ' +
+                        'title="Port on ' + device.name + '">';
+                }
+
+                return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--glass-border);">' +
+                    '<span>' + connIcon + '</span>' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-weight:500;color:var(--text-primary);font-size:0.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + device.name + '</div>' +
+                        '<div style="font-size:0.6rem;color:var(--text-muted);">' + (types[device.type]?.name || device.type) + '</div>' +
                     '</div>' +
                     portField +
+                    '<button onclick="flipConnection(\'' + conn.id + '\')" title="Flip direction" style="background:none;border:1px solid var(--glass-border);border-radius:4px;cursor:pointer;padding:2px 4px;color:var(--text-muted);font-size:0.7rem;line-height:1;">&#x21C5;</button>' +
                 '</div>';
-            });
-            
-            container.innerHTML = html;
+            }
+
+            if (upstream.length === 0) {
+                upstreamContainer.innerHTML = '<p style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:4px 0;">None</p>';
+            } else {
+                upstreamContainer.innerHTML = upstream.map(e => buildConnRow(e, d)).join('');
+            }
+
+            if (downstream.length === 0) {
+                downstreamContainer.innerHTML = '<p style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:4px 0;">None</p>';
+            } else {
+                downstreamContainer.innerHTML = downstream.map(e => buildConnRow(e, d)).join('');
+            }
+        }
+
+        function flipConnection(connId) {
+            const conn = state.connections.find(c => c.id === connId);
+            if (!conn) return;
+            saveState();
+            const tmpFrom = conn.from;
+            const tmpFromPos = conn.fromPos;
+            conn.from = conn.to;
+            conn.fromPos = conn.toPos;
+            conn.to = tmpFrom;
+            conn.toPos = tmpFromPos;
+            drawConnections();
+            if (state.selected) renderConnectedToList(state.selected);
         }
         
         function updateParentPort(parentId, portValue) {
@@ -2230,6 +2291,7 @@
 
         function deleteSelected() {
             if (!state.selected) return;
+            saveState();
             const id = state.selected.id;
             state.connections = state.connections.filter(c => c.from !== id && c.to !== id);
             state.devices = state.devices.filter(d => d.id !== id);
@@ -2390,6 +2452,7 @@
 
         function clearAll() {
             if (confirm('Clear all devices and connections?')) {
+                saveState();
                 state.devices = [];
                 state.connections = [];
                 state.counter = 0;
@@ -2400,22 +2463,6 @@
                 deselectAll();
                 updateCounts();
                 document.getElementById('emptyState').style.display = 'block';
-            }
-        }
-
-        function setExportFormat(format) {
-            state.exportFormat = format;
-            document.getElementById('formatPdfBtn').classList.toggle('active', format === 'pdf');
-            document.getElementById('formatSvgBtn').classList.toggle('active', format === 'svg');
-            document.getElementById('orientationGroup').style.display = format === 'pdf' ? 'block' : 'none';
-            document.getElementById('exportBtn').textContent = format === 'pdf' ? 'Export PDF' : 'Export SVG';
-        }
-
-        function doExport() {
-            if (state.exportFormat === 'svg') {
-                generateSVG();
-            } else {
-                generatePDF();
             }
         }
 
@@ -2503,6 +2550,8 @@
             .device-icon { font-size: 20px; }
             .conn-wired { stroke: #ff3b3b; stroke-width: 2; fill: none; }
             .conn-wireless { stroke: #c084fc; stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
+            .conn-vpn { stroke: #d4a017; stroke-width: 3.5; fill: none; opacity: 0.85; }
+            .conn-vpn-outline { stroke: rgba(212,160,23,0.25); stroke-width: 8; fill: none; }
         </style>
     </defs>
     <rect width="100%" height="100%" fill="#050505"/>
@@ -2521,6 +2570,7 @@
                 // Offset any custom waypoints too
                 const offsetWaypoints = (conn.waypoints || []).map(wp => ({ x: wp.x - minX, y: wp.y - minY }));
                 const path = buildConnPath(offsetFrom, offsetTo, conn.fromPos, conn.routingStyle || 'curved', offsetWaypoints);
+                if (conn.type === 'vpn') svgContent += `<path d="${path}" class="conn-vpn-outline"/>`;
                 svgContent += `<path d="${path}" class="conn-${conn.type}"/>`;
             });
             
@@ -2634,9 +2684,11 @@
                 // Offset any custom waypoints too
                 const offsetWaypoints = (conn.waypoints || []).map(wp => ({ x: wp.x - minX, y: wp.y - minY }));
                 const path = buildConnPath(offsetFrom, offsetTo, conn.fromPos, conn.routingStyle || 'curved', offsetWaypoints);
-                const strokeColor = conn.type === 'wired' ? '#0F71F0' : '#c084fc';
+                const strokeColor = conn.type === 'vpn' ? '#d4a017' : conn.type === 'wired' ? '#0F71F0' : '#c084fc';
                 const dashArray = conn.type === 'wireless' ? 'stroke-dasharray="8,4"' : '';
-                paths += `<path d="${path}" stroke="${strokeColor}" stroke-width="2" fill="none" ${dashArray}/>`;
+                const sw = conn.type === 'vpn' ? '3.5' : '2';
+                if (conn.type === 'vpn') paths += `<path d="${path}" stroke="rgba(212,160,23,0.25)" stroke-width="8" fill="none"/>`;
+                paths += `<path d="${path}" stroke="${strokeColor}" stroke-width="${sw}" fill="none" ${dashArray}/>`;
             });
             tempSvg.innerHTML = paths;
             
@@ -2714,30 +2766,8 @@
                     pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 10, { align: 'right' });
                 }
                 
-                // Header - client/site on left, "Network Diagram" centered
-                pdf.setFillColor(0, 30, 98);
-                pdf.rect(0, 0, pageWidth, 16, 'F');
-                
-                // Client and site on left
-                const headerLeft = [client, site].filter(Boolean).join(' - ');
-                if (headerLeft) {
-                    pdf.setTextColor(234, 234, 234);
-                    pdf.setFontSize(10);
-                    pdf.setFont('helvetica', 'bold');
-                    pdf.text(headerLeft, 10, 10);
-                }
-                
-                // "Network Diagram" centered
-                pdf.setTextColor(234, 234, 234);
-                pdf.setFontSize(12);
-                pdf.setFont('helvetica', 'bold');
-                pdf.text('Network Diagram', pageWidth / 2, 10, { align: 'center' });
-                
-                // Date on right
-                pdf.setFontSize(9);
-                pdf.setFont('helvetica', 'normal');
-                pdf.text(new Date().toLocaleDateString(), pageWidth - 10, 10, { align: 'right' });
-                
+                drawPageHeader('Network Diagram');
+
                 // Calculate image dimensions to fit and center
                 const imgData = canvasImg.toDataURL('image/png');
                 const availableWidth = pageWidth - 10;
@@ -3437,28 +3467,23 @@
         // CSV Import/Export functions
         let pendingCSVData = [];
         
-        function downloadCSVTemplate(templateType) {
-            closeModal('csvTemplatesModal');
-            let headers, rows, filename, typeList, statusList;
-            
-            if (templateType === 'network') {
-                // Network Equipment: Router, Firewall, Switch, Access Point
-                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'Model', 'Ports', 'PoE', 'Connection Type', 'Download Mbps', 'Upload Mbps', 'Status', 'Notes'];
-                rows = [
+        const CSV_TEMPLATES = {
+            network: {
+                headers: ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'Model', 'Ports', 'PoE', 'Connection Type', 'Download Mbps', 'Upload Mbps', 'Status', 'Notes'],
+                rows: [
                     ['router', 'Comcast Business', '203.0.113.50', '', '', '', '', '', 'fiber', '1000', '1000', '', 'Primary ISP'],
                     ['firewall', 'Main Firewall', '192.168.1.1', '00:1A:2B:3C:4D:01', 'Fortinet', 'FortiGate 60F', '10', '', '', '', '', 'online', 'Edge firewall'],
                     ['switch', 'Core Switch', '192.168.1.2', '00:1A:2B:3C:4D:02', 'Ubiquiti', 'USW-Pro-48-PoE', '48', 'yes', '', '', '', 'online', 'Main distribution'],
                     ['switch', 'Floor 2 Switch', '192.168.1.3', '00:1A:2B:3C:4D:03', 'Ubiquiti', 'USW-24-PoE', '24', 'yes', '', '', '', 'online', ''],
                     ['ap', 'AP - Lobby', '192.168.1.10', '00:1A:2B:3C:4D:10', 'Ubiquiti', 'U6-Pro', '', '', '', '', '', 'online', 'Main entrance'],
                     ['ap', 'AP - Office', '192.168.1.11', '00:1A:2B:3C:4D:11', 'Ubiquiti', 'U6-LR', '', '', '', '', '', 'online', 'Open office area']
-                ];
-                typeList = '# Valid types: router, firewall, switch, ap';
-                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
-                filename = 'network-equipment-template.csv';
-            } else if (templateType === 'servers') {
-                // Servers and VM Hosts
-                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'VLAN ID', 'Status', 'Notes'];
-                rows = [
+                ],
+                typeList: '# Valid types: router, firewall, switch, ap',
+                filename: 'network-equipment-template.csv'
+            },
+            servers: {
+                headers: ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'VLAN ID', 'Status', 'Notes'],
+                rows: [
                     ['server', 'DC01', '192.168.20.10', '00:1A:2B:3C:4D:20', 'Dell', 'Windows Server 2022', 'DELLSRV001', '20', 'online', 'Primary Domain Controller'],
                     ['server', 'DC02', '192.168.20.11', '00:1A:2B:3C:4D:21', 'Dell', 'Windows Server 2022', 'DELLSRV002', '20', 'online', 'Secondary Domain Controller'],
                     ['server', 'FS01', '192.168.20.20', '00:1A:2B:3C:4D:22', 'HP/HPE', 'Windows Server 2022', 'HPEFS001', '20', 'online', 'File Server'],
@@ -3466,35 +3491,35 @@
                     ['server', 'WEB01', '192.168.20.40', '00:1A:2B:3C:4D:24', 'Dell', 'Ubuntu Server 22.04', 'DELLWEB001', '20', 'online', 'Web Server'],
                     ['vmhost', 'ESXi-01', '192.168.20.5', '00:1A:2B:3C:4D:25', 'Dell', 'VMware ESXi', 'DELLESX001', '20', 'online', 'VMware Host'],
                     ['nas', 'NAS01', '192.168.20.50', '00:1A:2B:3C:4D:26', 'Synology', '', 'SYNNAS001', '20', 'online', 'Backup Storage']
-                ];
-                typeList = '# Valid types: server, vmhost, nas';
-                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
-                filename = 'servers-template.csv';
-            } else if (templateType === 'endpoints') {
-                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'VLAN ID', 'Status', 'Notes'];
-                rows = [
+                ],
+                typeList: '# Valid types: server, vmhost, nas',
+                filename: 'servers-template.csv'
+            },
+            endpoints: {
+                headers: ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'VLAN ID', 'Status', 'Notes'],
+                rows: [
                     ['desktop', 'Reception PC', '192.168.1.100', '00:1A:2B:3C:4D:5E', 'Dell', 'Windows 11', 'SN123456789', '1', 'online', 'Front desk workstation'],
                     ['laptop', 'Manager Laptop', '192.168.1.101', '00:1A:2B:3C:4D:5F', 'HP', 'Windows 11', 'HP987654321', '1', 'online', ''],
                     ['cellphone', 'Company iPhone', '192.168.1.102', '', 'Apple', 'iOS 17', '', '1', 'online', ''],
                     ['tablet', 'Conference Room iPad', '192.168.1.103', '', 'Apple', 'iPadOS 17', '', '1', 'online', 'Meeting room display'],
                     ['printer', 'Main Printer', '192.168.1.200', '00:1A:2B:3C:4D:60', 'HP', '', '', '1', 'online', 'Model: LaserJet Pro M404n']
-                ];
-                typeList = '# Valid types: desktop, laptop, cellphone, tablet, printer, otherendpoint';
-                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
-                filename = 'endpoint-devices-template.csv';
-            } else if (templateType === 'other') {
-                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'VLAN ID', 'Status', 'Notes'];
-                rows = [
+                ],
+                typeList: '# Valid types: desktop, laptop, cellphone, tablet, printer, otherendpoint',
+                filename: 'endpoint-devices-template.csv'
+            },
+            other: {
+                headers: ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'VLAN ID', 'Status', 'Notes'],
+                rows: [
                     ['phone', 'Desk Phone 1', '192.168.1.150', '00:1A:2B:3C:4D:70', 'Cisco', '10', 'online', 'Extension 101'],
                     ['camera', 'Front Door Camera', '192.168.1.160', '00:1A:2B:3C:4D:71', 'Hikvision', '20', 'online', ''],
                     ['iot', 'Smart Thermostat', '192.168.1.170', '00:1A:2B:3C:4D:72', 'Nest', '1', 'online', '']
-                ];
-                typeList = '# Valid types: phone, camera, iot, otherendpoint';
-                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
-                filename = 'other-devices-template.csv';
-            } else {
-                headers = ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'Model', 'VLAN ID', 'Status', 'Notes'];
-                rows = [
+                ],
+                typeList: '# Valid types: phone, camera, iot, otherendpoint',
+                filename: 'other-devices-template.csv'
+            },
+            all: {
+                headers: ['Type', 'Name', 'IP Address', 'MAC Address', 'Manufacturer', 'OS', 'Serial Number', 'Model', 'VLAN ID', 'Status', 'Notes'],
+                rows: [
                     ['router', 'ISP Router', '203.0.113.50', '', '', '', '', '', '', '', 'Primary ISP'],
                     ['firewall', 'Firewall', '192.168.1.1', '', 'Fortinet', '', '', 'FortiGate 60F', '', 'online', ''],
                     ['switch', 'Core Switch', '192.168.1.2', '', 'Ubiquiti', '', '', 'USW-Pro-48', '', 'online', ''],
@@ -3505,27 +3530,29 @@
                     ['printer', 'Printer 1', '192.168.1.200', '', 'HP', '', '', 'LaserJet Pro', '1', 'online', ''],
                     ['phone', 'Desk Phone 1', '192.168.1.150', '', 'Cisco', '', '', '', '10', 'online', ''],
                     ['camera', 'Camera 1', '192.168.1.160', '', 'Hikvision', '', '', '', '20', 'online', '']
-                ];
-                typeList = '# Valid types: router, firewall, switch, ap, server, vmhost, nas, desktop, laptop, cellphone, tablet, printer, phone, camera, iot, otherendpoint';
-                statusList = '# Valid statuses: online, offline, warning, retired, decommissioned';
-                filename = 'all-devices-template.csv';
+                ],
+                typeList: '# Valid types: router, firewall, switch, ap, server, vmhost, nas, desktop, laptop, cellphone, tablet, printer, phone, camera, iot, otherendpoint',
+                filename: 'all-devices-template.csv'
             }
-            
-            let csvContent = typeList + '\n' + statusList + '\n' + headers.join(',') + '\n';
-            rows.forEach(row => {
+        };
+        const _statusComment = '# Valid statuses: online, offline, warning, retired, decommissioned';
+
+        function downloadCSVTemplate(templateType) {
+            closeModal('csvTemplatesModal');
+            const tmpl = CSV_TEMPLATES[templateType] || CSV_TEMPLATES.all;
+            let csvContent = tmpl.typeList + '\n' + _statusComment + '\n' + tmpl.headers.join(',') + '\n';
+            tmpl.rows.forEach(row => {
                 csvContent += row.map(cell => {
-                    // Escape commas and quotes
                     if (cell.includes(',') || cell.includes('"')) {
                         return '"' + cell.replace(/"/g, '""') + '"';
                     }
                     return cell;
                 }).join(',') + '\n';
             });
-            
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = filename;
+            a.download = tmpl.filename;
             a.click();
         }
         
