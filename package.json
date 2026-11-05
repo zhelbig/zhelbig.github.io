@@ -6,7 +6,8 @@
     "test": "vitest run",
     "test:browser": "node tests/browser/smoke.mjs",
     "test:render": "node tests/browser/render.mjs",
-    "test:ux": "node tests/browser/ux.mjs"
+    "test:ux": "node tests/browser/ux.mjs",
+    "test:selection": "node tests/browser/selection.mjs"
   },
   "repository": {
     "type": "git",

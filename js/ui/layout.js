@@ -121,7 +121,8 @@ const CHROME = `    <div class="grid-bg"></div>
                     <div class="vlan-tags" id="infoSSIDs"></div>
                 </div>
             </div>
-            <div class="pan-hint">Drag empty space to pan &#x2022; Scroll to zoom</div>
+            <div class="marquee" id="marquee" hidden></div>
+            <div class="pan-hint">Drag to pan &#x2022; Scroll to zoom &#x2022; Shift-drag to select</div>
             <div class="undo-redo">
                 <button id="undoBtn" title="Undo (Ctrl+Z)" disabled>&#x21B6;</button>
                 <button id="redoBtn" title="Redo (Ctrl+Y)" disabled>&#x21B7;</button>
@@ -282,6 +283,25 @@ const CHROME = `    <div class="grid-bg"></div>
                     </div>
                 </div>
                 <button class="btn btn-danger" style="width:100%;margin-top:16px;justify-content:center;" id="deleteBtn">&#x1F5D1;&#xFE0F; Delete Device</button>
+            </div>
+            <div id="multiProps" style="display:none;">
+                <div class="multi-count" id="multiCount"></div>
+                <p class="multi-hint">Drag any one to move them together. Shift-click to add or remove.</p>
+                <div class="form-group">
+                    <label class="form-label">Set status for all</label>
+                    <div class="status-btns" id="multiStatusBtns">
+                        <div class="status-btn" data-bulk-status="online"><div class="dot status-online"></div>Online</div>
+                        <div class="status-btn" data-bulk-status="offline"><div class="dot status-offline"></div>Offline</div>
+                        <div class="status-btn" data-bulk-status="warning"><div class="dot status-warning"></div>Warning</div>
+                        <div class="status-btn" data-bulk-status="retired"><div class="dot status-retired"></div>Retired</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Set VLAN for all</label>
+                    <select class="form-select" id="multiVlan"></select>
+                </div>
+                <button class="btn" style="width:100%;justify-content:center;" id="duplicateSelectionBtn">&#x29C9; Duplicate</button>
+                <button class="btn btn-danger" style="width:100%;margin-top:8px;justify-content:center;" id="deleteSelectionBtn">&#x1F5D1;&#xFE0F; Delete selected</button>
             </div>
             <div id="zoneProps" style="display:none;">
                 <div class="form-group"><label class="form-label">Zone Name</label><input type="text" class="form-input" id="propZoneName" oninput="updateZoneProp('name', this.value)"></div>
@@ -525,6 +545,29 @@ const CHROME = `    <div class="grid-bg"></div>
                         <button class="btn" onclick="cancelCSVImport()" style="flex:1;justify-content:center;">Cancel</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-bg" id="shortcutsModal">
+        <div class="modal" style="width:460px;">
+            <div class="modal-header"><h3>Keyboard &amp; mouse</h3><button class="modal-close" onclick="closeModal('shortcutsModal')">&times;</button></div>
+            <div class="modal-body">
+                <dl class="shortcuts">
+                    <dt>Click</dt><dd>Select a device</dd>
+                    <dt>Shift-click</dt><dd>Add to or remove from the selection</dd>
+                    <dt>Shift-drag</dt><dd>Rubber-band select</dd>
+                    <dt>Drag</dt><dd>Move the selection &middot; on empty space, pan</dd>
+                    <dt>Scroll</dt><dd>Zoom</dd>
+                    <dt>Drag a dot</dt><dd>Draw a connection from a device edge</dd>
+                    <dt>Ctrl A</dt><dd>Select every device</dd>
+                    <dt>Ctrl D</dt><dd>Duplicate the selection</dd>
+                    <dt>Arrows</dt><dd>Nudge by one grid step &middot; hold Shift for 1px</dd>
+                    <dt>Delete</dt><dd>Remove the selection</dd>
+                    <dt>Ctrl Z / Ctrl Y</dt><dd>Undo &middot; redo</dd>
+                    <dt>Ctrl S</dt><dd>Save the project file</dd>
+                    <dt>Esc</dt><dd>Cancel, or clear the selection</dd>
+                    <dt>?</dt><dd>This list</dd>
+                </dl>
             </div>
         </div>
     </div>

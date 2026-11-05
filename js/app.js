@@ -284,6 +284,16 @@ function updateNetworkInfoBox() {
 let isPanning = false;
 let panStart = { x: 0, y: 0 };
 let draggingDevice = null;
+/** Other selected devices riding along with the one under the cursor. */
+let dragGroup = [];
+/** Shift-drag rubber band: {x, y} canvas-space anchor, or null. */
+let marqueeStart = null;
+/**
+ * Set when a drag actually moved something, so the click that follows the
+ * release is not also treated as a selection. Without this, dragging a
+ * multi-selection collapses it to the one device under the cursor.
+ */
+let suppressNextClick = false;
 let dragStart = { x: 0, y: 0 };
 let deviceStart = { x: 0, y: 0 };
 
@@ -337,6 +347,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Clicking empty canvas deselects. Previously the properties panel could
+    // only be dismissed with Escape.
+    canvasArea.addEventListener('click', function(e) {
+        if (suppressNextClick) { suppressNextClick = false; return; }
+        if (e.shiftKey) return;
+        const onEmptySpace = e.target === canvasArea || e.target === canvasGrid ||
+            (e.target.closest('#canvasWrapper') && !e.target.closest('.network-device') && !e.target.closest('.network-zone'));
+        if (onEmptySpace && !state.connecting) deselectAll();
+    });
+
     canvasArea.addEventListener('dragover', e => e.preventDefault());
     canvasArea.addEventListener('drop', function(e) {
         e.preventDefault();
@@ -362,17 +382,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Pan functionality - mousedown on canvas area
     canvasArea.addEventListener('mousedown', function(e) {
-        // Only start panning if clicking on empty space (not on a device or zone)
-        if (e.target === canvasArea || e.target === canvasGrid || e.target.closest('#canvasWrapper') && !e.target.closest('.network-device') && !e.target.closest('.network-zone')) {
-            isPanning = true;
-            panStart.x = e.clientX - state.panX;
-            panStart.y = e.clientY - state.panY;
-            canvasArea.classList.add('panning');
+        const onEmptySpace = e.target === canvasArea || e.target === canvasGrid ||
+            (e.target.closest('#canvasWrapper') && !e.target.closest('.network-device') && !e.target.closest('.network-zone'));
+        if (!onEmptySpace) return;
+
+        if (e.shiftKey) {
+            // Shift is the selection modifier everywhere else in the tool, so
+            // shift-drag selects. Plain drag still pans, as the hint says.
+            marqueeStart = canvasPointFromEvent(e);
+            canvasArea.classList.add('marqueeing');
             e.preventDefault();
+            return;
         }
+
+        isPanning = true;
+        panStart.x = e.clientX - state.panX;
+        panStart.y = e.clientY - state.panY;
+        canvasArea.classList.add('panning');
+        e.preventDefault();
     });
 
     document.addEventListener('mousemove', function(e) {
+        if (marqueeStart) {
+            const now = canvasPointFromEvent(e);
+            drawMarquee(marqueeStart, now);
+        }
         if (isPanning) {
             state.panX = e.clientX - panStart.x;
             state.panY = e.clientY - panStart.y;
@@ -387,6 +421,21 @@ document.addEventListener('DOMContentLoaded', function() {
             el.style.left = draggingDevice.x + 'px';
             el.style.top = draggingDevice.y + 'px';
             scheduleDeviceRedraw(draggingDevice.id);
+
+            // The rest of the selection moves by the same snapped delta, so
+            // relative spacing survives the drag.
+            const moveX = draggingDevice.x - deviceStart.x;
+            const moveY = draggingDevice.y - deviceStart.y;
+            dragGroup.forEach(entry => {
+                entry.device.x = entry.x + moveX;
+                entry.device.y = entry.y + moveY;
+                const other = document.getElementById(entry.device.id);
+                if (other) {
+                    other.style.left = entry.device.x + 'px';
+                    other.style.top = entry.device.y + 'px';
+                }
+                scheduleDeviceRedraw(entry.device.id);
+            });
         }
         if (draggingZone) {
             const dx = (e.clientX - dragStart.x) / state.zoom;
@@ -420,20 +469,38 @@ document.addEventListener('DOMContentLoaded', function() {
             isPanning = false;
             canvasArea.classList.remove('panning');
         }
+        if (marqueeStart) {
+            const rect = marqueeRect(marqueeStart, canvasPointFromEvent(e));
+            marqueeStart = null;
+            canvasArea.classList.remove('marqueeing');
+            document.getElementById('marquee').hidden = true;
+            // A shift-click with no drag should not wipe the selection.
+            if (rect.width > 3 || rect.height > 3) {
+                const hits = devicesIntersecting(rect).map(d => d.id);
+                setSelection([...new Set([...selection, ...hits])]);
+            }
+        }
+
         if (draggingDevice || draggingZone || resizingZone || isDraggingConnection) {
             scheduler.flushNow();
         }
         if (draggingDevice) {
-            const d = draggingDevice;
-            const ox = deviceStart.x, oy = deviceStart.y;
-            if (d.x !== ox || d.y !== oy) {
-                const nx = d.x, ny = d.y;
+            const moved = [
+                { device: draggingDevice, x: deviceStart.x, y: deviceStart.y },
+                ...dragGroup
+            ].filter(e => e.device.x !== e.x || e.device.y !== e.y);
+
+            if (moved.length) {
+                suppressNextClick = true;
+                // One undo step for the gesture, not one per device.
+                const after = moved.map(e => ({ device: e.device, x: e.device.x, y: e.device.y }));
                 pushUndoForGeometryChange(
-                    () => { d.x = ox; d.y = oy; },
-                    () => { d.x = nx; d.y = ny; }
+                    () => moved.forEach(e => { e.device.x = e.x; e.device.y = e.y; }),
+                    () => after.forEach(e => { e.device.x = e.x; e.device.y = e.y; })
                 );
             }
             draggingDevice = null;
+            dragGroup = [];
             canvasArea.classList.remove('dragging-device');
         }
         if (draggingZone) {
@@ -543,6 +610,20 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('saveProjectBtn').onclick = () => openModal('saveProjectModal');
     document.getElementById('loadProjectBtn').onclick = () => openModal('loadProjectModal');
     document.getElementById('deleteBtn').onclick = deleteSelected;
+    document.getElementById('deleteSelectionBtn').onclick = deleteSelected;
+    document.getElementById('duplicateSelectionBtn').onclick = duplicateSelection;
+    document.querySelectorAll('[data-bulk-status]').forEach(btn => {
+        btn.onclick = () => applyToSelection(
+            d => { d.status = btn.dataset.bulkStatus; },
+            'Set {n} to ' + btn.dataset.bulkStatus + '.'
+        );
+    });
+    document.getElementById('multiVlan').onchange = e => {
+        const value = e.target.value;
+        if (value === '') return;
+        applyToSelection(d => { d.vlan = value; }, 'Assigned {n} to ' + getVlanName(value) + '.');
+        e.target.value = '';
+    };
     document.getElementById('addVMBtn').onclick = () => openModal('vmModal');
 
     document.querySelectorAll('.status-btn').forEach(btn => {
@@ -573,7 +654,16 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        if (e.key === '?' && !inTextEntry) {
+            e.preventDefault();
+            openModal('shortcutsModal');
+            return;
+        }
+
         if (e.key === 'Escape') {
+            // Escape closes an open modal before anything else.
+            const open = document.querySelector('.modal-bg.active');
+            if (open) { open.classList.remove('active'); return; }
             // Inside a field, Escape just leaves the field.
             if (inTextEntry) { e.target.blur(); return; }
             cancelConnect();
@@ -590,9 +680,32 @@ document.addEventListener('DOMContentLoaded', function() {
         if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
         if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
 
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+            e.preventDefault();
+            setSelection(state.devices.map(d => d.id));
+            return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+            e.preventDefault();
+            duplicateSelection();
+            return;
+        }
+
+        const ARROWS = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+        if (ARROWS[e.key] && selection.size > 0) {
+            e.preventDefault();
+            // Shift means fine adjustment; otherwise move by one grid step.
+            const step = e.shiftKey ? 1 : GRID_SIZE;
+            nudgeSelection(ARROWS[e.key][0] * step, ARROWS[e.key][1] * step);
+            return;
+        }
+
         if (e.key === 'Delete' || e.key === 'Backspace') {
             e.preventDefault();
-            if (state.selected) deleteSelected();
+            // Guard on the selection set, not state.selected: that is null
+            // whenever more than one device is selected.
+            if (selection.size > 0) deleteSelected();
             if (state.selectedZone) deleteSelectedZone();
         }
     });
@@ -880,6 +993,12 @@ function renderDevice(d) {
     el.addEventListener('mousedown', function(e) {
         if (e.target.classList.contains('conn-point')) return;
         e.stopPropagation();
+        if (e.shiftKey) return;   // shift-click is a selection gesture, not a drag
+
+        // Pressing an unselected device selects it first, so a drag always
+        // moves what is under the cursor.
+        if (!selection.has(d.id)) setSelection([d.id]);
+
         // No snapshot here - a plain click to select is not an edit.
         // The undo step is recorded on mouseup, only if the thing moved.
         draggingDevice = d;
@@ -887,12 +1006,18 @@ function renderDevice(d) {
         dragStart.y = e.clientY;
         deviceStart.x = d.x;
         deviceStart.y = d.y;
+        // Everything else in the selection rides along from its own origin.
+        dragGroup = selectedDevices()
+            .filter(other => other.id !== d.id)
+            .map(other => ({ device: other, x: other.x, y: other.y }));
         canvasArea.classList.add('dragging-device');
     });
 
     el.addEventListener('click', function(e) {
         if (e.target.classList.contains('conn-point')) return;
         e.stopPropagation();
+        if (suppressNextClick) { suppressNextClick = false; return; }
+        if (e.shiftKey) { selectDevice(d, true); return; }
         selectDevice(d);
     });
 
@@ -1265,18 +1390,179 @@ function findDeviceAtPoint(clientX, clientY) {
     }
     return null;
 }
-function selectDevice(d) {
-    deselectAll();
-    state.selected = d;
-    document.getElementById(d.id).classList.add('selected');
-    showProps(d);
+/**
+ * Selection is a set of device ids. `state.selected` is kept as the single
+ * selected device - null unless exactly one is selected - so the properties
+ * panel and every handler that already reads it keep working unchanged.
+ */
+const selection = new Set();
+
+/** Pointer position in canvas coordinates. */
+function canvasPointFromEvent(e) {
+    const rect = canvasArea.getBoundingClientRect();
+    return {
+        x: (e.clientX - rect.left - state.panX) / state.zoom + CANVAS_ORIGIN,
+        y: (e.clientY - rect.top - state.panY) / state.zoom + CANVAS_ORIGIN
+    };
+}
+
+function marqueeRect(a, b) {
+    return {
+        x: Math.min(a.x, b.x),
+        y: Math.min(a.y, b.y),
+        width: Math.abs(a.x - b.x),
+        height: Math.abs(a.y - b.y)
+    };
+}
+
+function drawMarquee(a, b) {
+    const r = marqueeRect(a, b);
+    const el = document.getElementById('marquee');
+    // The band lives inside #canvasWrapper's coordinate space.
+    el.style.left = (r.x - CANVAS_ORIGIN) + 'px';
+    el.style.top = (r.y - CANVAS_ORIGIN) + 'px';
+    el.style.width = r.width + 'px';
+    el.style.height = r.height + 'px';
+    el.hidden = false;
+}
+
+/** Devices whose box overlaps the rect - touching counts, as in most editors. */
+function devicesIntersecting(rect) {
+    return state.devices.filter(d => {
+        const size = deviceSize(d.id) || { width: 120, height: 100 };
+        return d.x < rect.x + rect.width && d.x + size.width > rect.x &&
+               d.y < rect.y + rect.height && d.y + size.height > rect.y;
+    });
+}
+
+function selectedDevices() {
+    return state.devices.filter(d => selection.has(d.id));
+}
+
+/** Push the selection out to the DOM and the properties panel. */
+function applySelection() {
+    document.querySelectorAll('.network-device').forEach(el => {
+        const on = selection.has(el.id);
+        el.classList.toggle('selected', on && selection.size === 1);
+        el.classList.toggle('selected-multi', on && selection.size > 1);
+    });
+
+    const devices = selectedDevices();
+    state.selected = devices.length === 1 ? devices[0] : null;
+
+    showSection('noSelect', devices.length === 0 && !state.selectedZone);
+    showSection('deviceProps', devices.length === 1);
+    showSection('multiProps', devices.length > 1);
+    if (devices.length > 1) showSection('zoneProps', false);
+
+    if (devices.length === 1) {
+        showProps(devices[0]);
+    } else if (devices.length > 1) {
+        document.getElementById('multiCount').textContent =
+            formatCount(devices.length, 'device') + ' selected';
+    }
+}
+
+/** Copy the selection, offset by a grid step, including any connection
+ *  whose both ends are inside it. */
+function duplicateSelection() {
+    const originals = selectedDevices();
+    if (originals.length === 0) return;
+    saveState();
+
+    const offset = GRID_SIZE * 2;
+    const idMap = new Map();
+    const copies = originals.map(src => {
+        const copy = JSON.parse(JSON.stringify(src));
+        copy.id = nextId('dev');
+        copy.x = src.x + offset;
+        copy.y = src.y + offset;
+        state.counter++;
+        idMap.set(src.id, copy.id);
+        state.devices.push(copy);
+        sceneIndex.addDevice(copy);
+        renderDevice(copy);
+        return copy;
+    });
+
+    // filter() materialises first, so pushing while iterating is safe.
+    state.connections.filter(c => idMap.has(c.from) && idMap.has(c.to)).forEach(c => {
+        const copy = Object.assign({}, c, {
+            id: nextId('conn'),
+            from: idMap.get(c.from),
+            to: idMap.get(c.to)
+        });
+        if (c.waypoints) {
+            copy.waypoints = c.waypoints.map(w => ({ x: w.x + offset, y: w.y + offset }));
+        }
+        state.connections.push(copy);
+    });
+
+    drawConnections();
+    updateCounts();
+    setSelection(copies.map(c => c.id));
+    toast.show('Duplicated ' + formatCount(copies.length, 'device') + '.', { type: 'success' });
+}
+
+/** Move the selection by a whole-pixel delta as one undo step. */
+function nudgeSelection(dx, dy) {
+    const devices = selectedDevices();
+    if (devices.length === 0) return;
+    const before = devices.map(d => ({ device: d, x: d.x, y: d.y }));
+    devices.forEach(d => { d.x += dx; d.y += dy; });
+    const after = devices.map(d => ({ device: d, x: d.x, y: d.y }));
+    pushUndoForGeometryChange(
+        () => before.forEach(e => { e.device.x = e.x; e.device.y = e.y; }),
+        () => after.forEach(e => { e.device.x = e.x; e.device.y = e.y; })
+    );
+    devices.forEach(d => {
+        const el = document.getElementById(d.id);
+        if (el) { el.style.left = d.x + 'px'; el.style.top = d.y + 'px'; }
+        scheduleDeviceRedraw(d.id);
+    });
+}
+
+function applyToSelection(mutate, label) {
+    const devices = selectedDevices();
+    if (devices.length === 0) return;
+    saveState();
+    devices.forEach(mutate);
+    devices.forEach(d => {
+        const el = document.getElementById(d.id);
+        if (el) {
+            const dot = el.querySelector('.device-status');
+            if (dot) dot.className = 'device-status status-' + d.status;
+        }
+    });
+    if (label) toast.show(label.replace('{n}', formatCount(devices.length, 'device')), { type: 'success' });
+}
+
+function setSelection(ids) {
+    selection.clear();
+    ids.forEach(id => selection.add(id));
+    if (selection.size > 0 && state.selectedZone) {
+        const el = document.getElementById(state.selectedZone.id);
+        if (el) el.classList.remove('selected');
+        state.selectedZone = null;
+    }
+    applySelection();
+}
+
+function selectDevice(d, additive = false) {
+    if (!additive) {
+        setSelection([d.id]);
+        return;
+    }
+    // Shift-click toggles, so the same gesture adds and removes.
+    if (selection.has(d.id)) selection.delete(d.id);
+    else selection.add(d.id);
+    applySelection();
 }
 
 function deselectAll() {
-    if (state.selected) {
-        const el = document.getElementById(state.selected.id);
-        if (el) el.classList.remove('selected');
-    }
+    selection.clear();
+    document.querySelectorAll('.network-device.selected, .network-device.selected-multi')
+        .forEach(el => el.classList.remove('selected', 'selected-multi'));
     state.selected = null;
     if (state.selectedZone) {
         const el = document.getElementById(state.selectedZone.id);
@@ -1285,6 +1571,7 @@ function deselectAll() {
     state.selectedZone = null;
     document.getElementById('noSelect').style.display = 'block';
     document.getElementById('deviceProps').style.display = 'none';
+    document.getElementById('multiProps').style.display = 'none';
     document.getElementById('zoneProps').style.display = 'none';
 }
 
@@ -1585,12 +1872,15 @@ function setStatus(status) {
 }
 
 function deleteSelected() {
-    if (!state.selected) return;
+    const ids = new Set(selection);
+    if (ids.size === 0) return;
     saveState();
-    const id = state.selected.id;
-    state.connections = state.connections.filter(c => c.from !== id && c.to !== id);
-    state.devices = state.devices.filter(d => d.id !== id);
-    document.getElementById(id).remove();
+    state.connections = state.connections.filter(c => !ids.has(c.from) && !ids.has(c.to));
+    state.devices = state.devices.filter(d => !ids.has(d.id));
+    ids.forEach(id => {
+        document.getElementById(id)?.remove();
+        sceneIndex.removeDevice(id);
+    });
     deselectAll();
     clearWaypointHandles();
     editingConn = null;
@@ -1608,6 +1898,11 @@ function updateCounts() {
 }
 
 function updateVlanSelect() {
+    const bulk = document.getElementById('multiVlan');
+    if (bulk) {
+        bulk.innerHTML = '<option value="">-- Choose a VLAN --</option>' +
+            state.vlans.map(v => '<option value="' + v.id + '">VLAN ' + v.id + ' - ' + v.name + '</option>').join('');
+    }
     document.getElementById('propVLAN').innerHTML = '<option value="">Select VLAN</option>' + 
         state.vlans.map(v => '<option value="' + v.id + '">VLAN ' + v.id + ' - ' + v.name + '</option>').join('');
 }
@@ -2978,6 +3273,7 @@ window.mapper = {
     undo, redo, saveState,
     createDevice, createZone, deleteSelected, deleteSelectedZone, clearAll,
     selectDevice, selectZone, deselectAll,
+    selection, selectedDevices, setSelection, duplicateSelection, nudgeSelection,
     drawConnections, updateCounts, setConnType, setRoutingStyle,
     connColor, GRID_SIZE,
     // Render internals, for debugging and for the benchmark harness.
