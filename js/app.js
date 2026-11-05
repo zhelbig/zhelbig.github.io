@@ -30,6 +30,7 @@ import { createSceneIndex } from './core/indexes.js';
 import { createFrameScheduler } from './render/scheduler.js';
 import { createConnectionLayer } from './render/connection-layer.js';
 import { createToaster } from './ui/toast.js';
+import { matchDevices, describeDevice } from './core/search.js';
 import { createAutosave, autosaveKey, hasContent, describeAge } from './io/persist.js';
 
 // The chrome is injected before anything else runs: the element lookups
@@ -286,6 +287,8 @@ let panStart = { x: 0, y: 0 };
 let draggingDevice = null;
 /** Other selected devices riding along with the one under the cursor. */
 let dragGroup = [];
+/** Devices contained by the zone being dragged. */
+let zoneDragGroup = [];
 /** Shift-drag rubber band: {x, y} canvas-space anchor, or null. */
 let marqueeStart = null;
 /**
@@ -445,6 +448,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const el = document.getElementById(draggingZone.id);
             el.style.left = draggingZone.x + 'px';
             el.style.top = draggingZone.y + 'px';
+
+            const moveX = draggingZone.x - zoneStart.x;
+            const moveY = draggingZone.y - zoneStart.y;
+            zoneDragGroup.forEach(entry => {
+                entry.device.x = entry.x + moveX;
+                entry.device.y = entry.y + moveY;
+                const dev = document.getElementById(entry.device.id);
+                if (dev) {
+                    dev.style.left = entry.device.x + 'px';
+                    dev.style.top = entry.device.y + 'px';
+                }
+                scheduleDeviceRedraw(entry.device.id);
+            });
         }
         if (resizingZone) {
             const dx = (e.clientX - resizeStart.x) / state.zoom;
@@ -505,15 +521,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (draggingZone) {
             const z = draggingZone;
-            const ox = zoneStart.x, oy = zoneStart.y;
-            if (z.x !== ox || z.y !== oy) {
-                const nx = z.x, ny = z.y;
+            const movedZone = z.x !== zoneStart.x || z.y !== zoneStart.y;
+            if (movedZone) {
+                suppressNextClick = true;
+                const before = [
+                    { obj: z, x: zoneStart.x, y: zoneStart.y },
+                    ...zoneDragGroup.map(e => ({ obj: e.device, x: e.x, y: e.y }))
+                ];
+                const after = before.map(e => ({ obj: e.obj, x: e.obj.x, y: e.obj.y }));
+                // The zone and its contents are one move, so one undo step.
                 pushUndoForGeometryChange(
-                    () => { z.x = ox; z.y = oy; },
-                    () => { z.x = nx; z.y = ny; }
+                    () => before.forEach(e => { e.obj.x = e.x; e.obj.y = e.y; }),
+                    () => after.forEach(e => { e.obj.x = e.x; e.obj.y = e.y; })
                 );
             }
             draggingZone = null;
+            zoneDragGroup = [];
         }
         if (resizingZone) {
             const z = resizingZone;
@@ -609,6 +632,21 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('exportPdfBtn').onclick = () => openModal('exportModal');
     document.getElementById('saveProjectBtn').onclick = () => openModal('saveProjectModal');
     document.getElementById('loadProjectBtn').onclick = () => openModal('loadProjectModal');
+    const searchBox = document.getElementById('deviceSearch');
+    searchBox.addEventListener('input', e => renderSearch(e.target.value));
+    searchBox.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && searchHits.length > 0) {
+            e.preventDefault();
+            revealDevice(searchHits[0]);
+        }
+        if (e.key === 'Escape') {
+            // Clear the filter first; a second Escape leaves the field.
+            e.stopPropagation();
+            if (searchBox.value) { searchBox.value = ''; renderSearch(''); }
+            else searchBox.blur();
+        }
+    });
+
     document.getElementById('deleteBtn').onclick = deleteSelected;
     document.getElementById('deleteSelectionBtn').onclick = deleteSelected;
     document.getElementById('duplicateSelectionBtn').onclick = duplicateSelection;
@@ -651,6 +689,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
             e.preventDefault();
             exportJson();
+            return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+            // The browser's find bar cannot see devices on the canvas, so
+            // take the shortcut for the one that can.
+            e.preventDefault();
+            const box = document.getElementById('deviceSearch');
+            box.focus();
+            box.select();
             return;
         }
 
@@ -1134,20 +1182,26 @@ function renderZone(z) {
     // rewrite the header.
     el.querySelector('.zone-name').textContent = z.name;
 
-    // Zone header drag
-    const header = el.querySelector('.zone-header');
-    header.addEventListener('mousedown', function(e) {
+    // The whole box drags, not just the header. It already showed
+    // cursor:move everywhere, so pressing the body and getting nothing was
+    // a lie the cursor told. Devices sit above zones, so this does not
+    // interfere with dragging them.
+    el.addEventListener('mousedown', function(e) {
+        if (e.target.classList.contains('zone-resize')) return;
         e.stopPropagation();
         draggingZone = z;
         dragStart.x = e.clientX;
         dragStart.y = e.clientY;
         zoneStart.x = z.x;
         zoneStart.y = z.y;
+        // Whatever is inside right now travels with the zone.
+        zoneDragGroup = devicesInZone(z).map(d => ({ device: d, x: d.x, y: d.y }));
     });
 
     // Zone click to select
     el.addEventListener('click', function(e) {
         if (e.target.classList.contains('zone-resize')) return;
+        if (suppressNextClick) { suppressNextClick = false; return; }
         e.stopPropagation();
         selectZone(z);
     });
@@ -1427,6 +1481,23 @@ function drawMarquee(a, b) {
 }
 
 /** Devices whose box overlaps the rect - touching counts, as in most editors. */
+/**
+ * Devices sitting inside a zone.
+ *
+ * Membership is derived from geometry each time rather than stored on the
+ * device, so it can never fall out of step with where things actually are -
+ * a device dragged out of a zone stops belonging to it with no bookkeeping.
+ * Containment must be total: a device straddling the edge belongs to neither.
+ */
+function devicesInZone(z) {
+    return state.devices.filter(d => {
+        const size = deviceSize(d.id) || { width: 120, height: 100 };
+        return d.x >= z.x && d.y >= z.y &&
+               d.x + size.width <= z.x + z.width &&
+               d.y + size.height <= z.y + z.height;
+    });
+}
+
 function devicesIntersecting(rect) {
     return state.devices.filter(d => {
         const size = deviceSize(d.id) || { width: 120, height: 100 };
@@ -1535,6 +1606,65 @@ function applyToSelection(mutate, label) {
         }
     });
     if (label) toast.show(label.replace('{n}', formatCount(devices.length, 'device')), { type: 'success' });
+}
+
+/** Centre the viewport on a device without changing the zoom. */
+function panToDevice(d) {
+    const size = deviceSize(d.id) || { width: 120, height: 100 };
+    const area = canvasArea.getBoundingClientRect();
+    // Screen position of a canvas point is (p - CANVAS_ORIGIN) * zoom + pan,
+    // so solve for the pan that puts the device centre at the view centre.
+    state.panX = area.width / 2 - (d.x + size.width / 2 - CANVAS_ORIGIN) * state.zoom;
+    state.panY = area.height / 2 - (d.y + size.height / 2 - CANVAS_ORIGIN) * state.zoom;
+    applyTransform();
+}
+
+const typeLabel = (type) => (types[type] && types[type].name) || type;
+
+let searchHits = [];
+
+function renderSearch(query) {
+    const box = document.getElementById('searchResults');
+    const palette = document.getElementById('palette');
+    if (!query.trim()) {
+        box.hidden = true;
+        palette.hidden = false;
+        searchHits = [];
+        return;
+    }
+
+    searchHits = matchDevices(state.devices, query, typeLabel);
+    palette.hidden = true;
+    box.hidden = false;
+    box.textContent = '';
+
+    if (searchHits.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'search-empty';
+        empty.textContent = state.devices.length === 0
+            ? 'No devices on the canvas yet.'
+            : 'Nothing matches that.';
+        box.appendChild(empty);
+        return;
+    }
+
+    searchHits.forEach((d, i) => {
+        const hit = document.createElement('div');
+        hit.className = 'search-hit' + (i === 0 ? ' active' : '');
+        hit.innerHTML = '<span class="hit-icon">' + getSvgIconSidebar(types[d.type].icon) + '</span>' +
+            '<span class="hit-body"><span class="hit-name"></span>' +
+            '<span class="hit-meta"></span></span>';
+        // Names and IPs are user data, so they go in as text.
+        hit.querySelector('.hit-name').textContent = d.name;
+        hit.querySelector('.hit-meta').textContent = describeDevice(d, typeLabel(d.type));
+        hit.addEventListener('click', () => revealDevice(d));
+        box.appendChild(hit);
+    });
+}
+
+function revealDevice(d) {
+    setSelection([d.id]);
+    panToDevice(d);
 }
 
 function setSelection(ids) {
@@ -1892,6 +2022,8 @@ function deleteSelected() {
 }
 
 function updateCounts() {
+    const q = document.getElementById('deviceSearch');
+    if (q && q.value.trim()) renderSearch(q.value);
     document.getElementById('deviceCount').textContent = formatCount(state.devices.length, 'device');
     document.getElementById('zoneCount').textContent = formatCount(state.zones.length, 'zone');
     document.getElementById('connCount').textContent = formatCount(state.connections.length, 'connection');
@@ -3274,6 +3406,7 @@ window.mapper = {
     createDevice, createZone, deleteSelected, deleteSelectedZone, clearAll,
     selectDevice, selectZone, deselectAll,
     selection, selectedDevices, setSelection, duplicateSelection, nudgeSelection,
+    devicesInZone, panToDevice, deviceSize,
     drawConnections, updateCounts, setConnType, setRoutingStyle,
     connColor, GRID_SIZE,
     // Render internals, for debugging and for the benchmark harness.

@@ -194,7 +194,7 @@ body.has-site-nav .app{height:calc(100vh - 60px);margin-top:60px}
 .network-zone{position:absolute;border:2px dashed;border-radius:16px;min-width:150px;min-height:100px;z-index:1;cursor:move;user-select:none;transition:border-color 0.3s,box-shadow 0.3s}
 .network-zone:hover{box-shadow:0 4px 20px rgba(0,0,0,0.15)}
 .network-zone.selected{box-shadow:0 0 0 3px rgba(var(--primary-rgb),0.3)}
-.zone-header{padding:8px 12px;border-radius:14px 14px 0 0;display:flex;align-items:center;gap:8px;cursor:move}
+.zone-header{padding:8px 12px;border-radius:14px 14px 0 0;display:flex;align-items:center;gap:8px}
 .zone-icon{font-size:18px}
 .zone-name{font-size:0.75rem;font-weight:600;color:#1a1a1a}
 .zone-badge{font-size:0.6rem;padding:2px 6px;border-radius:4px;color:white;font-weight:500}
@@ -295,3 +295,17 @@ body.has-site-nav .app{height:calc(100vh - 60px);margin-top:60px}
 .shortcuts{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:baseline;font-size:0.78rem}
 .shortcuts dt{color:var(--text);font-weight:600;font-family:'JetBrains Mono',monospace;font-size:0.72rem;white-space:nowrap}
 .shortcuts dd{color:var(--text-secondary);margin:0}
+
+/* Device search. Filtering swaps the palette for the result list. */
+.sidebar-search{margin-bottom:14px}
+.search-input{width:100%;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);border-radius:10px;color:var(--text);font-size:0.78rem;font-family:var(--font-body);outline:none;transition:border-color 0.2s}
+.search-input:focus{border-color:rgba(var(--primary-rgb),0.5)}
+.search-input::placeholder{color:var(--text-muted)}
+.search-results[hidden]{display:none}
+.search-hit{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.search-hit:hover,.search-hit.active{background:rgba(var(--primary-rgb),0.1);border-color:rgba(var(--primary-rgb),0.35)}
+.search-hit .hit-icon{flex:0 0 18px;display:flex;color:var(--text-secondary)}
+.search-hit .hit-body{flex:1;min-width:0}
+.search-hit .hit-name{font-size:0.74rem;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-hit .hit-meta{font-size:0.63rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-empty{font-size:0.72rem;color:var(--text-muted);text-align:center;padding:14px 4px}

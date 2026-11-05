@@ -33,6 +33,13 @@ const CHROME = `    <div class="grid-bg"></div>
             </div>
         </header>
         <aside class="sidebar">
+            <div class="sidebar-search">
+                <input type="search" id="deviceSearch" class="search-input"
+                       placeholder="Find a device&hellip;  (Ctrl F)"
+                       aria-label="Find a device by name, IP or type" autocomplete="off">
+            </div>
+            <div class="search-results" id="searchResults" hidden></div>
+            <div id="palette">
             <div class="sidebar-section">
                 <div class="sidebar-title">Zones (Drag to Create)</div>
                 <div class="device-palette">
@@ -87,6 +94,7 @@ const CHROME = `    <div class="grid-bg"></div>
                     <div class="device-item" draggable="true" data-type="camera"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h2v8H4z" fill="currentColor" opacity="0.3"/><rect x="6" y="7" width="4" height="10" rx="1"/><rect x="10" y="8.5" width="10" height="7" rx="3.5"/><circle cx="17" cy="12" r="2"/><circle cx="17" cy="12" r="0.8" fill="currentColor"/></svg></span>Security Cam</div>
                     <div class="device-item" draggable="true" data-type="iot"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><line x1="12" y1="3" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="3" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="21" y2="12"/></svg></span>IoT</div>
                 </div>
+            </div>
             </div>
         </aside>
         <main class="canvas-area" id="canvasArea">
@@ -566,6 +574,7 @@ const CHROME = `    <div class="grid-bg"></div>
                     <dt>Ctrl Z / Ctrl Y</dt><dd>Undo &middot; redo</dd>
                     <dt>Ctrl S</dt><dd>Save the project file</dd>
                     <dt>Esc</dt><dd>Cancel, or clear the selection</dd>
+                    <dt>Ctrl F</dt><dd>Find a device by name, IP or type</dd>
                     <dt>?</dt><dd>This list</dd>
                 </dl>
             </div>
