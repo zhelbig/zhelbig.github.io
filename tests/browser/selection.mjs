@@ -69,8 +69,27 @@ check('the multi panel appears and counts correctly', await page.evaluate(() =>
   /2 devices selected/.test(document.getElementById('multiCount').textContent)));
 
 // ── 3. Clicking empty canvas clears ──
-const area = await page.locator('#canvasArea').boundingBox();
-await page.mouse.click(area.x + 80, area.y + area.height - 140);
+// Find a point that really is bare canvas. The floating panels - the
+// Power bubble, the zoom controls, the connection toolbar, the config box -
+// cover several corners, so picking one by hand goes stale.
+const empty = await page.evaluate(() => {
+  const area = document.getElementById('canvasArea');
+  const r = area.getBoundingClientRect();
+  for (let y = r.top + 40; y < r.bottom - 40; y += 30) {
+    for (let x = r.left + 40; x < r.right - 40; x += 30) {
+      const el = document.elementFromPoint(x, y);
+      if (!el) continue;
+      if (el.closest('.network-device') || el.closest('.network-zone')) continue;
+      if (el.closest('.ups-box') || el.closest('.controls') ||
+          el.closest('.conn-toolbar') || el.closest('.network-info-box') ||
+          el.closest('.pan-hint') || el.closest('.undo-redo')) continue;
+      if (area.contains(el)) return { x, y };
+    }
+  }
+  return null;
+});
+if (!empty) throw new Error('no bare canvas point found');
+await page.mouse.click(empty.x, empty.y);
 check('clicking empty canvas deselects', await sel() === 0);
 
 // ── 4. Shift-drag draws a marquee over a region ──

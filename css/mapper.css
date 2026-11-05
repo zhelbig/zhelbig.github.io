@@ -80,7 +80,7 @@ body.has-site-nav .app{height:calc(100vh - 60px);margin-top:60px}
 .conn-wireless{stroke:var(--accent-purple);stroke-width:2;fill:none;stroke-dasharray:8,4}
 .conn-vpn{stroke:var(--conn-vpn);stroke-width:3.5;fill:none;opacity:0.85}
 .conn-vpn-outline{stroke:rgba(var(--conn-vpn-rgb),0.25);stroke-width:8;fill:none}
-.controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);padding:8px;border-radius:14px;border:1px solid #e0e0e0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+.controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:nowrap;white-space:nowrap;align-items:center;gap:6px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);padding:8px;border-radius:14px;border:1px solid #e0e0e0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
 .controls .ctrl-divider{width:1px;height:24px;background:#e0e0e0;margin:0 2px}
 .undo-redo{position:absolute;top:16px;left:16px;display:flex;gap:4px;z-index:100}
 .undo-redo button{width:36px;height:36px;border-radius:10px;border:1px solid #e0e0e0;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#555;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
@@ -247,7 +247,7 @@ body.has-site-nav .app{height:calc(100vh - 60px);margin-top:60px}
 .info-value{font-family:'JetBrains Mono',monospace;color:#1a1a1a;font-weight:500}
 .vlan-tag{display:inline-block;padding:3px 8px;background:rgba(var(--primary-rgb),0.08);border:1px solid rgba(var(--primary-rgb),0.2);border-radius:6px;margin:2px;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--primary)}
 .vlan-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
-.pan-hint{position:absolute;bottom:60px;left:16px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);border:1px solid #e0e0e0;padding:8px 12px;border-radius:10px;font-size:0.65rem;color:#666;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+.pan-hint{position:absolute;top:18px;left:96px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);border:1px solid #e0e0e0;padding:8px 12px;border-radius:10px;font-size:0.65rem;color:#666;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
 
     /* Scrollbar */
 ::-webkit-scrollbar{width:6px}
@@ -310,17 +310,26 @@ body.has-site-nav .app{height:calc(100vh - 60px);margin-top:60px}
 .search-hit .hit-meta{font-size:0.63rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .search-empty{font-size:0.72rem;color:var(--text-muted);text-align:center;padding:14px 4px}
 
-/* Power protection: a battery tag beside the status dot. */
-.power-tag{position:absolute;top:8px;right:22px;display:flex;align-items:center;justify-content:center;color:var(--green);opacity:0.95}
-.ups-hint{font-size:0.68rem;color:var(--text-muted);margin:-2px 0 8px;line-height:1.45}
-.ups-protects{max-height:190px;overflow-y:auto;margin-bottom:14px}
+/* Power protection: a glowing battery beside the status dot. */
+.power-tag{position:absolute;top:8px;right:22px;display:flex;align-items:center;justify-content:center;color:var(--green);filter:drop-shadow(0 0 3px var(--green)) drop-shadow(0 0 6px rgba(34,197,94,0.55));animation:powerPulse 2.4s ease-in-out infinite}
+@keyframes powerPulse{0%,100%{opacity:0.78}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.power-tag{animation:none;opacity:1}}
+.network-zone .power-tag{top:10px;right:10px}
+
+/* The bottom-left Power bubble. */
+.ups-box{position:absolute;bottom:84px;left:16px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);border:1px solid #e0e0e0;border-radius:14px;padding:14px;min-width:210px;max-width:260px;z-index:100;font-size:0.7rem;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+.ups-box h4{font-size:0.78rem;font-weight:600;margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid #e0e0e0;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;transition:opacity 0.2s,transform 0.2s}
+.ups-box h4:hover{opacity:0.8;transform:translateX(2px)}
+.ups-box-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:3px 0}
+.ups-box-name{color:#1a1a1a;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ups-box-count{color:#666;font-family:'JetBrains Mono',monospace;font-size:0.6rem;white-space:nowrap}
+.ups-box-empty{color:#888;font-size:0.65rem}
+
+/* Checkbox list shown on anything that can sit on a UPS. */
+.power-list{max-height:150px;overflow-y:auto}
 .ups-row{display:flex;align-items:center;gap:8px;padding:5px 2px;cursor:pointer;font-size:0.73rem;color:var(--text-secondary)}
 .ups-row:hover{color:var(--text)}
 .ups-row input{width:15px;height:15px;accent-color:var(--primary);flex:0 0 auto}
 .ups-row-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ups-row-meta{font-size:0.62rem;color:var(--text-muted);white-space:nowrap}
 .ups-empty{font-size:0.7rem;color:var(--text-muted);text-align:center;padding:10px 4px}
-.protected-by-row{display:flex;align-items:baseline;gap:8px;padding:6px 8px;border:1px solid var(--glass-border);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:border-color 0.2s,background 0.2s}
-.protected-by-row:hover{border-color:rgba(var(--primary-rgb),0.45);background:rgba(var(--primary-rgb),0.08)}
-.pb-name{flex:1;font-weight:500;color:var(--text);font-size:0.74rem}
-.pb-meta{font-size:0.63rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace}

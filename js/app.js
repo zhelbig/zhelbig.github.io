@@ -217,6 +217,7 @@ function rerenderEverything() {
     drawConnections();
     updateVlanSelect();
     updateNetworkInfoBox();
+    updateUpsBox();
     updateCounts();
     document.getElementById('emptyState').style.display =
         (state.devices.length === 0 && state.zones.length === 0) ? 'block' : 'none';
@@ -767,6 +768,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     updateVlanSelect();
     updateNetworkInfoBox();
+    updateUpsBox();
     applyTransform();
     offerAutosaveRestore();
 
@@ -1116,7 +1118,7 @@ function renderDevice(d) {
     canvas.appendChild(el);
     // The element was just replaced, so any cached box size is stale.
     sceneIndex.invalidateSize(d.id);
-    updatePowerTag(d.id);
+    updatePowerTag(d);
     if (d.type === 'vmhost' && d.vms) renderVMsOnDevice(d);
 }
 
@@ -1177,6 +1179,7 @@ function renderZone(z) {
     // Zone names are user input; set as text so a stray '<' cannot
     // rewrite the header.
     el.querySelector('.zone-name').textContent = z.name;
+    updatePowerTag(z);
 
     // The whole box drags, not just the header. It already showed
     // cursor:move everywhere, so pressing the body and getting nothing was
@@ -1229,6 +1232,9 @@ function showZoneProps(z) {
     document.getElementById('zoneProps').style.display = 'block';
 
     document.getElementById('propZoneName').value = z.name;
+
+    showSection('zonePowerSection', canBeProtected(z));
+    if (canBeProtected(z)) renderPowerList(z, 'zonePowerList');
     document.getElementById('propZoneNotes').value = z.notes || '';
 
     // Hide all type-specific sections
@@ -1503,43 +1509,49 @@ function drawMarquee(a, b) {
 /**
  * Power protection.
  *
- * A UPS owns the relationship: ups.protects is a list of device ids. The
- * protected device stores nothing, so there is one copy of the fact and no
- * pair of lists to keep in step. A device may be fed by more than one UPS,
- * which dual-PSU hardware genuinely is.
+ * UPS units are configuration, like VLANs and SSIDs - they live in
+ * state.upsUnits rather than on the canvas, because a UPS is a fact about
+ * the site, not a box with a position. Each protected object stores the ids
+ * feeding it, so the checkbox in its properties reads straight off its own
+ * record. Equipment can be fed by more than one, which dual-PSU hardware is.
  */
-function upsDevices() {
-    return state.devices.filter(d => d.type === 'ups');
+
+/** Only infrastructure offers the option; a desk phone is not on a UPS. */
+const UPS_PROTECTABLE_DEVICES = ['router', 'firewall', 'switch', 'ap', 'vmhost', 'nas'];
+const UPS_PROTECTABLE_ZONES = ['nvr'];
+
+function canBeProtected(obj) {
+    if (!obj) return false;
+    return UPS_PROTECTABLE_DEVICES.includes(obj.type) || UPS_PROTECTABLE_ZONES.includes(obj.type);
 }
 
-function upsProtecting(deviceId) {
-    return upsDevices().filter(u => (u.protects || []).includes(deviceId));
+function upsById(id) {
+    return state.upsUnits.find(u => u.id === id);
 }
 
-function isProtected(deviceId) {
-    return upsProtecting(deviceId).length > 0;
+function upsFeeding(obj) {
+    return (obj && obj.upsIds ? obj.upsIds : [])
+        .map(upsById)
+        .filter(Boolean);
 }
 
-function toggleUpsProtects(upsId, deviceId) {
-    const ups = sceneIndex.device(upsId);
-    if (!ups || ups.type !== 'ups') return;
+function toggleUpsFor(obj, upsId) {
+    if (!obj) return;
     saveState();
-    if (!ups.protects) ups.protects = [];
-    const at = ups.protects.indexOf(deviceId);
-    if (at === -1) ups.protects.push(deviceId);
-    else ups.protects.splice(at, 1);
-    updatePowerTag(deviceId);
-    // Deliberately not re-rendering the list: the checkbox the user just
-    // clicked already shows the new state, and rebuilding would replace the
-    // element under their cursor, drop focus and reset the scroll position.
+    if (!obj.upsIds) obj.upsIds = [];
+    const at = obj.upsIds.indexOf(upsId);
+    if (at === -1) obj.upsIds.push(upsId);
+    else obj.upsIds.splice(at, 1);
+    updatePowerTag(obj);
+    updateUpsBox();   // the bubble shows a per-unit count
 }
 
-/** Add or remove the battery tag on one device's card. */
-function updatePowerTag(deviceId) {
-    const el = document.getElementById(deviceId);
+/** Add or remove the battery badge on one object's card. */
+function updatePowerTag(obj) {
+    const el = document.getElementById(obj.id);
     if (!el) return;
     const existing = el.querySelector('.power-tag');
-    const feeds = upsProtecting(deviceId);
+    const feeds = upsFeeding(obj);
     if (feeds.length === 0) {
         if (existing) existing.remove();
         return;
@@ -1555,7 +1567,166 @@ function updatePowerTag(deviceId) {
 }
 
 function refreshAllPowerTags() {
-    state.devices.forEach(d => updatePowerTag(d.id));
+    state.devices.forEach(updatePowerTag);
+    state.zones.forEach(updatePowerTag);
+}
+
+/** The checkbox list shown on anything that can sit on a UPS. */
+function renderPowerList(obj, containerId) {
+    const box = document.getElementById(containerId);
+    box.textContent = '';
+    if (state.upsUnits.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'ups-empty';
+        empty.textContent = 'No UPS units yet \u2014 add one in the Power panel.';
+        box.appendChild(empty);
+        return;
+    }
+    if (!obj.upsIds) obj.upsIds = [];
+    state.upsUnits.forEach(u => {
+        const row = document.createElement('label');
+        row.className = 'ups-row';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = obj.upsIds.includes(u.id);
+        cb.addEventListener('change', () => toggleUpsFor(obj, u.id));
+        const name = document.createElement('span');
+        name.className = 'ups-row-name';
+        name.textContent = u.name;
+        const meta = document.createElement('span');
+        meta.className = 'ups-row-meta';
+        meta.textContent = [u.capacity ? u.capacity + ' VA' : null,
+                            u.runtime ? u.runtime + ' min' : null]
+                            .filter(Boolean).join(' \u00b7 ');
+        row.append(cb, name, meta);
+        box.appendChild(row);
+    });
+}
+
+// ─── UPS unit management ────────────────────────────────────────────
+
+function openUpsConfig() {
+    openModal('upsConfigModal');
+    renderUpsList();
+}
+
+function renderUpsList() {
+    const box = document.getElementById('upsList');
+    box.textContent = '';
+    if (state.upsUnits.length === 0) {
+        const empty = document.createElement('p');
+        empty.style.cssText = 'font-size:0.72rem;color:var(--text-muted);text-align:center;padding:10px;';
+        empty.textContent = 'No UPS units configured.';
+        box.appendChild(empty);
+        return;
+    }
+    state.upsUnits.forEach((u, i) => {
+        const row = document.createElement('div');
+        row.className = 'vlan-item';
+        const name = document.createElement('span');
+        name.className = 'vlan-name';
+        name.style.fontWeight = '600';
+        name.textContent = u.name;
+        const spec = document.createElement('span');
+        spec.className = 'vlan-subnet';
+        spec.textContent = [u.manufacturer, u.model,
+                            u.capacity ? u.capacity + ' VA' : null,
+                            u.runtime ? u.runtime + ' min' : null]
+                            .filter(Boolean).join(' \u00b7 ') || '\u2014';
+        const count = document.createElement('span');
+        count.className = 'vlan-id';
+        count.style.minWidth = 'auto';
+        count.textContent = formatCount(protectedBy(u.id).length, 'device');
+        const del = document.createElement('button');
+        del.className = 'vlan-del';
+        del.textContent = '\u00d7';
+        del.addEventListener('click', () => deleteUps(i));
+        row.append(name, spec, count, del);
+        box.appendChild(row);
+    });
+}
+
+/** Everything currently ticked for this UPS, devices and zones alike. */
+function protectedBy(upsId) {
+    return [...state.devices, ...state.zones]
+        .filter(o => o.upsIds && o.upsIds.includes(upsId));
+}
+
+function saveUps() {
+    const name = document.getElementById('newUpsName').value.trim();
+    if (!name) {
+        toast.show('Give the UPS a name.', { type: 'warn' });
+        return;
+    }
+    if (state.upsUnits.some(u => u.name.toLowerCase() === name.toLowerCase())) {
+        toast.show('A UPS called \u201c' + name + '\u201d already exists.', { type: 'warn' });
+        return;
+    }
+    saveState();
+    state.upsUnits.push({
+        id: nextId('ups'),
+        name,
+        manufacturer: document.getElementById('newUpsMfg').value,
+        model: document.getElementById('newUpsModel').value.trim(),
+        capacity: document.getElementById('newUpsCapacity').value.trim(),
+        runtime: document.getElementById('newUpsRuntime').value.trim(),
+        ip: document.getElementById('newUpsIP').value.trim()
+    });
+    ['newUpsName', 'newUpsModel', 'newUpsCapacity', 'newUpsRuntime', 'newUpsIP']
+        .forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('newUpsMfg').value = '';
+    closeModal('upsModal');
+    renderUpsList();
+    updateUpsBox();
+    if (state.selected) showProps(state.selected);
+    if (state.selectedZone) showZoneProps(state.selectedZone);
+}
+
+function deleteUps(index) {
+    const ups = state.upsUnits[index];
+    if (!ups) return;
+    const users = protectedBy(ups.id).length;
+    const detail = users ? ' ' + formatCount(users, 'device') + ' reference it.' : '';
+    if (!confirm('Delete UPS \u201c' + ups.name + '\u201d?' + detail)) return;
+    saveState();
+    state.upsUnits.splice(index, 1);
+    // Clear the references, or equipment keeps a battery tag for a UPS
+    // that no longer exists.
+    [...state.devices, ...state.zones].forEach(o => {
+        if (o.upsIds) o.upsIds = o.upsIds.filter(id => id !== ups.id);
+    });
+    refreshAllPowerTags();
+    renderUpsList();
+    updateUpsBox();
+    if (state.selected) showProps(state.selected);
+    if (state.selectedZone) showZoneProps(state.selectedZone);
+}
+
+/** The bottom-left bubble. */
+function updateUpsBox() {
+    const box = document.getElementById('upsBoxList');
+    if (!box) return;
+    box.textContent = '';
+    if (state.upsUnits.length === 0) {
+        const none = document.createElement('div');
+        none.className = 'ups-box-empty';
+        none.textContent = 'None configured';
+        box.appendChild(none);
+        return;
+    }
+    state.upsUnits.forEach(u => {
+        const row = document.createElement('div');
+        row.className = 'ups-box-row';
+        const name = document.createElement('span');
+        name.className = 'ups-box-name';
+        name.textContent = u.name;
+        const count = document.createElement('span');
+        count.className = 'ups-box-count';
+        const n = protectedBy(u.id).length;
+        count.textContent = n === 0 ? 'unassigned' : formatCount(n, 'device');
+        row.append(name, count);
+        box.appendChild(row);
+    });
 }
 
 function devicesInZone(z) {
@@ -1615,9 +1786,6 @@ function duplicateSelection() {
     const copies = originals.map(src => {
         const copy = JSON.parse(JSON.stringify(src));
         copy.id = nextId('dev');
-        // Remapped below once every new id exists; anything outside the
-        // selection is dropped rather than shared with the original.
-        if (copy.protects) copy.protects = [];
         copy.x = src.x + offset;
         copy.y = src.y + offset;
         state.counter++;
@@ -1639,12 +1807,6 @@ function duplicateSelection() {
             copy.waypoints = c.waypoints.map(w => ({ x: w.x + offset, y: w.y + offset }));
         }
         state.connections.push(copy);
-    });
-
-    // Re-point a duplicated UPS at the copies of what it protected.
-    originals.forEach((orig, i) => {
-        if (orig.type !== 'ups' || !orig.protects) return;
-        copies[i].protects = orig.protects.map(pid => idMap.get(pid)).filter(Boolean);
     });
 
     drawConnections();
@@ -1852,13 +2014,8 @@ function showProps(d) {
         document.getElementById('propVPNType').value = d.vpnType || '';
     }
 
-    showSection('upsSection', d.type === 'ups');
-    if (d.type === 'ups') {
-        document.getElementById('propUPSCapacity').value = d.capacity || '';
-        document.getElementById('propUPSRuntime').value = d.runtime || '';
-        renderUpsProtectsList(d);
-    }
-    renderProtectedBy(d);
+    showSection('powerSection', canBeProtected(d));
+    if (canBeProtected(d)) renderPowerList(d, 'powerList');
 
     showSection('printerSection', d.type === 'printer');
     if (d.type === 'printer') document.getElementById('propPrinterModel').value = d.model || '';
@@ -1898,63 +2055,6 @@ function getConnBadge(connType) {
     return '<span style="display:inline-block;padding:3px 8px;background:rgba(' + spec.rgb + ',0.15);' +
         'border:1px solid rgba(' + spec.rgb + ',0.3);border-radius:6px;font-size:0.6rem;color:' +
         spec.solid + ';font-weight:500;">' + spec.label + '</span>';
-}
-
-/** Checklist of everything this UPS could protect. */
-function renderUpsProtectsList(ups) {
-    const box = document.getElementById('upsProtectsList');
-    box.textContent = '';
-    if (!ups.protects) ups.protects = [];
-
-    const candidates = state.devices.filter(d => d.id !== ups.id && d.type !== 'ups');
-    if (candidates.length === 0) {
-        const empty = document.createElement('p');
-        empty.className = 'ups-empty';
-        empty.textContent = 'Add some devices first, then tick them here.';
-        box.appendChild(empty);
-        return;
-    }
-
-    candidates.forEach(d => {
-        const row = document.createElement('label');
-        row.className = 'ups-row';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = ups.protects.includes(d.id);
-        cb.addEventListener('change', () => toggleUpsProtects(ups.id, d.id));
-        const name = document.createElement('span');
-        name.className = 'ups-row-name';
-        name.textContent = d.name;          // user data stays text
-        const meta = document.createElement('span');
-        meta.className = 'ups-row-meta';
-        meta.textContent = (types[d.type] && types[d.type].name) || d.type;
-        row.append(cb, name, meta);
-        box.appendChild(row);
-    });
-}
-
-/** The read-only line on a protected device. */
-function renderProtectedBy(d) {
-    const feeds = upsProtecting(d.id);
-    showSection('protectedBySection', feeds.length > 0 && d.type !== 'ups');
-    if (feeds.length === 0) return;
-    const box = document.getElementById('protectedByList');
-    box.textContent = '';
-    feeds.forEach(u => {
-        const row = document.createElement('div');
-        row.className = 'protected-by-row';
-        const name = document.createElement('span');
-        name.className = 'pb-name';
-        name.textContent = u.name;
-        const meta = document.createElement('span');
-        meta.className = 'pb-meta';
-        meta.textContent = [u.capacity ? u.capacity + ' VA' : null,
-                            u.runtime ? u.runtime + ' min' : null]
-                            .filter(Boolean).join('  \u00b7  ');
-        row.append(name, meta);
-        row.addEventListener('click', () => revealDevice(u));
-        box.appendChild(row);
-    });
 }
 
 function renderConnectedToList(d) {
@@ -2155,11 +2255,7 @@ function deleteSelected() {
         document.getElementById(id)?.remove();
         sceneIndex.removeDevice(id);
     });
-    // Drop the deleted devices from every UPS, or they keep protecting
-    // things that no longer exist.
-    state.devices.forEach(u => {
-        if (u.protects) u.protects = u.protects.filter(pid => !ids.has(pid));
-    });
+
     deselectAll();
     clearWaypointHandles();
     editingConn = null;
@@ -3128,6 +3224,7 @@ function exportJson() {
         zones: state.zones,
         vlans: state.vlans,
         ssids: state.ssids,
+        upsUnits: state.upsUnits,
         config: state.config,
         counter: state.counter,
         zoneCounter: state.zoneCounter,
@@ -3217,6 +3314,7 @@ function handleJsonLoad(event) {
             state.connections = data.connections || [];
             state.vlans = data.vlans || state.vlans;
             state.ssids = data.ssids || [];
+            state.upsUnits = data.upsUnits || [];
             state.config = data.config || state.config;
             if (data.clientName) {
                 document.getElementById('clientName').value = data.clientName;
@@ -3489,6 +3587,7 @@ Object.assign(window, {
     updateDeviceProp, updateZoneProp, updateParentPort,
     toggleSwitchVLAN, toggleAPSSID,
     saveVlan, deleteVlan, saveSSID, deleteSSID, saveVM, removeVM,
+    openUpsConfig, saveUps, deleteUps,
     deleteSelectedZone, flipConnection,
     exportJson, exportCSV, generatePDF, downloadCSVTemplate,
     handleJsonLoad, handleCSVUpload, importCSVDevices, cancelCSVImport
@@ -3502,7 +3601,8 @@ window.mapper = {
     selectDevice, selectZone, deselectAll,
     selection, selectedDevices, setSelection, duplicateSelection, nudgeSelection,
     devicesInZone, panToDevice, deviceSize,
-    upsProtecting, isProtected, toggleUpsProtects, refreshAllPowerTags,
+    upsFeeding, toggleUpsFor, refreshAllPowerTags, canBeProtected,
+    saveUps, deleteUps, protectedBy, updateUpsBox,
     drawConnections, updateCounts, setConnType, setRoutingStyle,
     connColor, GRID_SIZE,
     // Render internals, for debugging and for the benchmark harness.

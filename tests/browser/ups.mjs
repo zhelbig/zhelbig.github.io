@@ -1,6 +1,7 @@
 /**
- * Browser checks for UPS-as-a-device: the protects list, the battery tag
- * on protected devices, and migration of UPS zones in older files.
+ * Browser checks for power protection: the Power bubble, the per-device
+ * checkboxes, the glowing battery tag, and migration of the two earlier
+ * shapes this feature had.
  *
  * Not part of `npm test`: needs Playwright.
  *   npm install --no-save playwright && npm run test:ups
@@ -32,139 +33,203 @@ await page.goto(`http://127.0.0.1:${server.address().port}/i-tech-network-mapper
 await page.waitForFunction(() => !!window.mapper);
 await page.evaluate(() => localStorage.clear());
 
-// ── UPS is in the device palette, not the zone palette ──
-check('UPS is offered as a device', await page.evaluate(() =>
-  !!document.querySelector('.device-item[data-type="ups"]')));
-check('UPS is no longer a zone', await page.evaluate(() =>
-  !document.querySelector('.device-item[data-zone="ups"]')));
+// ── The bubble ──
+check('a Power bubble sits in the bottom-left of the canvas', await page.evaluate(() => {
+  const b = document.getElementById('upsBox'), a = document.getElementById('canvasArea');
+  if (!b) return false;
+  const r = b.getBoundingClientRect(), ar = a.getBoundingClientRect();
+  // Left edge hugs the canvas; vertically it sits in the bottom quarter,
+  // raised just enough to clear the zoom controls below it.
+  return r.left - ar.left < 40 && r.bottom > ar.top + ar.height * 0.75;
+}));
+check('it starts empty', await page.evaluate(() =>
+  /None configured/i.test(document.getElementById('upsBoxList').textContent)));
+check('UPS is no longer something you place', await page.evaluate(() =>
+  !document.querySelector('[data-type="ups"]') && !document.querySelector('[data-zone="ups"]')));
 
-// ── Build a UPS plus devices, and protect two of them ──
+// ── Adding a unit ──
+await page.click('#upsBox h4');
+await page.waitForTimeout(150);
+check('clicking the bubble opens the manager', await page.evaluate(() =>
+  document.getElementById('upsConfigModal').classList.contains('active')));
+
+await page.click('#upsConfigModal .add-btn');
+await page.fill('#newUpsName', 'Rack A UPS');
+await page.selectOption('#newUpsMfg', 'APC');
+await page.fill('#newUpsCapacity', '1500');
+await page.fill('#newUpsRuntime', '20');
+await page.click('#upsModal .btn-primary');
+await page.waitForTimeout(200);
+check('the unit is stored', await page.evaluate(() =>
+  mapper.state.upsUnits.length === 1 && mapper.state.upsUnits[0].name === 'Rack A UPS'));
+check('and shows in the bubble', await page.evaluate(() =>
+  /Rack A UPS/.test(document.getElementById('upsBoxList').textContent)));
+
+await page.click('#upsConfigModal .add-btn');
+await page.fill('#newUpsName', 'Rack A UPS');
+await page.click('#upsModal .btn-primary');
+await page.waitForTimeout(200);
+check('a duplicate name is refused with a reason', await page.evaluate(() =>
+  mapper.state.upsUnits.length === 1 &&
+  [...document.querySelectorAll('#toastHost .toast')].some(t => /already exists/i.test(t.textContent))));
+await page.click('#upsModal .modal-close');
+await page.click('#upsConfigModal .modal-footer .btn-primary');
+await page.waitForTimeout(150);
+
+// ── Which types offer the checkbox ──
 await page.evaluate(() => {
-  mapper.createDevice('ups', 4150, 4150);
-  mapper.createDevice('server', 4350, 4150);
-  mapper.createDevice('switch', 4350, 4320);
-  mapper.createDevice('printer', 4550, 4150);
+  ['router','firewall','switch','ap','vmhost','nas','server','printer']
+    .forEach((t,i) => mapper.createDevice(t, 4120 + (i%4)*170, 4120 + Math.floor(i/4)*170));
+  mapper.createZone('nvr', 4120, 4480);
+  mapper.createZone('mdf', 4400, 4480);
   document.getElementById('emptyState').style.display = 'none';
-  mapper.selectDevice(mapper.state.devices[0]);
 });
 await page.waitForTimeout(250);
 
-check('selecting the UPS shows its panel', await page.evaluate(() =>
-  getComputedStyle(document.getElementById('upsSection')).display !== 'none'));
+const offers = await page.evaluate(() => {
+  const out = {};
+  mapper.state.devices.forEach(d => {
+    mapper.selectDevice(d);
+    out[d.type] = getComputedStyle(document.getElementById('powerSection')).display !== 'none';
+  });
+  mapper.state.zones.forEach(z => {
+    mapper.selectZone(z);
+    out[z.type] = getComputedStyle(document.getElementById('zonePowerSection')).display !== 'none';
+  });
+  return out;
+});
+const want = { router:true, firewall:true, switch:true, ap:true, vmhost:true, nas:true, nvr:true,
+               server:false, printer:false, mdf:false };
+const wrong = Object.keys(want).filter(k => offers[k] !== want[k]);
+check('exactly the seven intended types offer the checkbox',
+  wrong.length === 0, wrong.length ? JSON.stringify({wrong, offers}) : '7 of 10');
 
-const listed = await page.evaluate(() =>
-  [...document.querySelectorAll('#upsProtectsList .ups-row-name')].map(e => e.textContent));
-check('the protects list offers every other device, and not itself',
-  listed.length === 3 && !listed.some(n => /UPS/.test(n)), JSON.stringify(listed));
-
-// Tick the first two.
+// ── Ticking puts a glowing battery on the map ──
 await page.evaluate(() => {
-  const boxes = document.querySelectorAll('#upsProtectsList input[type=checkbox]');
-  boxes[0].click(); boxes[1].click();
+  const fw = mapper.state.devices.find(d => d.type === 'firewall');
+  mapper.selectDevice(fw);
+  document.querySelector('#powerList input[type=checkbox]').click();
 });
 await page.waitForTimeout(200);
-
-const protectedState = await page.evaluate(() => {
-  const ups = mapper.state.devices.find(d => d.type === 'ups');
-  return {
-    protects: ups.protects.length,
-    tags: document.querySelectorAll('.power-tag').length,
-    taggedIds: [...document.querySelectorAll('.network-device')]
-      .filter(el => el.querySelector('.power-tag')).map(el => el.id),
-    upsHasTag: !!document.getElementById(ups.id).querySelector('.power-tag')
-  };
-});
-check('ticking two devices records them on the UPS', protectedState.protects === 2, String(protectedState.protects));
-check('each protected device gets a battery tag', protectedState.tags === 2, String(protectedState.tags));
-check('the UPS itself gets no tag', !protectedState.upsHasTag);
-
-const tagLook = await page.evaluate(() => {
-  const t = document.querySelector('.power-tag');
-  const dot = t.closest('.network-device').querySelector('.device-status');
+const tag = await page.evaluate(() => {
+  const fw = mapper.state.devices.find(d => d.type === 'firewall');
+  const el = document.getElementById(fw.id);
+  const t = el.querySelector('.power-tag');
+  if (!t) return null;
+  const dot = el.querySelector('.device-status');
   const tr = t.getBoundingClientRect(), dr = dot.getBoundingClientRect();
+  const cs = getComputedStyle(t);
   return {
-    colour: getComputedStyle(t).color,
-    title: t.title,
-    // sits immediately left of the status dot, roughly level with it
+    assigned: fw.upsIds.length,
+    colour: cs.color,
+    glows: cs.filter !== 'none' && /drop-shadow/.test(cs.filter),
+    animated: cs.animationName !== 'none',
     leftOfDot: tr.right <= dr.left + 2,
-    sameRow: Math.abs(tr.top - dr.top) < 8
+    sameRow: Math.abs(tr.top - dr.top) < 8,
+    title: t.title,
+    onlyOne: document.querySelectorAll('.power-tag').length === 1
   };
 });
-check('the tag is green', /0,\s*197,\s*94|34,\s*197,\s*94/.test(tagLook.colour), tagLook.colour);
-check('the tag sits next to the status dot',
-  tagLook.leftOfDot && tagLook.sameRow, JSON.stringify(tagLook));
-check('the tag names the UPS on hover', /^On /.test(tagLook.title), tagLook.title);
+check('ticking assigns the UPS', tag && tag.assigned === 1);
+check('a battery appears on that device alone', tag && tag.onlyOne);
+check('it is green', tag && /34,\s*197,\s*94/.test(tag.colour), tag && tag.colour);
+check('it glows', tag && tag.glows, tag && tag.glows ? '' : 'no drop-shadow');
+check('it pulses', tag && tag.animated);
+check('it sits beside the status dot', tag && tag.leftOfDot && tag.sameRow, JSON.stringify(tag));
+check('it names the UPS on hover', tag && /Rack A UPS/.test(tag.title), tag && tag.title);
 
-// ── The protected device shows what feeds it ──
+// ── The NVR zone works the same way ──
 await page.evaluate(() => {
-  const ups = mapper.state.devices.find(d => d.type === 'ups');
-  mapper.selectDevice(mapper.state.devices.find(d => d.id === ups.protects[0]));
+  const nvr = mapper.state.zones.find(z => z.type === 'nvr');
+  mapper.selectZone(nvr);
+  document.querySelector('#zonePowerList input[type=checkbox]').click();
 });
 await page.waitForTimeout(200);
-const pb = await page.evaluate(() => ({
-  shown: getComputedStyle(document.getElementById('protectedBySection')).display !== 'none',
-  name: (document.querySelector('#protectedByList .pb-name') || {}).textContent
+check('an NVR zone can be put on a UPS too', await page.evaluate(() => {
+  const nvr = mapper.state.zones.find(z => z.type === 'nvr');
+  return nvr.upsIds.length === 1 && !!document.getElementById(nvr.id).querySelector('.power-tag');
 }));
-check('a protected device lists the UPS feeding it', pb.shown && /UPS/.test(pb.name || ''), JSON.stringify(pb));
 
-const unprotected = await page.evaluate(() => {
-  const ups = mapper.state.devices.find(d => d.type === 'ups');
-  const free = mapper.state.devices.find(d => d.type !== 'ups' && !ups.protects.includes(d.id));
-  mapper.selectDevice(free);
-  return getComputedStyle(document.getElementById('protectedBySection')).display;
-});
-check('an unprotected device shows no power section', unprotected === 'none', unprotected);
+check('the bubble counts what is assigned', await page.evaluate(() =>
+  /2 devices/.test(document.getElementById('upsBoxList').textContent)));
 
-// ── Deleting a protected device cleans the UPS list ──
+// ── Unticking removes it ──
 await page.evaluate(() => {
-  const ups = mapper.state.devices.find(d => d.type === 'ups');
-  mapper.setSelection([ups.protects[0]]);
-  mapper.deleteSelected();
+  const fw = mapper.state.devices.find(d => d.type === 'firewall');
+  mapper.selectDevice(fw);
+  document.querySelector('#powerList input[type=checkbox]').click();
 });
 await page.waitForTimeout(200);
-check('deleting a protected device removes it from the UPS', await page.evaluate(() => {
-  const ups = mapper.state.devices.find(d => d.type === 'ups');
-  return ups.protects.length === 1 &&
-         ups.protects.every(id => mapper.state.devices.some(d => d.id === id));
+check('unticking removes the battery', await page.evaluate(() => {
+  const fw = mapper.state.devices.find(d => d.type === 'firewall');
+  return fw.upsIds.length === 0 && !document.getElementById(fw.id).querySelector('.power-tag');
 }));
 
-// ── An older file with a UPS zone is migrated on load ──
+// ── Deleting a unit clears what referenced it ──
+await page.evaluate(() => {
+  const ap = mapper.state.devices.find(d => d.type === 'ap');
+  mapper.selectDevice(ap);
+  document.querySelector('#powerList input[type=checkbox]').click();
+  mapper.deleteUps(0);
+});
+await page.waitForTimeout(250);
+check('deleting a UPS clears every reference and tag', await page.evaluate(() =>
+  mapper.state.upsUnits.length === 0 &&
+  ![...mapper.state.devices, ...mapper.state.zones].some(o => o.upsIds && o.upsIds.length) &&
+  document.querySelectorAll('.power-tag').length === 0));
+
+// ── Both legacy shapes migrate ──
 const legacy = {
   devices: [
-    { id: 'd1', type: 'server', name: 'DC01', x: 4200, y: 4200, status: 'online' },
-    { id: 'd2', type: 'switch', name: 'SW1',  x: 4260, y: 4320, status: 'online' },
-    { id: 'd3', type: 'printer', name: 'Far', x: 5200, y: 5200, status: 'online' }
+    { id: 'd1', type: 'switch',   name: 'SW1', x: 4200, y: 4200, status: 'online' },
+    { id: 'd2', type: 'firewall', name: 'FW1', x: 5200, y: 5200, status: 'online' },
+    { id: 'u1', type: 'ups', name: 'Device-era UPS', x: 0, y: 0, capacity: '3000', protects: ['d2'] }
   ],
   connections: [],
-  zones: [{ id: 'z1', type: 'ups', name: 'Rack UPS', x: 4150, y: 4150,
-            width: 400, height: 400, manufacturer: 'APC', capacity: '1500', runtime: '20' }],
+  zones: [{ id: 'z1', type: 'ups', name: 'Zone-era UPS', x: 4150, y: 4150,
+            width: 400, height: 400, capacity: '1500' }],
   vlans: [], ssids: [], config: {}
 };
 await page.evaluate(() => { mapper.state.devices = []; mapper.state.zones = []; mapper.deselectAll(); });
 await page.setInputFiles('#jsonFileInput', {
-  name: 'legacy.json', mimeType: 'application/json',
-  buffer: Buffer.from(JSON.stringify(legacy))
+  name: 'legacy.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacy))
 });
-await page.waitForTimeout(500);
+await page.waitForTimeout(600);
 
-const migrated = await page.evaluate(() => {
-  const ups = mapper.state.devices.find(d => d.type === 'ups');
-  return {
-    zonesLeft: mapper.state.zones.length,
-    upsExists: !!ups,
-    name: ups && ups.name,
-    capacity: ups && ups.capacity,
-    protects: ups ? ups.protects.map(id =>
-      (mapper.state.devices.find(d => d.id === id) || {}).name) : [],
-    tags: document.querySelectorAll('.power-tag').length
-  };
-});
-check('a legacy UPS zone becomes a UPS device', migrated.upsExists && migrated.zonesLeft === 0,
-  JSON.stringify(migrated));
-check('its details survive', migrated.name === 'Rack UPS' && migrated.capacity === '1500');
-check('devices that sat inside it are now protected',
-  migrated.protects.sort().join() === 'DC01,SW1', JSON.stringify(migrated.protects));
-check('and they get their battery tags', migrated.tags === 2, String(migrated.tags));
+const after = await page.evaluate(() => ({
+  units: mapper.state.upsUnits.map(u => u.name).sort(),
+  noUpsDevice: !mapper.state.devices.some(d => d.type === 'ups'),
+  noUpsZone: !mapper.state.zones.some(z => z.type === 'ups'),
+  sw: (mapper.state.devices.find(d => d.name === 'SW1') || {}).upsIds,
+  fw: (mapper.state.devices.find(d => d.name === 'FW1') || {}).upsIds,
+  tags: document.querySelectorAll('.power-tag').length
+}));
+check('both legacy shapes become configured units',
+  after.units.join() === 'Device-era UPS,Zone-era UPS' && after.noUpsDevice && after.noUpsZone,
+  JSON.stringify(after.units));
+check('the zone-era assignment survives (it was inside the box)',
+  Array.isArray(after.sw) && after.sw.length === 1, JSON.stringify(after.sw));
+check('the device-era protects list survives',
+  Array.isArray(after.fw) && after.fw.length === 1, JSON.stringify(after.fw));
+check('and both wear their battery', after.tags === 2, String(after.tags));
+
+// ── The bubble must not land on the other floating panels ──
+// It shares the bottom edge with the zoom controls and the connection
+// toolbar, and the canvas narrows as the window does.
+for (const width of [1500, 1280, 1100]) {
+  await page.setViewportSize({ width, height: 900 });
+  await page.waitForTimeout(150);
+  const clash = await page.evaluate(() => {
+    const box = sel => { const e = document.querySelector(sel); if (!e) return null;
+      const b = e.getBoundingClientRect(); return { l:b.left, r:b.right, t:b.top, b:b.bottom }; };
+    const hit = (a, c) => a && c && !(a.r < c.l || c.r < a.l || a.b < c.t || c.b < a.t);
+    const ups = box('.ups-box');
+    return ['.controls', '.conn-toolbar', '.pan-hint', '.network-info-box']
+      .filter(sel => hit(ups, box(sel)));
+  });
+  check(`the bubble is clear of the other panels at ${width}px`,
+    clash.length === 0, clash.join(', '));
+}
 
 check('no JS errors', errs.length === 0, errs.join(' | '));
 await browser.close(); server.close();

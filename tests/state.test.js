@@ -163,86 +163,131 @@ describe('migrateUpsZones', () => {
   const upsZone = (over = {}) => Object.assign({
     id: 'zone1', type: 'ups', name: 'Rack UPS', x: 100, y: 100,
     width: 400, height: 300, manufacturer: 'APC', model: 'Smart-UPS 1500',
-    capacity: '1500', runtime: '15', ip: '192.168.1.100', notes: 'rack A'
+    capacity: '1500', runtime: '15', ip: '192.168.1.100'
   }, over);
   const dev = (id, x, y, type = 'server') => ({ id, type, name: id, x, y });
 
-  it('leaves a file with no UPS zones untouched', () => {
+  it('leaves a current file untouched', () => {
     const data = { devices: [dev('d1', 0, 0)], zones: [{ id: 'z', type: 'mdf', x: 0, y: 0 }] };
     const out = migrateUpsZones(data);
     expect(out.migrated).toBe(0);
+    expect(out.data.upsUnits).toEqual([]);
     expect(out.data.zones).toHaveLength(1);
-    expect(out.data.devices).toHaveLength(1);
   });
 
-  it('turns a UPS zone into a UPS device', () => {
-    const { data, migrated } = migrateUpsZones({ devices: [], zones: [upsZone()] });
-    expect(migrated).toBe(1);
-    expect(data.zones).toHaveLength(0);
-    const ups = data.devices.find(d => d.type === 'ups');
-    expect(ups).toBeTruthy();
-    expect(ups.name).toBe('Rack UPS');
-    expect(ups.x).toBe(100);
-    expect(ups.y).toBe(100);
-  });
-
-  it('carries the UPS details across', () => {
-    const { data } = migrateUpsZones({ devices: [], zones: [upsZone()] });
-    const ups = data.devices[0];
-    expect(ups.manufacturer).toBe('APC');
-    expect(ups.model).toBe('Smart-UPS 1500');
-    expect(ups.capacity).toBe('1500');
-    expect(ups.runtime).toBe('15');
-    expect(ups.ip).toBe('192.168.1.100');
-    expect(ups.notes).toBe('rack A');
-  });
-
-  it('seeds the protects list from whatever sat inside the box', () => {
-    // Drawing the box around things was how the old model expressed this.
-    const devices = [dev('in1', 150, 150), dev('in2', 300, 200), dev('out', 900, 900)];
-    const { data } = migrateUpsZones({ devices, zones: [upsZone()] });
-    const ups = data.devices.find(d => d.type === 'ups');
-    expect(ups.protects).toEqual(['in1', 'in2']);
-  });
-
-  it('never has a migrated UPS protect another UPS', () => {
-    const devices = [dev('other-ups', 150, 150, 'ups'), dev('srv', 200, 200)];
-    const { data } = migrateUpsZones({ devices, zones: [upsZone()] });
-    const ups = data.devices.find(d => d.id !== 'other-ups' && d.type === 'ups');
-    expect(ups.protects).toEqual(['srv']);
-  });
-
-  it('gives each migrated UPS a fresh id that collides with nothing', () => {
-    const { data } = migrateUpsZones({
-      devices: [dev('d1', 0, 0)],
-      zones: [upsZone(), upsZone({ id: 'zone2', name: 'UPS B', x: 900, y: 900 })]
+  describe('from the UPS-as-a-zone era', () => {
+    it('turns the zone into a configured unit', () => {
+      const { data, migrated } = migrateUpsZones({ devices: [], zones: [upsZone()] });
+      expect(migrated).toBe(1);
+      expect(data.zones).toHaveLength(0);
+      expect(data.devices).toHaveLength(0);
+      expect(data.upsUnits).toHaveLength(1);
+      expect(data.upsUnits[0]).toMatchObject({
+        name: 'Rack UPS', manufacturer: 'APC', model: 'Smart-UPS 1500',
+        capacity: '1500', runtime: '15', ip: '192.168.1.100'
+      });
     });
-    const ids = data.devices.map(d => d.id);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).not.toContain('zone1');
-  });
 
-  it('keeps non-UPS zones', () => {
-    const { data } = migrateUpsZones({
-      devices: [],
-      zones: [upsZone(), { id: 'z2', type: 'mdf', name: 'MDF', x: 0, y: 0 }]
+    it('assigns whatever sat inside the box', () => {
+      // Drawing the box around things was how that model expressed this.
+      const devices = [dev('in1', 150, 150), dev('in2', 300, 200), dev('out', 900, 900)];
+      const { data } = migrateUpsZones({ devices, zones: [upsZone()] });
+      const id = data.upsUnits[0].id;
+      expect(data.devices.find(d => d.id === 'in1').upsIds).toEqual([id]);
+      expect(data.devices.find(d => d.id === 'in2').upsIds).toEqual([id]);
+      expect(data.devices.find(d => d.id === 'out').upsIds).toBeUndefined();
     });
-    expect(data.zones.map(z => z.type)).toEqual(['mdf']);
+
+    it('keeps other zones', () => {
+      const { data } = migrateUpsZones({
+        devices: [], zones: [upsZone(), { id: 'z2', type: 'mdf', name: 'MDF', x: 0, y: 0 }]
+      });
+      expect(data.zones.map(z => z.type)).toEqual(['mdf']);
+    });
   });
 
-  it('survives a zone with no dimensions or a file with no devices array', () => {
-    expect(() => migrateUpsZones({ zones: [{ id: 'z', type: 'ups', x: 0, y: 0 }] })).not.toThrow();
-    const { data } = migrateUpsZones({ zones: [{ id: 'z', type: 'ups', name: '', x: 0, y: 0 }] });
-    expect(data.devices[0].protects).toEqual([]);
-    expect(data.devices[0].name).toBe('UPS');
+  describe('from the UPS-as-a-device era', () => {
+    const upsDevice = (over = {}) => Object.assign({
+      id: 'u1', type: 'ups', name: 'Rack UPS', x: 0, y: 0,
+      manufacturer: 'Eaton', capacity: '3000', runtime: '30',
+      protects: ['d1', 'd2']
+    }, over);
+
+    it('turns the device into a configured unit', () => {
+      const data = { devices: [dev('d1', 0, 0), dev('d2', 0, 0), upsDevice()], zones: [] };
+      const out = migrateUpsZones(data);
+      expect(out.migrated).toBe(1);
+      expect(out.data.devices.some(d => d.type === 'ups')).toBe(false);
+      expect(out.data.upsUnits[0]).toMatchObject({ name: 'Rack UPS', capacity: '3000' });
+    });
+
+    it('carries the protects list across as assignments', () => {
+      const data = { devices: [dev('d1', 0, 0), dev('d2', 0, 0), dev('d3', 0, 0), upsDevice()], zones: [] };
+      const { data: out } = migrateUpsZones(data);
+      const id = out.upsUnits[0].id;
+      expect(out.devices.find(d => d.id === 'd1').upsIds).toEqual([id]);
+      expect(out.devices.find(d => d.id === 'd2').upsIds).toEqual([id]);
+      expect(out.devices.find(d => d.id === 'd3').upsIds).toBeUndefined();
+    });
+
+    it('can assign a zone, since an NVR is one', () => {
+      const data = {
+        devices: [upsDevice({ protects: ['nvr1'] })],
+        zones: [{ id: 'nvr1', type: 'nvr', name: 'NVR', x: 0, y: 0 }]
+      };
+      const { data: out } = migrateUpsZones(data);
+      expect(out.zones[0].upsIds).toEqual([out.upsUnits[0].id]);
+    });
+
+    it('ignores ids that no longer exist', () => {
+      const data = { devices: [upsDevice({ protects: ['ghost'] })], zones: [] };
+      expect(() => migrateUpsZones(data)).not.toThrow();
+      expect(migrateUpsZones({ devices: [], zones: [] }).migrated).toBe(0);
+    });
   });
 
-  it('produces a device that serializes like any other', () => {
-    const { data } = migrateUpsZones({ devices: [], zones: [upsZone()] });
-    const state = createInitialState();
-    state.devices = data.devices;
-    const round = applySnapshot(createInitialState(), serializeState(state));
-    expect(round.devices[0].protects).toEqual([]);
-    expect(round.devices[0].type).toBe('ups');
+  it('handles a file carrying both eras at once', () => {
+    const data = {
+      devices: [dev('in', 150, 150), dev('fed', 900, 900),
+                { id: 'u1', type: 'ups', name: 'Device UPS', protects: ['fed'], x: 0, y: 0 }],
+      zones: [upsZone()]
+    };
+    const { data: out, migrated } = migrateUpsZones(data);
+    expect(migrated).toBe(2);
+    expect(out.upsUnits.map(u => u.name).sort()).toEqual(['Device UPS', 'Rack UPS']);
+    expect(out.devices.find(d => d.id === 'in').upsIds).toHaveLength(1);
+    expect(out.devices.find(d => d.id === 'fed').upsIds).toHaveLength(1);
+  });
+
+  it('never assigns the same unit twice', () => {
+    const data = {
+      devices: [dev('in', 150, 150),
+                { id: 'u1', type: 'ups', name: 'D', protects: ['in', 'in'], x: 0, y: 0 }],
+      zones: []
+    };
+    const { data: out } = migrateUpsZones(data);
+    expect(out.devices.find(d => d.id === 'in').upsIds).toHaveLength(1);
+  });
+
+  it('gives every unit a distinct id', () => {
+    const { data } = migrateUpsZones({
+      devices: [], zones: [upsZone(), upsZone({ id: 'z2', name: 'B', x: 900, y: 900 })]
+    });
+    expect(new Set(data.upsUnits.map(u => u.id)).size).toBe(2);
+  });
+
+  it('tolerates a file with no arrays at all', () => {
+    expect(() => migrateUpsZones({})).not.toThrow();
+    expect(migrateUpsZones({}).data.upsUnits).toEqual([]);
+  });
+
+  it('produces state that round-trips through a snapshot', () => {
+    const { data } = migrateUpsZones({ devices: [dev('in', 150, 150)], zones: [upsZone()] });
+    const st = createInitialState();
+    st.devices = data.devices;
+    st.upsUnits = data.upsUnits;
+    const round = applySnapshot(createInitialState(), serializeState(st));
+    expect(round.upsUnits).toHaveLength(1);
+    expect(round.devices[0].upsIds).toEqual([data.upsUnits[0].id]);
   });
 });
