@@ -29,6 +29,8 @@ import { mountChrome } from './ui/layout.js';
 import { createSceneIndex } from './core/indexes.js';
 import { createFrameScheduler } from './render/scheduler.js';
 import { createConnectionLayer } from './render/connection-layer.js';
+import { createToaster } from './ui/toast.js';
+import { createAutosave, autosaveKey, hasContent, describeAge } from './io/persist.js';
 
 // The chrome is injected before anything else runs: the element lookups
 // further down this file, and every getElementById inside the handlers,
@@ -43,6 +45,7 @@ function getStateSnapshot() {
 }
 
 function pushSnapshot(snap) {
+    scheduleAutosave();
     history.push(snap);
     updateUndoRedoBtns();
 }
@@ -87,18 +90,9 @@ function pushUndoForGeometryChange(revert, reapply) {
 }
 
 function restoreSnapshot(snapshot) {
+    scheduleAutosave();
     applySnapshot(state, snapshot);
-    deselectAll();
-    document.querySelectorAll('.network-device').forEach(el => el.remove());
-    document.querySelectorAll('.network-zone').forEach(el => el.remove());
-    state.devices.forEach(d => renderDevice(d));
-    state.zones.forEach(z => renderZone(z));
-    drawConnections();
-    updateVlanSelect();
-    updateNetworkInfoBox();
-    updateCounts();
-    document.getElementById('emptyState').style.display =
-        (state.devices.length === 0 && state.zones.length === 0) ? 'block' : 'none';
+    rerenderEverything();
 }
 
 function undo() {
@@ -134,6 +128,95 @@ const connHint = document.getElementById('connHint');
 const sceneIndex = createSceneIndex();
 const scheduler = createFrameScheduler();
 const connLayer = createConnectionLayer(svg);
+const toast = createToaster(document.getElementById('toastHost'));
+
+/**
+ * Autosave. Keyed per shell so the two mappers never overwrite each other,
+ * and wrapped so a browser with storage disabled simply does without.
+ */
+const SHELL_ID = document.documentElement.dataset.shell
+    || location.pathname.split('/').pop().replace(/\.html$/, '')
+    || 'mapper';
+
+let storageBackend = null;
+try {
+    // Touching localStorage throws outright in some privacy modes.
+    localStorage.setItem('netmapper:probe', '1');
+    localStorage.removeItem('netmapper:probe');
+    storageBackend = localStorage;
+} catch (err) {
+    storageBackend = null;
+}
+
+const autosave = createAutosave({ storage: storageBackend, key: autosaveKey(SHELL_ID) });
+
+const AUTOSAVE_DEBOUNCE_MS = 1200;
+let autosaveTimer = null;
+let autosaveWarned = false;
+/** Changes made since the last explicit save-to-file. */
+let unsavedSinceExport = false;
+
+function scheduleAutosave() {
+    unsavedSinceExport = true;
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(writeAutosave, AUTOSAVE_DEBOUNCE_MS);
+}
+
+function writeAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+    const result = autosave.write(serializeState(state), {
+        client: document.getElementById('clientName')?.value || '',
+        site: document.getElementById('siteName')?.value || ''
+    });
+    // Say so once, rather than on every keystroke, and never block.
+    if (!result.ok && !autosaveWarned && result.reason !== 'unavailable') {
+        autosaveWarned = true;
+        toast.show(
+            result.reason === 'too-large'
+                ? 'This diagram is too large to autosave. Use Save Project to keep a copy.'
+                : 'Autosave is unavailable in this browser. Use Save Project to keep a copy.',
+            { type: 'warn', duration: 9000 }
+        );
+    }
+}
+
+function offerAutosaveRestore() {
+    const found = autosave.read();
+    if (!found.ok || !hasContent(found.stateJson)) return;
+    // Offered, not applied: silently replacing a deliberate fresh start
+    // would be worse than the problem it solves.
+    toast.show('Unsaved work from ' + describeAge(found.savedAt) + ' was found.', {
+        type: 'info',
+        duration: 0,
+        action: {
+            label: 'Restore',
+            onClick: () => {
+                saveState();
+                applySnapshot(state, found.stateJson);
+                if (found.meta.client) document.getElementById('clientName').value = found.meta.client;
+                if (found.meta.site) document.getElementById('siteName').value = found.meta.site;
+                rerenderEverything();
+                toast.show('Restored.', { type: 'success' });
+            }
+        }
+    });
+}
+
+/** Tear down and rebuild every rendered object from state. */
+function rerenderEverything() {
+    deselectAll();
+    document.querySelectorAll('.network-device').forEach(el => el.remove());
+    document.querySelectorAll('.network-zone').forEach(el => el.remove());
+    state.devices.forEach(d => renderDevice(d));
+    state.zones.forEach(z => renderZone(z));
+    drawConnections();
+    updateVlanSelect();
+    updateNetworkInfoBox();
+    updateCounts();
+    document.getElementById('emptyState').style.display =
+        (state.devices.length === 0 && state.zones.length === 0) ? 'block' : 'none';
+}
 
 /**
  * One listener for the whole layer, instead of three per connection
@@ -484,6 +567,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', e => {
         const inTextEntry = isTextEntry(e.target);
 
+        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+            e.preventDefault();
+            exportJson();
+            return;
+        }
+
         if (e.key === 'Escape') {
             // Inside a field, Escape just leaves the field.
             if (inTextEntry) { e.target.blur(); return; }
@@ -511,6 +600,19 @@ document.addEventListener('DOMContentLoaded', function() {
     updateVlanSelect();
     updateNetworkInfoBox();
     applyTransform();
+    offerAutosaveRestore();
+
+    // Autosave is debounced, so a close mid-debounce would lose the tail.
+    window.addEventListener('pagehide', () => {
+        if (autosaveTimer) writeAutosave();
+    });
+
+    window.addEventListener('beforeunload', e => {
+        const hasWork = state.devices.length > 0 || state.zones.length > 0;
+        if (!hasWork || !unsavedSinceExport) return;
+        e.preventDefault();
+        e.returnValue = '';   // required for the browser's own prompt
+    });
 });
 
 function setConnType(type) {
@@ -766,7 +868,7 @@ function renderDevice(d) {
 
     el.innerHTML = '<div class="device-status status-' + d.status + '"></div>' +
         '<div class="' + iconClass + '">' + iconContent + '</div>' +
-        '<div class="device-name">' + d.name + '</div>' +
+        '<div class="device-name"></div>' +
         '<div class="device-ip">' + (d.ip || 'No IP') + '</div>' +
         '<div class="device-badge">' + cfg.name + '</div>' +
         (d.type === 'vmhost' ? '<div class="vm-list" id="vms' + d.id + '"></div>' : '') +
@@ -826,6 +928,10 @@ function renderDevice(d) {
             drawConnectionsWithDrag();
         });
     });
+
+    // Device names are user input; setting them as text keeps a stray '<'
+    // from rewriting the card.
+    el.querySelector('.device-name').textContent = d.name;
 
     canvas.appendChild(el);
     // The element was just replaced, so any cached box size is stale.
@@ -894,10 +1000,14 @@ function renderZone(z) {
     const iconStyle = cfg.textIcon ? 'font-size:0.6rem;font-weight:bold;letter-spacing:-1px;color:' + (cfg.iconColor || 'inherit') + ';' : '';
     el.innerHTML = '<div class="zone-header">' +
         '<span class="zone-icon" style="' + iconStyle + '">' + cfg.icon + '</span>' +
-        '<span class="zone-name">' + z.name + '</span>' +
+        '<span class="zone-name"></span>' +
         '<span class="zone-badge">' + cfg.name + '</span>' +
         '</div>' +
         '<div class="zone-resize">⤡</div>';
+
+    // Zone names are user input; set as text so a stray '<' cannot
+    // rewrite the header.
+    el.querySelector('.zone-name').textContent = z.name;
 
     // Zone header drag
     const header = el.querySelector('.zone-header');
@@ -1541,6 +1651,9 @@ function renderSSIDList() {
 function deleteSSID(index) {
     if (!state.ssids[index]) return;
     const ssidName = state.ssids[index].name;
+    const aps = state.devices.filter(d => d.type === 'ap' && d.ssids && d.ssids.includes(ssidName)).length;
+    const detail = aps ? ' It is broadcast by ' + formatCount(aps, 'access point') + '.' : '';
+    if (!confirm('Delete SSID \u201c' + ssidName + '\u201d?' + detail)) return;
     saveState();
     state.ssids.splice(index, 1);
     // Remove this SSID from all access points
@@ -1557,10 +1670,14 @@ function saveSSID() {
     const security = document.getElementById('newSSIDSecurity').value;
     const vlan = document.getElementById('newSSIDVlan').value;
 
-    if (name) {
+    if (!name) {
+        toast.show('Give the SSID a name.', { type: 'warn' });
+        return;
+    }
+    {
         // Check for duplicate
         if (state.ssids.some(s => s.name === name)) {
-            alert('An SSID with this name already exists.');
+            toast.show('An SSID named \u201c' + name + '\u201d already exists.', { type: 'warn' });
             return;
         }
         saveState();
@@ -1576,6 +1693,9 @@ function saveSSID() {
 function deleteVlan(index) {
     const vlan = state.vlans[index];
     if (!vlan) return;
+    const users = state.devices.filter(d => String(d.vlan) === String(vlan.id)).length;
+    const detail = users ? ' It is assigned to ' + formatCount(users, 'device') + '.' : '';
+    if (!confirm('Delete VLAN ' + vlan.id + ' (' + vlan.name + ')?' + detail)) return;
     saveState();
     state.vlans.splice(index, 1);
     // Clear references, or devices keep pointing at a VLAN that is gone.
@@ -1601,7 +1721,19 @@ function saveVlan() {
     const name = document.getElementById('newVlanName').value;
     const subnet = document.getElementById('newVlanSubnet').value;
     const gateway = document.getElementById('newVlanGateway').value;
-    if (id && name && subnet) {
+    if (!id || !name || !subnet) {
+        toast.show('A VLAN needs an ID, a name and a subnet.', { type: 'warn' });
+        return;
+    }
+    if (state.vlans.some(v => v.id === id)) {
+        toast.show('VLAN ' + id + ' already exists.', { type: 'warn' });
+        return;
+    }
+    if (id < 1 || id > 4094) {
+        toast.show('VLAN IDs run from 1 to 4094.', { type: 'warn' });
+        return;
+    }
+    {
         saveState();
         state.vlans.push({ id, name, subnet, gateway });
         renderVlanList();
@@ -1650,7 +1782,11 @@ function saveVM() {
     if (!state.selected || state.selected.type !== 'vmhost') return;
     const name = document.getElementById('newVMName').value;
     const status = document.getElementById('newVMStatus').value;
-    if (name) {
+    if (!name) {
+        toast.show('Give the VM a name.', { type: 'warn' });
+        return;
+    }
+    {
         saveState();
         state.selected.vms.push({ name, status });
         renderVMsOnDevice(state.selected);
@@ -1732,7 +1868,7 @@ function generatePDF() {
     closeModal('exportModal');
 
     if (state.devices.length === 0 && state.zones.length === 0) {
-        alert('No devices or zones to export. Add some first.');
+        toast.show('Nothing to export yet \u2014 add a device or a zone first.', { type: 'warn' });
         return;
     }
 
@@ -1843,6 +1979,7 @@ function generatePDF() {
     tempContainer.appendChild(wrapper);
 
     const exportScale = safeExportScale(contentWidth, contentHeight);
+    const progress = toast.progress('Generating PDF');
 
     loadExportLibs().then(() => html2canvas(wrapper, {
         backgroundColor: '#ffffff',
@@ -2459,9 +2596,10 @@ function generatePDF() {
         }
 
         pdf.save(title.toLowerCase().replace(/\s+/g, '-') + '-' + new Date().toISOString().split('T')[0] + '.pdf');
+        progress.done('PDF exported.');
     }).catch(err => {
         console.error('PDF export error:', err);
-        alert('PDF export failed: ' + err.message);
+        progress.fail('PDF export failed: ' + err.message);
     }).finally(() => {
         // The offscreen container holds a full clone of the diagram. It was
         // only removed on success, so every failed export leaked one - and a
@@ -2490,12 +2628,14 @@ function exportJson() {
     a.href = URL.createObjectURL(blob);
     a.download = 'network-project-' + new Date().toISOString().split('T')[0] + '.json';
     a.click();
+    unsavedSinceExport = false;
+    toast.show('Project saved to your downloads.', { type: 'success' });
 }
 
 function exportCSV() {
     closeModal('saveProjectModal');
     if (state.devices.length === 0) {
-        alert('No devices to export.');
+        toast.show('No devices to export.', { type: 'warn' });
         return;
     }
 
@@ -2539,6 +2679,7 @@ function exportCSV() {
     a.href = URL.createObjectURL(blob);
     a.download = 'network-devices-' + new Date().toISOString().split('T')[0] + '.csv';
     a.click();
+    toast.show('Device list exported as CSV.', { type: 'success' });
 }
 
 function handleJsonLoad(event) {
@@ -2592,7 +2733,7 @@ function handleJsonLoad(event) {
             document.getElementById('emptyState').style.display =
                 (state.devices.length > 0 || state.zones.length > 0) ? 'none' : 'block';
         } catch (err) {
-            alert('Error loading project: ' + err.message);
+            toast.show('Could not read that project file: ' + err.message, { type: 'error' });
         } finally {
             // Always clear, so re-selecting the same filename still fires change.
             document.getElementById('jsonFileInput').value = '';
@@ -2703,13 +2844,13 @@ function handleCSVUpload(event) {
         pendingCSVData = parsed.rows;
 
         if (parsed.headers.length === 0) {
-            alert('CSV file must have at least a header row and one data row.');
+            toast.show('That CSV needs a header row and at least one data row.', { type: 'warn' });
             event.target.value = '';
             return;
         }
 
         if (pendingCSVData.length === 0) {
-            alert('No valid devices found in CSV. Make sure the Type column contains valid device types.');
+            toast.show('No usable rows \u2014 check that the Type column holds known device types.', { type: 'warn' });
             event.target.value = '';
             return;
         }
@@ -2807,7 +2948,7 @@ function importCSVDevices() {
     // Center view on new devices
     resetView();
 
-    alert('Successfully imported ' + importedCount + ' device(s)!');
+    toast.show('Imported ' + formatCount(importedCount, 'device') + '.', { type: 'success' });
 }
 
 function cancelCSVImport() {

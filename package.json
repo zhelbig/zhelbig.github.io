@@ -5,7 +5,8 @@
   "scripts": {
     "test": "vitest run",
     "test:browser": "node tests/browser/smoke.mjs",
-    "test:render": "node tests/browser/render.mjs"
+    "test:render": "node tests/browser/render.mjs",
+    "test:ux": "node tests/browser/ux.mjs"
   },
   "repository": {
     "type": "git",

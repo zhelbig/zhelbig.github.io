@@ -265,3 +265,20 @@ body.has-site-nav .app{height:calc(100vh - 60px);margin-top:60px}
 #connections.erasing .conn:hover .conn-vpn{stroke:var(--red-soft);stroke-width:3}
 #connections.route-edit .conn[data-ortho="1"] .conn-hit{pointer-events:stroke;cursor:pointer}
 .conn.editing .conn-wired,.conn.editing .conn-wireless,.conn.editing .conn-vpn{stroke-dasharray:6,3;stroke-width:2.5}
+
+/* Toasts. Stacked bottom-centre, above the floating canvas controls. */
+#toastHost{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column-reverse;gap:8px;z-index:2000;pointer-events:none;width:min(440px,calc(100vw - 32px))}
+.toast{pointer-events:auto;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(var(--darker-rgb),0.97);border:1px solid var(--glass-border);border-left:3px solid var(--text-muted);color:var(--text);font-size:0.78rem;box-shadow:0 6px 24px rgba(0,0,0,0.35);opacity:1;transform:translateY(0);transition:opacity 0.25s ease,transform 0.25s ease}
+.toast.leaving{opacity:0;transform:translateY(8px)}
+.toast-text{flex:1;line-height:1.45;word-break:break-word}
+.toast-success{border-left-color:var(--green)}
+.toast-warn{border-left-color:var(--yellow)}
+.toast-error{border-left-color:var(--red-soft)}
+.toast-info{border-left-color:var(--primary)}
+.toast-action{background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;color:var(--text);cursor:pointer;font-family:var(--font-body);font-size:0.72rem;font-weight:600;padding:5px 10px;white-space:nowrap;transition:border-color 0.2s,background 0.2s}
+.toast-action:hover{border-color:var(--primary);background:rgba(var(--primary-rgb),0.12)}
+.toast-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+.toast-close:hover{color:var(--text)}
+.toast-progress .toast-text::after{content:'';display:inline-block;width:10px;text-align:left;animation:toastDots 1.2s steps(4,end) infinite}
+@keyframes toastDots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}.toast-progress .toast-text::after{animation:none;content:'...'}}

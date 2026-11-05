@@ -528,6 +528,7 @@ const CHROME = `    <div class="grid-bg"></div>
             </div>
         </div>
     </div>
+    <div id="toastHost" aria-live="polite" aria-atomic="false"></div>
 `;
 
 /** Fallback used when a shell declares no <template id="brand-logo">. */
