@@ -791,51 +791,36 @@
             </div>
         </div>
     </div>
-    <script>
-        const state = {
-            devices: [],
-            connections: [],
-            zones: [],
-            vlans: [
-                { id: 1, name: 'Default', subnet: '192.168.1.0/24', gateway: '192.168.1.1' },
-                { id: 10, name: 'Management', subnet: '192.168.10.0/24', gateway: '192.168.10.1' },
-                { id: 20, name: 'Servers', subnet: '192.168.20.0/24', gateway: '192.168.20.1' }
-            ],
-            ssids: [],
-            config: { dnsProvider: 'DNS Filter', dnsServer: '', dnsPrimary: '8.8.8.8', dnsSecondary: '8.8.4.4', dhcpType: 'Router', dhcpDevice: '' },
-            selected: null,
-            selectedZone: null,
-            connType: 'wired',
-            routingStyle: 'curved',
-            connecting: null,
-            zoom: 1,
-            panX: 0,
-            panY: 0,
-            counter: 0,
-            zoneCounter: 0
-        };
+    <script type="module">
+        import {
+            createInitialState, serializeState, applySnapshot,
+            highestNameIndex, resolveCounters
+        } from './js/core/state.js';
+        import { createHistory } from './js/core/history.js';
+        import {
+            types, zoneTypes, manufacturers, operatingSystems,
+            svgDefs, getSvgIcon, getSvgIconSidebar
+        } from './js/core/types.js';
+        import { themeColor, connColor, CONN_COLORS } from './js/core/theme.js';
+        import {
+            DEFAULT_GRID_SIZE, CANVAS_ORIGIN, snapValue, connectionPoint,
+            buildConnPath, buildOrthoPath, buildOrthoPathFromWaypoints,
+            getDefaultWaypoints, nearestEdge, clampZoom, zoomPan,
+            dropPosition, boundingBox, formatCount
+        } from './js/geometry/geometry.js';
+        import {
+            parseCSVLine, escapeCSVCell, parseCSVContent, normalizeStatus
+        } from './js/io/csv.js';
 
-        const undoStack = [];
-        const redoStack = [];
-        const MAX_UNDO = 50;
+        const state = createInitialState();
+        const history = createHistory();
 
         function getStateSnapshot() {
-            return JSON.stringify({
-                devices: state.devices,
-                connections: state.connections,
-                zones: state.zones,
-                vlans: state.vlans,
-                ssids: state.ssids,
-                config: state.config,
-                counter: state.counter,
-                zoneCounter: state.zoneCounter
-            });
+            return serializeState(state);
         }
 
         function pushSnapshot(snap) {
-            undoStack.push(snap);
-            if (undoStack.length > MAX_UNDO) undoStack.shift();
-            redoStack.length = 0;
+            history.push(snap);
             updateUndoRedoBtns();
         }
 
@@ -879,15 +864,7 @@
         }
 
         function restoreSnapshot(snapshot) {
-            const data = JSON.parse(snapshot);
-            state.devices = data.devices;
-            state.connections = data.connections;
-            state.zones = data.zones;
-            state.vlans = data.vlans;
-            state.ssids = data.ssids;
-            state.config = data.config;
-            state.counter = data.counter;
-            state.zoneCounter = data.zoneCounter;
+            applySnapshot(state, snapshot);
             deselectAll();
             document.querySelectorAll('.network-device').forEach(el => el.remove());
             document.querySelectorAll('.network-zone').forEach(el => el.remove());
@@ -903,143 +880,26 @@
 
         function undo() {
             commitPendingSnapshot();
-            if (undoStack.length === 0) return;
-            redoStack.push(getStateSnapshot());
-            restoreSnapshot(undoStack.pop());
+            const snap = history.undo(getStateSnapshot());
+            if (snap === null) return;
+            restoreSnapshot(snap);
             updateUndoRedoBtns();
         }
 
         function redo() {
             commitPendingSnapshot();
-            if (redoStack.length === 0) return;
-            undoStack.push(getStateSnapshot());
-            restoreSnapshot(redoStack.pop());
+            const snap = history.redo(getStateSnapshot());
+            if (snap === null) return;
+            restoreSnapshot(snap);
             updateUndoRedoBtns();
         }
 
         function updateUndoRedoBtns() {
             const undoBtn = document.getElementById('undoBtn');
             const redoBtn = document.getElementById('redoBtn');
-            if (undoBtn) undoBtn.disabled = undoStack.length === 0;
-            if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+            if (undoBtn) undoBtn.disabled = !history.canUndo();
+            if (redoBtn) redoBtn.disabled = !history.canRedo();
         }
-
-        const zoneTypes = {
-            cloud: { name: 'Cloud', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a4 4 0 00-7.5-2A5 5 0 105 14h13a3 3 0 000-6z"/></svg>', color: '#3b82f6' },
-            onprem: { name: 'On-Prem', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="10" y1="4" x2="10" y2="20"/><line x1="4" y1="15" x2="10" y2="15"/></svg>', color: '#8b5cf6' },
-            mdf: { name: 'MDF', icon: '', color: '#22c55e' },
-            idf: { name: 'IDF', icon: '', color: '#f97316' },
-            ups: { name: 'UPS', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="18" rx="2"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/><path d="M13 10l-2 4h3l-2 4"/></svg>', color: '#eab308' },
-            nvr: { name: 'NVR', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><line x1="14" y1="9" x2="20" y2="9"/><line x1="14" y1="12" x2="20" y2="12"/><line x1="14" y1="15" x2="20" y2="15"/></svg>', color: '#ef4444' }
-        };
-
-        const types = {
-            desktop: { name: 'Desktop', icon: 'svg-desktop', svgIcon: true },
-            laptop: { name: 'Laptop', icon: 'svg-laptop', svgIcon: true },
-            cellphone: { name: 'Cell Phone', icon: 'svg-cellphone', svgIcon: true },
-            tablet: { name: 'Tablet', icon: 'svg-tablet', svgIcon: true },
-            otherendpoint: { name: 'Other Endpoint', icon: 'svg-other', svgIcon: true },
-            server: { name: 'Server', icon: 'svg-server', svgIcon: true },
-            nas: { name: 'NAS', icon: 'svg-nas', svgIcon: true },
-            router: { name: 'Router', icon: 'svg-router', svgIcon: true },
-            switch: { name: 'Switch', icon: 'svg-switch', svgIcon: true },
-            firewall: { name: 'Firewall', icon: 'svg-firewall', svgIcon: true },
-            ap: { name: 'Access Point', icon: 'svg-ap', svgIcon: true },
-            vmhost: { name: 'VM Host', icon: 'svg-vmhost', svgIcon: true },
-            vm: { name: 'VM', icon: 'svg-vm', svgIcon: true },
-            storage: { name: 'Storage', icon: 'svg-storage', svgIcon: true },
-            printer: { name: 'Printer', icon: 'svg-printer', svgIcon: true },
-            iot: { name: 'IoT', icon: 'svg-iot', svgIcon: true },
-            phone: { name: 'Desk Phone', icon: 'svg-phone', svgIcon: true },
-            camera: { name: 'Security Camera', icon: 'svg-camera', svgIcon: true },
-            vpn: { name: 'VPN', icon: 'svg-vpn', svgIcon: true }
-        };
-
-        const manufacturers = {
-            desktop: ['Dell', 'HP', 'Lenovo', 'Apple', 'Asus', 'Acer', 'Microsoft', 'Intel NUC', 'Custom Build', 'Other'],
-            laptop: ['Dell', 'HP', 'Lenovo', 'Apple', 'Asus', 'Acer', 'Microsoft', 'Samsung', 'MSI', 'Razer', 'Framework', 'Other'],
-            cellphone: ['Apple', 'Samsung', 'Google', 'OnePlus', 'Motorola', 'LG', 'Xiaomi', 'Huawei', 'Sony', 'Nokia', 'Other'],
-            tablet: ['Apple', 'Samsung', 'Microsoft', 'Lenovo', 'Amazon', 'Google', 'Huawei', 'Asus', 'Other'],
-            printer: ['HP', 'Canon', 'Epson', 'Brother', 'Xerox', 'Lexmark', 'Ricoh', 'Kyocera', 'Dell', 'Samsung', 'Konica Minolta', 'Other'],
-            otherendpoint: ['Generic', 'Custom', 'Other'],
-            server: ['Dell', 'HP/HPE', 'Lenovo', 'Supermicro', 'Cisco', 'IBM', 'Fujitsu', 'Intel', 'Custom Build', 'Other'],
-            vm: ['VMware', 'Hyper-V', 'Proxmox', 'KVM', 'VirtualBox', 'Xen', 'Other']
-        };
-
-        const _desktopOS = ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'];
-        const operatingSystems = {
-            desktop: _desktopOS,
-            laptop: _desktopOS,
-            cellphone: ['iOS 17', 'iOS 16', 'iOS 15', 'Android 14', 'Android 13', 'Android 12', 'Android 11', 'Android 10', 'Other'],
-            tablet: ['iPadOS 17', 'iPadOS 16', 'iPadOS 15', 'Android 14', 'Android 13', 'Android 12', 'Windows 11', 'Windows 10', 'Fire OS', 'Chrome OS', 'Other'],
-            otherendpoint: ['Windows', 'macOS', 'Linux', 'Android', 'iOS', 'Embedded', 'Proprietary', 'Other'],
-            server: ['Windows Server 2022', 'Windows Server 2019', 'Windows Server 2016', 'Windows Server 2012 R2', 'Ubuntu Server 24.04', 'Ubuntu Server 22.04', 'Ubuntu Server 20.04', 'RHEL 9', 'RHEL 8', 'CentOS Stream 9', 'Rocky Linux 9', 'AlmaLinux 9', 'Debian 12', 'Debian 11', 'SUSE Linux Enterprise', 'VMware ESXi', 'Proxmox VE', 'Other'],
-            vm: ['Windows Server 2022', 'Windows Server 2019', 'Windows Server 2016', 'Windows 11', 'Windows 10', 'Ubuntu Server 24.04', 'Ubuntu Server 22.04', 'Ubuntu 24.04', 'Ubuntu 22.04', 'RHEL 9', 'RHEL 8', 'CentOS Stream 9', 'Rocky Linux 9', 'AlmaLinux 9', 'Debian 12', 'Debian 11', 'Other Linux', 'Other']
-        };
-
-        // SVG icon definitions - clean line-art style
-        const svgDefs = {
-            'svg-desktop': '<rect x="4" y="3" width="16" height="12" rx="1.5"/><line x1="8" y1="19" x2="16" y2="19"/><line x1="12" y1="15" x2="12" y2="19"/>',
-            'svg-laptop': '<path d="M4 6a1 1 0 011-1h14a1 1 0 011 1v9H4V6z"/><path d="M2 17h20l-1.5 2H3.5L2 17z"/>',
-            'svg-cellphone': '<rect x="7" y="2" width="10" height="20" rx="2"/><line x1="10" y1="18" x2="14" y2="18"/>',
-            'svg-tablet': '<rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="19" r="1"/>',
-            'svg-other': '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16" r="0.8" fill="currentStroke"/>',
-            'svg-server': '<rect x="4" y="2" width="16" height="6" rx="1.5"/><rect x="4" y="10" width="16" height="6" rx="1.5"/><circle cx="7" cy="5" r="1" fill="currentStroke"/><circle cx="7" cy="13" r="1" fill="currentStroke"/><line x1="14" y1="5" x2="18" y2="5"/><line x1="14" y1="13" x2="18" y2="13"/><line x1="12" y1="18" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/>',
-            'svg-nas': '<rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/><circle cx="17" cy="7.5" r="1" fill="currentStroke"/><circle cx="17" cy="12.5" r="1" fill="currentStroke"/><circle cx="17" cy="17.5" r="1" fill="currentStroke"/>',
-            'svg-router': '<rect x="3" y="10" width="18" height="8" rx="2"/><circle cx="7" cy="14" r="1" fill="currentStroke"/><line x1="12" y1="14" x2="19" y2="14"/><line x1="8" y1="4" x2="8" y2="10"/><line x1="16" y1="6" x2="16" y2="10"/><circle cx="8" cy="3" r="1.5"/><circle cx="16" cy="5" r="1.5"/>',
-            'svg-switch': '<rect x="2" y="7" width="20" height="10" rx="2"/><line x1="5" y1="11" x2="5" y2="14"/><line x1="7.5" y1="11" x2="7.5" y2="14"/><line x1="10" y1="11" x2="10" y2="14"/><line x1="12.5" y1="11" x2="12.5" y2="14"/><line x1="15" y1="11" x2="15" y2="14"/><line x1="17.5" y1="11" x2="17.5" y2="14"/><circle cx="20" cy="9.5" r="0.8" fill="currentStroke"/>',
-            'svg-firewall': '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><path d="M9 9v11"/><path d="M15 4v5"/><circle cx="6" cy="6.5" r="1" fill="currentStroke"/><line x1="12" y1="13" x2="12" y2="17"/>',
-            'svg-ap': '<path d="M6 8a8 8 0 0112 0"/><path d="M8.5 10.5a5 5 0 017 0"/><path d="M11 13a2 2 0 012 0"/><circle cx="12" cy="15" r="1.5" fill="currentStroke"/><line x1="12" y1="16.5" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/>',
-            'svg-vmhost': '<rect x="2" y="2" width="20" height="6" rx="1.5"/><rect x="2" y="10" width="20" height="6" rx="1.5"/><circle cx="5" cy="5" r="1" fill="currentStroke"/><circle cx="5" cy="13" r="1" fill="currentStroke"/><circle cx="8" cy="5" r="1" fill="currentStroke"/><circle cx="8" cy="13" r="1" fill="currentStroke"/><line x1="14" y1="5" x2="20" y2="5"/><line x1="14" y1="13" x2="20" y2="13"/><line x1="12" y1="18" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/>',
-            'svg-vm': '<rect x="4" y="4" width="16" height="12" rx="1.5" stroke-dasharray="3,2"/><path d="M9 10l2 2 4-4"/>',
-            'svg-storage': '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v4c0 1.66 3.58 3 8 3s8-1.34 8-3V6"/><path d="M4 10v4c0 1.66 3.58 3 8 3s8-1.34 8-3v-4"/>',
-            'svg-printer': '<rect x="5" y="10" width="14" height="8" rx="1.5"/><rect x="7" y="3" width="10" height="7" rx="1"/><rect x="7" y="18" width="10" height="3" rx="0.5"/><circle cx="16" cy="13" r="1" fill="currentStroke"/>',
-            'svg-iot': '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.5" fill="currentStroke"/><line x1="12" y1="3" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="3" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="21" y2="12"/>',
-            'svg-phone': '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 5a2 2 0 012-2z"/>',
-            'svg-camera': '<path d="M4 8h2v8H4z" fill="currentFill" opacity="0.3"/><rect x="6" y="7" width="4" height="10" rx="1"/><rect x="10" y="8.5" width="10" height="7" rx="3.5"/><circle cx="17" cy="12" r="2"/><circle cx="17" cy="12" r="0.8" fill="currentStroke"/>',
-            'svg-vpn': '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 6V5a4 4 0 018 0v1"/><circle cx="12" cy="13" r="2"/><line x1="12" y1="15" x2="12" y2="16.5"/>'
-        };
-
-        // Brand colours live in CSS custom properties so each shell can theme
-        // itself; JS reads them from the computed root style instead of keeping
-        // its own copy of the hex. Moves to core/theme.js in the module split.
-        const _themeCache = {};
-        function themeColor(token, fallback) {
-            if (_themeCache[token] === undefined) {
-                const v = getComputedStyle(document.documentElement)
-                    .getPropertyValue('--' + token).trim();
-                _themeCache[token] = v || fallback;
-            }
-            return _themeCache[token];
-        }
-
-        // Wired tracks the brand token. Wireless and VPN are app semantics,
-        // not branding, so they carry their own fixed colours.
-        const CONN_COLORS = {
-            wireless: { solid: '#c084fc', rgb: '192,132,252', label: 'Wireless' },
-            vpn:      { solid: '#d4a017', rgb: '212,160,23',  label: 'VPN' }
-        };
-
-        function connColor(type) {
-            const spec = CONN_COLORS[type];
-            return spec ? spec.solid : themeColor('primary', '#0F71F0');
-        }
-
-        function getSvgIcon(name, size) {
-            const s = size || 24;
-            const paths = svgDefs[name];
-            if (!paths) return '';
-            const processed = paths.replace(/currentStroke/g, '#333').replace(/currentFill/g, '#ccc');
-            return '<svg xmlns="http://www.w3.org/2000/svg" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + processed + '</svg>';
-        }
-
-        function getSvgIconSidebar(name) {
-            const paths = svgDefs[name];
-            if (!paths) return '';
-            const processed = paths.replace(/currentStroke/g, 'currentColor').replace(/currentFill/g, 'currentColor');
-            return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + processed + '</svg>';
-        }
-
 
         const canvasArea = document.getElementById('canvasArea');
         const canvasWrapper = document.getElementById('canvasWrapper');
@@ -1083,12 +943,11 @@
         let resizeStart = { x: 0, y: 0, w: 0, h: 0 };
         
         // Grid snapping
-        const GRID_SIZE = 20; // Matches .canvas-grid background-size (20px dots)
+        const GRID_SIZE = DEFAULT_GRID_SIZE; // matches .canvas-grid background-size
         let snapToGrid = true;
-        
+
         function snapToGridValue(value) {
-            if (!snapToGrid) return value;
-            return Math.round(value / GRID_SIZE) * GRID_SIZE;
+            return snapValue(value, GRID_SIZE, snapToGrid);
         }
 
         function applyTransform() {
@@ -1127,10 +986,10 @@
                 e.preventDefault();
                 const itemType = e.dataTransfer.getData('itemType');
                 const rect = canvasArea.getBoundingClientRect();
-                const rawX = (e.clientX - rect.left - state.panX) / state.zoom + 4000 - 60;
-                const rawY = (e.clientY - rect.top - state.panY) / state.zoom + 4000 - 40;
-                const x = snapToGridValue(rawX);
-                const y = snapToGridValue(rawY);
+                const raw = dropPosition(e.clientX, e.clientY, rect.left, rect.top,
+                                         state.panX, state.panY, state.zoom);
+                const x = snapToGridValue(raw.x);
+                const y = snapToGridValue(raw.y);
                 
                 if (itemType === 'zone') {
                     const zoneType = e.dataTransfer.getData('zone');
@@ -1291,19 +1150,19 @@
                 
                 const oldZoom = state.zoom;
                 const delta = e.deltaY > 0 ? -0.1 : 0.1;
-                state.zoom = Math.max(0.25, Math.min(3, state.zoom + delta));
+                state.zoom = clampZoom(state.zoom + delta);
                 
-                // Adjust pan to zoom toward mouse position
-                const zoomRatio = state.zoom / oldZoom;
-                state.panX = mouseX - (mouseX - state.panX) * zoomRatio;
-                state.panY = mouseY - (mouseY - state.panY) * zoomRatio;
+                // Keep the point under the cursor fixed while zooming
+                const panned = zoomPan(oldZoom, state.zoom, mouseX, mouseY, state.panX, state.panY);
+                state.panX = panned.panX;
+                state.panY = panned.panY;
                 
                 applyTransform();
             }, { passive: false });
 
             // Buttons
-            document.getElementById('zoomInBtn').onclick = () => { state.zoom = Math.min(3, state.zoom + 0.1); applyTransform(); };
-            document.getElementById('zoomOutBtn').onclick = () => { state.zoom = Math.max(0.25, state.zoom - 0.1); applyTransform(); };
+            document.getElementById('zoomInBtn').onclick = () => { state.zoom = clampZoom(state.zoom + 0.1); applyTransform(); };
+            document.getElementById('zoomOutBtn').onclick = () => { state.zoom = clampZoom(state.zoom - 0.1); applyTransform(); };
             document.getElementById('resetBtn').onclick = resetView;
             document.getElementById('snapBtn').onclick = () => {
                 snapToGrid = !snapToGrid;
@@ -1392,61 +1251,6 @@
         }
 
         // Build a path string for a connection
-        function buildConnPath(from, to, fromPos, routingStyle, waypoints) {
-            if (routingStyle === 'orthogonal') {
-                if (waypoints && waypoints.length > 0) {
-                    return buildOrthoPathFromWaypoints(from, to, waypoints);
-                }
-                return buildOrthoPath(from, to, fromPos);
-            }
-            // Default: cubic bezier curved
-            const midX = (from.x + to.x) / 2;
-            const midY = (from.y + to.y) / 2;
-            if (fromPos === 'top' || fromPos === 'bottom') {
-                return 'M' + from.x + ',' + from.y + ' C' + from.x + ',' + midY + ' ' + to.x + ',' + midY + ' ' + to.x + ',' + to.y;
-            } else {
-                return 'M' + from.x + ',' + from.y + ' C' + midX + ',' + from.y + ' ' + midX + ',' + to.y + ' ' + to.x + ',' + to.y;
-            }
-        }
-
-        // Build path through explicit waypoints (all corners as [x,y] pairs)
-        function buildOrthoPathFromWaypoints(from, to, waypoints) {
-            let d = 'M' + from.x + ',' + from.y;
-            waypoints.forEach(wp => { d += ' L' + wp.x + ',' + wp.y; });
-            d += ' L' + to.x + ',' + to.y;
-            return d;
-        }
-
-        // Build an orthogonal (right-angle) path between two points — single 90° L-shape
-        function buildOrthoPath(from, to, fromPos) {
-            const fx = from.x, fy = from.y, tx = to.x, ty = to.y;
-
-            // Single 90° turn: L-shape with one corner
-            if (fromPos === 'left' || fromPos === 'right') {
-                // Horizontal first, then vertical — corner at (tx, fy)
-                return 'M' + fx + ',' + fy +
-                       ' L' + tx + ',' + fy +
-                       ' L' + tx + ',' + ty;
-            } else {
-                // Vertical first, then horizontal — corner at (fx, ty)
-                return 'M' + fx + ',' + fy +
-                       ' L' + fx + ',' + ty +
-                       ' L' + tx + ',' + ty;
-            }
-        }
-
-        // Build the default waypoints array for an orthogonal connection (for editing)
-        function getDefaultWaypoints(from, to, fromPos) {
-            const fx = from.x, fy = from.y, tx = to.x, ty = to.y;
-
-            // Single corner matching the auto-route
-            if (fromPos === 'left' || fromPos === 'right') {
-                return [{ x: tx, y: fy }];
-            } else {
-                return [{ x: fx, y: ty }];
-            }
-        }
-
         // ─── Waypoint / Edit-Route mode ──────────────────────────────────────────
         let editRouteMode = false;
         let editingConn = null;           // connection being edited
@@ -2014,17 +1818,7 @@
             if (!device) return { x: 0, y: 0 };
             const el = document.getElementById(deviceId);
             if (!el) return { x: 0, y: 0 };
-            const width = el.offsetWidth;
-            const height = el.offsetHeight;
-            const centerX = device.x + width / 2;
-            const centerY = device.y + height / 2;
-            switch (position) {
-                case 'top': return { x: centerX, y: device.y };
-                case 'bottom': return { x: centerX, y: device.y + height };
-                case 'left': return { x: device.x, y: centerY };
-                case 'right': return { x: device.x + width, y: centerY };
-                default: return { x: centerX, y: centerY };
-            }
+            return connectionPoint(device, position, el.offsetWidth, el.offsetHeight);
         }
 
         function buildConnectionPaths() {
@@ -2079,24 +1873,11 @@
                 if (el.classList.contains('network-device')) {
                     const device = state.devices.find(d => d.id === el.id);
                     if (device) {
-                        // Determine nearest connection point
                         const rect = el.getBoundingClientRect();
-                        const relX = clientX - rect.left;
-                        const relY = clientY - rect.top;
-                        const centerX = rect.width / 2;
-                        const centerY = rect.height / 2;
-                        
-                        // Determine which edge is closest
-                        const distTop = relY;
-                        const distBottom = rect.height - relY;
-                        const distLeft = relX;
-                        const distRight = rect.width - relX;
-                        const minDist = Math.min(distTop, distBottom, distLeft, distRight);
-                        
-                        let pos = 'right';
-                        if (minDist === distTop) pos = 'top';
-                        else if (minDist === distBottom) pos = 'bottom';
-                        else if (minDist === distLeft) pos = 'left';
+                        const pos = nearestEdge(
+                            clientX - rect.left, clientY - rect.top,
+                            rect.width, rect.height
+                        );
                         
                         return { device: device, pos: pos };
                     }
@@ -2439,9 +2220,9 @@
         }
 
         function updateCounts() {
-            document.getElementById('deviceCount').textContent = state.devices.length + ' device' + (state.devices.length !== 1 ? 's' : '');
-            document.getElementById('zoneCount').textContent = state.zones.length + ' zone' + (state.zones.length !== 1 ? 's' : '');
-            document.getElementById('connCount').textContent = state.connections.length + ' connection' + (state.connections.length !== 1 ? 's' : '');
+            document.getElementById('deviceCount').textContent = formatCount(state.devices.length, 'device');
+            document.getElementById('zoneCount').textContent = formatCount(state.zones.length, 'zone');
+            document.getElementById('connCount').textContent = formatCount(state.connections.length, 'connection');
         }
 
         function updateVlanSelect() {
@@ -3441,17 +3222,6 @@
             a.click();
         }
 
-        // Highest trailing integer across generated names, so loading a project
-        // doesn't restart numbering and collide with existing device names.
-        function highestNameIndex(items) {
-            let max = 0;
-            (items || []).forEach(it => {
-                const m = /(\d+)\s*$/.exec(it && it.name ? it.name : '');
-                if (m) max = Math.max(max, parseInt(m[1], 10));
-            });
-            return max;
-        }
-
         function handleJsonLoad(event) {
             const file = event.target.files[0];
             if (!file) {
@@ -3489,16 +3259,9 @@
                     document.querySelectorAll('.network-device').forEach(el => el.remove());
                     document.querySelectorAll('.network-zone').forEach(el => el.remove());
                     state.zones = data.zones || [];
-                    state.counter = Math.max(
-                        data.counter || 0,
-                        state.devices.length,
-                        highestNameIndex(state.devices)
-                    );
-                    state.zoneCounter = Math.max(
-                        data.zoneCounter || 0,
-                        state.zones.length,
-                        highestNameIndex(state.zones)
-                    );
+                    const counters = resolveCounters(data);
+                    state.counter = counters.counter;
+                    state.zoneCounter = counters.zoneCounter;
                     state.devices.forEach(d => renderDevice(d));
                     state.zones.forEach(z => renderZone(z));
                     drawConnections();
@@ -3617,44 +3380,30 @@
             
             const reader = new FileReader();
             reader.onload = function(e) {
-                const content = e.target.result;
-                const lines = content.split('\n').filter(line => line.trim() && !line.trim().startsWith('#'));
-                
-                if (lines.length < 2) {
+                const parsed = parseCSVContent(e.target.result);
+                pendingCSVData = parsed.rows;
+
+                if (parsed.headers.length === 0) {
                     alert('CSV file must have at least a header row and one data row.');
+                    event.target.value = '';
                     return;
                 }
-                
-                const headers = parseCSVLine(lines[0]);
-                pendingCSVData = [];
-                
-                // Parse data rows
-                for (let i = 1; i < lines.length; i++) {
-                    const values = parseCSVLine(lines[i]);
-                    if (values.length === 0) continue;
-                    
-                    const row = {};
-                    headers.forEach((header, index) => {
-                        row[header.toLowerCase().replace(/\s+/g, '')] = values[index] || '';
-                    });
-                    
-                    // Validate type
-                    const validTypes = ['router', 'firewall', 'switch', 'ap', 'server', 'vmhost', 'nas', 'desktop', 'laptop', 'cellphone', 'tablet', 'printer', 'phone', 'camera', 'iot', 'otherendpoint', 'storage', 'vpn'];
-                    if (row.type && validTypes.includes(row.type.toLowerCase())) {
-                        pendingCSVData.push(row);
-                    }
-                }
-                
+
                 if (pendingCSVData.length === 0) {
                     alert('No valid devices found in CSV. Make sure the Type column contains valid device types.');
+                    event.target.value = '';
                     return;
                 }
-                
+
                 // Show preview
                 const previewDiv = document.getElementById('csvPreview');
                 const previewContent = document.getElementById('csvPreviewContent');
-                
+
                 let previewHTML = '<div style="color:var(--green);margin-bottom:8px;">Found ' + pendingCSVData.length + ' valid device(s):</div>';
+                if (parsed.skipped > 0) {
+                    previewHTML += '<div style="color:var(--yellow);margin-bottom:8px;">Skipped ' + parsed.skipped +
+                        ' row(s) with an unrecognised Type.</div>';
+                }
                 pendingCSVData.slice(0, 10).forEach(row => {
                     previewHTML += '<div style="padding:4px 0;border-bottom:1px solid var(--glass-border);">' +
                         '<span style="color:var(--primary);">' + row.type + '</span> - ' +
@@ -3670,33 +3419,6 @@
                 previewDiv.style.display = 'block';
             };
             reader.readAsText(file);
-        }
-        
-        function parseCSVLine(line) {
-            const result = [];
-            let current = '';
-            let inQuotes = false;
-            
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                
-                if (char === '"') {
-                    if (inQuotes && line[i + 1] === '"') {
-                        current += '"';
-                        i++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
-                } else if (char === ',' && !inQuotes) {
-                    result.push(current.trim());
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-            result.push(current.trim());
-            
-            return result;
         }
         
         function importCSVDevices() {
@@ -3725,8 +3447,7 @@
                     model: row.model || '',
                     serial: row.serialnumber || '',
                     vlan: row.vlanid || '',
-                    status: ['online', 'offline', 'warning', 'retired', 'decommissioned'].includes(row.status?.toLowerCase()) 
-                        ? row.status.toLowerCase() : 'online',
+                    status: normalizeStatus(row.status),
                     notes: row.notes || '',
                     x: snapToGridValue(startX + (col * spacing)),
                     y: snapToGridValue(startY + (rowNum * spacing)),
@@ -3775,6 +3496,31 @@
             document.getElementById('csvPreview').style.display = 'none';
             document.getElementById('csvFileInput').value = '';
         }
+
+        // This script is a module, so its scope is not global. Inline HTML
+        // attributes (onclick=, oninput=) resolve against window, so the
+        // handlers they name are published explicitly. Phase 3 replaces those
+        // attributes with delegated listeners and this block goes away.
+        Object.assign(window, {
+            openModal, closeModal, openConfig, saveConfig,
+            updateDnsFields, updateDhcpDevices,
+            updateDeviceProp, updateZoneProp, updateParentPort,
+            toggleSwitchVLAN, toggleAPSSID,
+            saveVlan, deleteVlan, saveSSID, deleteSSID, saveVM, removeVM,
+            deleteSelectedZone, flipConnection,
+            exportJson, exportCSV, generatePDF, downloadCSVTemplate,
+            handleJsonLoad, handleCSVUpload, importCSVDevices, cancelCSVImport
+        });
+
+        // Console handle for debugging and automation.
+        window.mapper = {
+            state, history,
+            undo, redo, saveState,
+            createDevice, createZone, deleteSelected, deleteSelectedZone, clearAll,
+            selectDevice, selectZone, deselectAll,
+            drawConnections, updateCounts, setConnType, setRoutingStyle,
+            connColor, GRID_SIZE
+        };
     </script>
 </body>
 </html>
