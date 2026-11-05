@@ -8,7 +8,7 @@
 
 import {
     createInitialState, serializeState, applySnapshot,
-    highestNameIndex, resolveCounters, nextId
+    highestNameIndex, resolveCounters, nextId, migrateUpsZones
 } from './core/state.js';
 import { createHistory } from './core/history.js';
 import {
@@ -94,6 +94,7 @@ function restoreSnapshot(snapshot) {
     scheduleAutosave();
     applySnapshot(state, snapshot);
     rerenderEverything();
+    refreshAllPowerTags();
 }
 
 function undo() {
@@ -194,10 +195,12 @@ function offerAutosaveRestore() {
             label: 'Restore',
             onClick: () => {
                 saveState();
-                applySnapshot(state, found.stateJson);
+                const { data } = migrateUpsZones(JSON.parse(found.stateJson));
+                applySnapshot(state, data);
                 if (found.meta.client) document.getElementById('clientName').value = found.meta.client;
                 if (found.meta.site) document.getElementById('siteName').value = found.meta.site;
                 rerenderEverything();
+                refreshAllPowerTags();
                 toast.show('Restored.', { type: 'success' });
             }
         }
@@ -1109,6 +1112,7 @@ function renderDevice(d) {
     canvas.appendChild(el);
     // The element was just replaced, so any cached box size is stale.
     sceneIndex.invalidateSize(d.id);
+    updatePowerTag(d.id);
     if (d.type === 'vmhost' && d.vms) renderVMsOnDevice(d);
 }
 
@@ -1133,19 +1137,7 @@ function createZone(type, x, y) {
         notes: ''
     };
     // Type-specific properties
-    if (type === 'ups') {
-        zone.manufacturer = '';
-        zone.model = '';
-        zone.capacity = '';
-        zone.runtime = '';
-        zone.ip = '';
-    } else if (type === 'nvr') {
-        zone.manufacturer = '';
-        zone.model = '';
-        zone.channels = '';
-        zone.storage = '';
-        zone.ip = '';
-    } else if (type === 'mdf' || type === 'idf') {
+    if (type === 'mdf' || type === 'idf') {
         zone.location = '';
         if (type === 'idf') zone.connectedMDF = '';
     } else if (type === 'cloud') {
@@ -1236,7 +1228,6 @@ function showZoneProps(z) {
     document.getElementById('propZoneNotes').value = z.notes || '';
 
     // Hide all type-specific sections
-    document.getElementById('upsPropsSection').style.display = 'none';
     document.getElementById('nvrPropsSection').style.display = 'none';
     document.getElementById('mdfPropsSection').style.display = 'none';
     document.getElementById('idfPropsSection').style.display = 'none';
@@ -1244,14 +1235,7 @@ function showZoneProps(z) {
     document.getElementById('onpremPropsSection').style.display = 'none';
 
     // Show appropriate section based on zone type
-    if (z.type === 'ups') {
-        document.getElementById('upsPropsSection').style.display = 'block';
-        document.getElementById('propUPSMfg').value = z.manufacturer || '';
-        document.getElementById('propUPSModel').value = z.model || '';
-        document.getElementById('propUPSCapacity').value = z.capacity || '';
-        document.getElementById('propUPSRuntime').value = z.runtime || '';
-        document.getElementById('propUPSIP').value = z.ip || '';
-    } else if (z.type === 'nvr') {
+    if (z.type === 'nvr') {
         document.getElementById('nvrPropsSection').style.display = 'block';
         document.getElementById('propNVRMfg').value = z.manufacturer || '';
         document.getElementById('propNVRModel').value = z.model || '';
@@ -1489,6 +1473,64 @@ function drawMarquee(a, b) {
  * a device dragged out of a zone stops belonging to it with no bookkeeping.
  * Containment must be total: a device straddling the edge belongs to neither.
  */
+/**
+ * Power protection.
+ *
+ * A UPS owns the relationship: ups.protects is a list of device ids. The
+ * protected device stores nothing, so there is one copy of the fact and no
+ * pair of lists to keep in step. A device may be fed by more than one UPS,
+ * which dual-PSU hardware genuinely is.
+ */
+function upsDevices() {
+    return state.devices.filter(d => d.type === 'ups');
+}
+
+function upsProtecting(deviceId) {
+    return upsDevices().filter(u => (u.protects || []).includes(deviceId));
+}
+
+function isProtected(deviceId) {
+    return upsProtecting(deviceId).length > 0;
+}
+
+function toggleUpsProtects(upsId, deviceId) {
+    const ups = sceneIndex.device(upsId);
+    if (!ups || ups.type !== 'ups') return;
+    saveState();
+    if (!ups.protects) ups.protects = [];
+    const at = ups.protects.indexOf(deviceId);
+    if (at === -1) ups.protects.push(deviceId);
+    else ups.protects.splice(at, 1);
+    updatePowerTag(deviceId);
+    // Deliberately not re-rendering the list: the checkbox the user just
+    // clicked already shows the new state, and rebuilding would replace the
+    // element under their cursor, drop focus and reset the scroll position.
+}
+
+/** Add or remove the battery tag on one device's card. */
+function updatePowerTag(deviceId) {
+    const el = document.getElementById(deviceId);
+    if (!el) return;
+    const existing = el.querySelector('.power-tag');
+    const feeds = upsProtecting(deviceId);
+    if (feeds.length === 0) {
+        if (existing) existing.remove();
+        return;
+    }
+    const tag = existing || (() => {
+        const t = document.createElement('div');
+        t.className = 'power-tag';
+        t.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M21 10v4"/></svg>';
+        el.appendChild(t);
+        return t;
+    })();
+    tag.title = 'On ' + feeds.map(u => u.name).join(', ');
+}
+
+function refreshAllPowerTags() {
+    state.devices.forEach(d => updatePowerTag(d.id));
+}
+
 function devicesInZone(z) {
     return state.devices.filter(d => {
         const size = deviceSize(d.id) || { width: 120, height: 100 };
@@ -1546,6 +1588,9 @@ function duplicateSelection() {
     const copies = originals.map(src => {
         const copy = JSON.parse(JSON.stringify(src));
         copy.id = nextId('dev');
+        // Remapped below once every new id exists; anything outside the
+        // selection is dropped rather than shared with the original.
+        if (copy.protects) copy.protects = [];
         copy.x = src.x + offset;
         copy.y = src.y + offset;
         state.counter++;
@@ -1569,7 +1614,14 @@ function duplicateSelection() {
         state.connections.push(copy);
     });
 
+    // Re-point a duplicated UPS at the copies of what it protected.
+    originals.forEach((orig, i) => {
+        if (orig.type !== 'ups' || !orig.protects) return;
+        copies[i].protects = orig.protects.map(pid => idMap.get(pid)).filter(Boolean);
+    });
+
     drawConnections();
+    refreshAllPowerTags();
     updateCounts();
     setSelection(copies.map(c => c.id));
     toast.show('Duplicated ' + formatCount(copies.length, 'device') + '.', { type: 'success' });
@@ -1773,6 +1825,14 @@ function showProps(d) {
         document.getElementById('propVPNType').value = d.vpnType || '';
     }
 
+    showSection('upsSection', d.type === 'ups');
+    if (d.type === 'ups') {
+        document.getElementById('propUPSCapacity').value = d.capacity || '';
+        document.getElementById('propUPSRuntime').value = d.runtime || '';
+        renderUpsProtectsList(d);
+    }
+    renderProtectedBy(d);
+
     showSection('printerSection', d.type === 'printer');
     if (d.type === 'printer') document.getElementById('propPrinterModel').value = d.model || '';
 
@@ -1811,6 +1871,63 @@ function getConnBadge(connType) {
     return '<span style="display:inline-block;padding:3px 8px;background:rgba(' + spec.rgb + ',0.15);' +
         'border:1px solid rgba(' + spec.rgb + ',0.3);border-radius:6px;font-size:0.6rem;color:' +
         spec.solid + ';font-weight:500;">' + spec.label + '</span>';
+}
+
+/** Checklist of everything this UPS could protect. */
+function renderUpsProtectsList(ups) {
+    const box = document.getElementById('upsProtectsList');
+    box.textContent = '';
+    if (!ups.protects) ups.protects = [];
+
+    const candidates = state.devices.filter(d => d.id !== ups.id && d.type !== 'ups');
+    if (candidates.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'ups-empty';
+        empty.textContent = 'Add some devices first, then tick them here.';
+        box.appendChild(empty);
+        return;
+    }
+
+    candidates.forEach(d => {
+        const row = document.createElement('label');
+        row.className = 'ups-row';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = ups.protects.includes(d.id);
+        cb.addEventListener('change', () => toggleUpsProtects(ups.id, d.id));
+        const name = document.createElement('span');
+        name.className = 'ups-row-name';
+        name.textContent = d.name;          // user data stays text
+        const meta = document.createElement('span');
+        meta.className = 'ups-row-meta';
+        meta.textContent = (types[d.type] && types[d.type].name) || d.type;
+        row.append(cb, name, meta);
+        box.appendChild(row);
+    });
+}
+
+/** The read-only line on a protected device. */
+function renderProtectedBy(d) {
+    const feeds = upsProtecting(d.id);
+    showSection('protectedBySection', feeds.length > 0 && d.type !== 'ups');
+    if (feeds.length === 0) return;
+    const box = document.getElementById('protectedByList');
+    box.textContent = '';
+    feeds.forEach(u => {
+        const row = document.createElement('div');
+        row.className = 'protected-by-row';
+        const name = document.createElement('span');
+        name.className = 'pb-name';
+        name.textContent = u.name;
+        const meta = document.createElement('span');
+        meta.className = 'pb-meta';
+        meta.textContent = [u.capacity ? u.capacity + ' VA' : null,
+                            u.runtime ? u.runtime + ' min' : null]
+                            .filter(Boolean).join('  \u00b7  ');
+        row.append(name, meta);
+        row.addEventListener('click', () => revealDevice(u));
+        box.appendChild(row);
+    });
 }
 
 function renderConnectedToList(d) {
@@ -2010,6 +2127,11 @@ function deleteSelected() {
     ids.forEach(id => {
         document.getElementById(id)?.remove();
         sceneIndex.removeDevice(id);
+    });
+    // Drop the deleted devices from every UPS, or they keep protecting
+    // things that no longer exist.
+    state.devices.forEach(u => {
+        if (u.protects) u.protects = u.protects.filter(pid => !ids.has(pid));
     });
     deselectAll();
     clearWaypointHandles();
@@ -2694,9 +2816,15 @@ function generatePDF() {
                     ]
                 },
                 'ups': {
-                    cols: ['Name', 'Manufacturer', 'Model', 'Capacity (VA)', 'Runtime (min)', 'IP Address', 'Notes'],
-                    widths: orientation === 'landscape' ? [35, 30, 35, 30, 30, 40, 70] : [24, 22, 25, 22, 22, 32, 43],
-                    getData: (d) => [d.name, d.manufacturer || '-', d.model || '-', d.capacity || '-', d.runtime || '-', d.ip || '-', d.notes || '-']
+                    cols: ['Name', 'Manufacturer', 'Model', 'Capacity (VA)', 'Runtime (min)', 'IP Address', 'Protecting'],
+                    widths: orientation === 'landscape' ? [32, 26, 30, 26, 26, 34, 96] : [22, 18, 22, 18, 18, 28, 64],
+                    getData: (d) => [
+                        d.name, d.manufacturer || '-', d.model || '-',
+                        d.capacity || '-', d.runtime || '-', d.ip || '-',
+                        (d.protects || [])
+                            .map(id => (state.devices.find(x => x.id === id) || {}).name)
+                            .filter(Boolean).join(', ') || '-'
+                    ]
                 },
                 'vpn': {
                     cols: ['Name', 'Manufacturer', 'Model', 'VPN Type', 'IP Address', 'Connected To', 'Notes'],
@@ -2793,76 +2921,6 @@ function generatePDF() {
                 yPos += 6;
             }
 
-            // Add UPS Units section
-            const upsZones = state.zones.filter(z => z.type === 'ups');
-            if (upsZones.length > 0) {
-                // Check if we need a new page
-                if (yPos > pageHeight - 40) {
-                    pdf.addPage();
-                    pageNum++;
-                    drawPageHeader('Device List');
-                    yPos = 24;
-                }
-
-                const upsConfig = typeConfigs['ups'];
-
-                // Section header
-                pdf.setFillColor(15, 113, 240);
-                pdf.rect(10, yPos - 4, pageWidth - 20, 8, 'F');
-                pdf.setFontSize(9);
-                pdf.setFont('helvetica', 'bold');
-                pdf.setTextColor(255, 255, 255);
-                pdf.text('UPS Units (' + upsZones.length + ')', 12, yPos + 1);
-                yPos += 10;
-
-                // Column headers
-                pdf.setFillColor(240, 240, 240);
-                pdf.rect(10, yPos - 4, pageWidth - 20, 7, 'F');
-                pdf.setFontSize(6);
-                pdf.setFont('helvetica', 'bold');
-                pdf.setTextColor(60, 60, 60);
-
-                let xOffset = 10;
-                upsConfig.cols.forEach((col, i) => {
-                    pdf.text(col, xOffset + 1, yPos);
-                    xOffset += upsConfig.widths[i];
-                });
-                yPos += 6;
-
-                // UPS rows
-                pdf.setFont('helvetica', 'normal');
-                upsZones.forEach((z, i) => {
-                    if (yPos > pageHeight - 15) {
-                        pdf.addPage();
-                        pageNum++;
-                        drawPageHeader('Device List');
-                        yPos = 24;
-                    }
-
-                    if (i % 2 === 0) {
-                        pdf.setFillColor(250, 250, 250);
-                    } else {
-                        pdf.setFillColor(255, 255, 255);
-                    }
-                    pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
-
-                    pdf.setFontSize(6);
-                    pdf.setTextColor(40, 40, 40);
-
-                    const rowData = [z.name, z.manufacturer || '-', z.model || '-', z.capacity || '-', z.runtime || '-', z.ip || '-', z.notes || '-'];
-                    let xOff = 10;
-                    rowData.forEach((val, j) => {
-                        const maxChars = Math.floor(upsConfig.widths[j] / 1.8);
-                        const truncated = String(val).substring(0, maxChars);
-                        pdf.text(truncated, xOff + 1, yPos);
-                        xOff += upsConfig.widths[j];
-                    });
-
-                    yPos += 6;
-                });
-
-                yPos += 6;
-            }
 
             // Add NVR Units section
             const nvrZones = state.zones.filter(z => z.type === 'nvr');
@@ -3125,7 +3183,8 @@ function handleJsonLoad(event) {
     const reader = new FileReader();
     reader.onload = evt => {
         try {
-            const data = JSON.parse(evt.target.result);
+            const parsed = JSON.parse(evt.target.result);
+            const { data, migrated } = migrateUpsZones(parsed);
             saveState();
             state.devices = data.devices || [];
             state.connections = data.connections || [];
@@ -3156,7 +3215,16 @@ function handleJsonLoad(event) {
             updateNetworkInfoBox();
             updateCounts();
             applyTransform();
+            refreshAllPowerTags();
             closeModal('loadProjectModal');
+            if (migrated > 0) {
+                toast.show(
+                    formatCount(migrated, 'UPS zone') + ' became ' +
+                    (migrated === 1 ? 'a device' : 'devices') +
+                    '; whatever sat inside is now listed as protected.',
+                    { type: 'info', duration: 9000 }
+                );
+            }
             document.getElementById('emptyState').style.display =
                 (state.devices.length > 0 || state.zones.length > 0) ? 'none' : 'block';
         } catch (err) {
@@ -3407,6 +3475,7 @@ window.mapper = {
     selectDevice, selectZone, deselectAll,
     selection, selectedDevices, setSelection, duplicateSelection, nudgeSelection,
     devicesInZone, panToDevice, deviceSize,
+    upsProtecting, isProtected, toggleUpsProtects, refreshAllPowerTags,
     drawConnections, updateCounts, setConnType, setRoutingStyle,
     connColor, GRID_SIZE,
     // Render internals, for debugging and for the benchmark harness.

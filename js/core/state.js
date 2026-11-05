@@ -54,6 +54,56 @@ export function createInitialState() {
     }
 }
 
+/**
+ * Bring a loaded project up to date.
+ *
+ * UPS used to be a zone - a box you drew around things, which "protected"
+ * whatever happened to sit inside it. It is a device now, with an explicit
+ * list of what it feeds. Older files still carry UPS zones, so convert
+ * them and seed the list from whatever the box used to contain, which is
+ * what the author meant by drawing it there.
+ *
+ * Containment uses the device's top-left corner: this is a one-off
+ * heuristic over old data, not the live membership test, and it needs no
+ * rendered sizes.
+ */
+export function migrateUpsZones(data) {
+    const zones = data.zones || [];
+    const upsZones = zones.filter(z => z.type === 'ups');
+    if (upsZones.length === 0) return { data, migrated: 0 };
+
+    data.zones = zones.filter(z => z.type !== 'ups');
+    data.devices = data.devices || [];
+
+    upsZones.forEach(z => {
+        const inside = data.devices.filter(d =>
+            d.x >= z.x && d.x <= z.x + (z.width || 0) &&
+            d.y >= z.y && d.y <= z.y + (z.height || 0) &&
+            d.type !== 'ups'
+        );
+        data.devices.push({
+            id: nextId('dev'),
+            type: 'ups',
+            name: z.name || 'UPS',
+            manufacturer: z.manufacturer || '',
+            model: z.model || '',
+            capacity: z.capacity || '',
+            runtime: z.runtime || '',
+            ip: z.ip || '',
+            mac: '',
+            notes: z.notes || '',
+            status: 'online',
+            vlan: '',
+            x: z.x,
+            y: z.y,
+            vms: null,
+            protects: inside.map(d => d.id)
+        });
+    });
+
+    return { data, migrated: upsZones.length };
+}
+
 export function serializeState(state) {
     const out = {};
     SNAPSHOT_FIELDS.forEach(k => { out[k] = state[k]; });

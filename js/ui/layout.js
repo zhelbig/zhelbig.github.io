@@ -47,7 +47,6 @@ const CHROME = `    <div class="grid-bg"></div>
                     <div class="device-item zone-item" draggable="true" data-zone="idf">IDF</div>
                     <div class="device-item zone-item" draggable="true" data-zone="cloud"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a4 4 0 00-7.5-2A5 5 0 105 14h13a3 3 0 000-6z"/></svg></span>Cloud</div>
                     <div class="device-item zone-item" draggable="true" data-zone="onprem"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="10" y1="4" x2="10" y2="20"/><line x1="4" y1="15" x2="10" y2="15"/></svg></span>On-Prem</div>
-                    <div class="device-item zone-item" draggable="true" data-zone="ups"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="18" rx="2"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/><path d="M13 10l-2 4h3l-2 4"/></svg></span>UPS</div>
                     <div class="device-item zone-item" draggable="true" data-zone="nvr"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><circle cx="8" cy="12" r="0.5" fill="currentColor"/><line x1="14" y1="9" x2="20" y2="9"/><line x1="14" y1="12" x2="20" y2="12"/><line x1="14" y1="15" x2="20" y2="15"/></svg></span>NVR</div>
                 </div>
             </div>
@@ -58,6 +57,7 @@ const CHROME = `    <div class="grid-bg"></div>
                     <div class="device-item" draggable="true" data-type="firewall"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><path d="M9 9v11"/><path d="M15 4v5"/><circle cx="6" cy="6.5" r="1" fill="currentColor"/><line x1="12" y1="13" x2="12" y2="17"/></svg></span>Firewall</div>
                     <div class="device-item" draggable="true" data-type="switch"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"/><line x1="5" y1="11" x2="5" y2="14"/><line x1="7.5" y1="11" x2="7.5" y2="14"/><line x1="10" y1="11" x2="10" y2="14"/><line x1="12.5" y1="11" x2="12.5" y2="14"/><line x1="15" y1="11" x2="15" y2="14"/><line x1="17.5" y1="11" x2="17.5" y2="14"/><circle cx="20" cy="9.5" r="0.8" fill="currentColor"/></svg></span>Switch</div>
                     <div class="device-item" draggable="true" data-type="ap"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a8 8 0 0112 0"/><path d="M8.5 10.5a5 5 0 017 0"/><path d="M11 13a2 2 0 012 0"/><circle cx="12" cy="15" r="1.5" fill="currentColor"/><line x1="12" y1="16.5" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg></span>Access Point</div>
+                    <div class="device-item" draggable="true" data-type="ups"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="18" rx="2"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/><path d="M13 10l-2 4h3l-2 4"/></svg></span>UPS</div>
                     <div class="device-item" draggable="true" data-type="vpn"><span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 6V5a4 4 0 018 0v1"/><circle cx="12" cy="13" r="2"/><line x1="12" y1="15" x2="12" y2="16.5"/></svg></span>VPN</div>
                 </div>
             </div>
@@ -272,6 +272,13 @@ const CHROME = `    <div class="grid-bg"></div>
                     </div>
                 </div>
                 <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="propNotes"></textarea></div>
+                <div id="upsSection" style="display:none;">
+                    <div class="form-group"><label class="form-label">Capacity (VA)</label><input type="text" class="form-input" id="propUPSCapacity" placeholder="1500" oninput="updateDeviceProp('capacity', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Runtime (min)</label><input type="text" class="form-input" id="propUPSRuntime" placeholder="15" oninput="updateDeviceProp('runtime', this.value)"></div>
+                    <div class="form-label">Protecting</div>
+                    <p class="ups-hint">Tick what this UPS keeps up. Each one gets a battery tag on the map.</p>
+                    <div id="upsProtectsList" class="ups-protects"></div>
+                </div>
                 <div id="printerSection" style="display:none;">
                     <div class="form-group"><label class="form-label">Model</label><input type="text" class="form-input" id="propPrinterModel" placeholder="e.g. LaserJet Pro M404n" oninput="updateDeviceProp('model', this.value)"></div>
                 </div>
@@ -279,6 +286,10 @@ const CHROME = `    <div class="grid-bg"></div>
                     <div class="form-label">Hosted VMs</div>
                     <div id="vmList"></div>
                     <button class="add-btn" id="addVMBtn" style="margin-top:8px;">+ Add VM</button>
+                </div>
+                <div id="protectedBySection" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--glass-border);">
+                    <div class="form-label" style="margin-bottom:6px;">&#x1F50B; Power protection</div>
+                    <div id="protectedByList" style="font-size:0.75rem;"></div>
                 </div>
                 <div id="connectedToSection" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--glass-border);">
                     <div id="upstreamSection">
@@ -313,26 +324,6 @@ const CHROME = `    <div class="grid-bg"></div>
             </div>
             <div id="zoneProps" style="display:none;">
                 <div class="form-group"><label class="form-label">Zone Name</label><input type="text" class="form-input" id="propZoneName" oninput="updateZoneProp('name', this.value)"></div>
-                <div id="upsPropsSection" style="display:none;">
-                    <div class="form-group"><label class="form-label">UPS Manufacturer</label>
-                        <select class="form-select" id="propUPSMfg" onchange="updateZoneProp('manufacturer', this.value)">
-                            <option value="">-- Select --</option>
-                            <option value="APC">APC</option>
-                            <option value="CyberPower">CyberPower</option>
-                            <option value="Eaton">Eaton</option>
-                            <option value="Tripp Lite">Tripp Lite</option>
-                            <option value="Vertiv/Liebert">Vertiv/Liebert</option>
-                            <option value="Schneider Electric">Schneider Electric</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="form-group"><label class="form-label">UPS Model</label><input type="text" class="form-input" id="propUPSModel" placeholder="e.g. Smart-UPS 1500" oninput="updateZoneProp('model', this.value)"></div>
-                    <div style="display:flex;gap:8px;">
-                        <div class="form-group" style="flex:1;"><label class="form-label">Capacity (VA)</label><input type="text" class="form-input" id="propUPSCapacity" placeholder="1500" oninput="updateZoneProp('capacity', this.value)"></div>
-                        <div class="form-group" style="flex:1;"><label class="form-label">Runtime (min)</label><input type="text" class="form-input" id="propUPSRuntime" placeholder="15" oninput="updateZoneProp('runtime', this.value)"></div>
-                    </div>
-                    <div class="form-group"><label class="form-label">IP Address</label><input type="text" class="form-input" id="propUPSIP" placeholder="192.168.1.100" oninput="updateZoneProp('ip', this.value)"></div>
-                </div>
                 <div id="nvrPropsSection" style="display:none;">
                     <div class="form-group"><label class="form-label">NVR Manufacturer</label>
                         <select class="form-select" id="propNVRMfg" onchange="updateZoneProp('manufacturer', this.value)">

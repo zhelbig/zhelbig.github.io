@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createInitialState, serializeState, applySnapshot,
-  highestNameIndex, resolveCounters, SNAPSHOT_FIELDS, nextId
+  highestNameIndex, resolveCounters, SNAPSHOT_FIELDS, nextId, migrateUpsZones
 } from '../js/core/state.js';
 
 describe('createInitialState', () => {
@@ -156,5 +156,93 @@ describe('nextId', () => {
   it('does not collide across prefixes', () => {
     const a = new Set([nextId('dev'), nextId('zone'), nextId('conn')]);
     expect(a.size).toBe(3);
+  });
+});
+
+describe('migrateUpsZones', () => {
+  const upsZone = (over = {}) => Object.assign({
+    id: 'zone1', type: 'ups', name: 'Rack UPS', x: 100, y: 100,
+    width: 400, height: 300, manufacturer: 'APC', model: 'Smart-UPS 1500',
+    capacity: '1500', runtime: '15', ip: '192.168.1.100', notes: 'rack A'
+  }, over);
+  const dev = (id, x, y, type = 'server') => ({ id, type, name: id, x, y });
+
+  it('leaves a file with no UPS zones untouched', () => {
+    const data = { devices: [dev('d1', 0, 0)], zones: [{ id: 'z', type: 'mdf', x: 0, y: 0 }] };
+    const out = migrateUpsZones(data);
+    expect(out.migrated).toBe(0);
+    expect(out.data.zones).toHaveLength(1);
+    expect(out.data.devices).toHaveLength(1);
+  });
+
+  it('turns a UPS zone into a UPS device', () => {
+    const { data, migrated } = migrateUpsZones({ devices: [], zones: [upsZone()] });
+    expect(migrated).toBe(1);
+    expect(data.zones).toHaveLength(0);
+    const ups = data.devices.find(d => d.type === 'ups');
+    expect(ups).toBeTruthy();
+    expect(ups.name).toBe('Rack UPS');
+    expect(ups.x).toBe(100);
+    expect(ups.y).toBe(100);
+  });
+
+  it('carries the UPS details across', () => {
+    const { data } = migrateUpsZones({ devices: [], zones: [upsZone()] });
+    const ups = data.devices[0];
+    expect(ups.manufacturer).toBe('APC');
+    expect(ups.model).toBe('Smart-UPS 1500');
+    expect(ups.capacity).toBe('1500');
+    expect(ups.runtime).toBe('15');
+    expect(ups.ip).toBe('192.168.1.100');
+    expect(ups.notes).toBe('rack A');
+  });
+
+  it('seeds the protects list from whatever sat inside the box', () => {
+    // Drawing the box around things was how the old model expressed this.
+    const devices = [dev('in1', 150, 150), dev('in2', 300, 200), dev('out', 900, 900)];
+    const { data } = migrateUpsZones({ devices, zones: [upsZone()] });
+    const ups = data.devices.find(d => d.type === 'ups');
+    expect(ups.protects).toEqual(['in1', 'in2']);
+  });
+
+  it('never has a migrated UPS protect another UPS', () => {
+    const devices = [dev('other-ups', 150, 150, 'ups'), dev('srv', 200, 200)];
+    const { data } = migrateUpsZones({ devices, zones: [upsZone()] });
+    const ups = data.devices.find(d => d.id !== 'other-ups' && d.type === 'ups');
+    expect(ups.protects).toEqual(['srv']);
+  });
+
+  it('gives each migrated UPS a fresh id that collides with nothing', () => {
+    const { data } = migrateUpsZones({
+      devices: [dev('d1', 0, 0)],
+      zones: [upsZone(), upsZone({ id: 'zone2', name: 'UPS B', x: 900, y: 900 })]
+    });
+    const ids = data.devices.map(d => d.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).not.toContain('zone1');
+  });
+
+  it('keeps non-UPS zones', () => {
+    const { data } = migrateUpsZones({
+      devices: [],
+      zones: [upsZone(), { id: 'z2', type: 'mdf', name: 'MDF', x: 0, y: 0 }]
+    });
+    expect(data.zones.map(z => z.type)).toEqual(['mdf']);
+  });
+
+  it('survives a zone with no dimensions or a file with no devices array', () => {
+    expect(() => migrateUpsZones({ zones: [{ id: 'z', type: 'ups', x: 0, y: 0 }] })).not.toThrow();
+    const { data } = migrateUpsZones({ zones: [{ id: 'z', type: 'ups', name: '', x: 0, y: 0 }] });
+    expect(data.devices[0].protects).toEqual([]);
+    expect(data.devices[0].name).toBe('UPS');
+  });
+
+  it('produces a device that serializes like any other', () => {
+    const { data } = migrateUpsZones({ devices: [], zones: [upsZone()] });
+    const state = createInitialState();
+    state.devices = data.devices;
+    const round = applySnapshot(createInitialState(), serializeState(state));
+    expect(round.devices[0].protects).toEqual([]);
+    expect(round.devices[0].type).toBe('ups');
   });
 });

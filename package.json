@@ -8,7 +8,8 @@
     "test:render": "node tests/browser/render.mjs",
     "test:ux": "node tests/browser/ux.mjs",
     "test:selection": "node tests/browser/selection.mjs",
-    "test:zones": "node tests/browser/zones-search.mjs"
+    "test:zones": "node tests/browser/zones-search.mjs",
+    "test:ups": "node tests/browser/ups.mjs"
   },
   "repository": {
     "type": "git",

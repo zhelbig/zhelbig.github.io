@@ -8,7 +8,6 @@ export const zoneTypes = {
     onprem: { name: 'On-Prem', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="10" y1="4" x2="10" y2="20"/><line x1="4" y1="15" x2="10" y2="15"/></svg>', color: '#8b5cf6' },
     mdf: { name: 'MDF', icon: '', color: '#22c55e' },
     idf: { name: 'IDF', icon: '', color: '#f97316' },
-    ups: { name: 'UPS', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="18" rx="2"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/><path d="M13 10l-2 4h3l-2 4"/></svg>', color: '#eab308' },
     nvr: { name: 'NVR', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><line x1="14" y1="9" x2="20" y2="9"/><line x1="14" y1="12" x2="20" y2="12"/><line x1="14" y1="15" x2="20" y2="15"/></svg>', color: '#ef4444' }
 };
 
@@ -31,7 +30,8 @@ export const types = {
     iot: { name: 'IoT', icon: 'svg-iot', svgIcon: true },
     phone: { name: 'Desk Phone', icon: 'svg-phone', svgIcon: true },
     camera: { name: 'Security Camera', icon: 'svg-camera', svgIcon: true },
-    vpn: { name: 'VPN', icon: 'svg-vpn', svgIcon: true }
+    vpn: { name: 'VPN', icon: 'svg-vpn', svgIcon: true },
+    ups: { name: 'UPS', icon: 'svg-ups', svgIcon: true }
 };
 
 export const manufacturers = {
@@ -42,7 +42,8 @@ export const manufacturers = {
     printer: ['HP', 'Canon', 'Epson', 'Brother', 'Xerox', 'Lexmark', 'Ricoh', 'Kyocera', 'Dell', 'Samsung', 'Konica Minolta', 'Other'],
     otherendpoint: ['Generic', 'Custom', 'Other'],
     server: ['Dell', 'HP/HPE', 'Lenovo', 'Supermicro', 'Cisco', 'IBM', 'Fujitsu', 'Intel', 'Custom Build', 'Other'],
-    vm: ['VMware', 'Hyper-V', 'Proxmox', 'KVM', 'VirtualBox', 'Xen', 'Other']
+    vm: ['VMware', 'Hyper-V', 'Proxmox', 'KVM', 'VirtualBox', 'Xen', 'Other'],
+    ups: ['APC', 'CyberPower', 'Eaton', 'Tripp Lite', 'Vertiv/Liebert', 'Schneider Electric', 'Other']
 };
 
 const _desktopOS = ['Windows 11', 'Windows 10', 'Windows 8.1', 'Windows 7', 'macOS Sonoma', 'macOS Ventura', 'macOS Monterey', 'macOS Big Sur', 'Ubuntu', 'Fedora', 'Debian', 'Linux Mint', 'Arch Linux', 'Pop!_OS', 'Chrome OS', 'Other'];
@@ -76,6 +77,7 @@ export const svgDefs = {
     'svg-iot': '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.5" fill="currentStroke"/><line x1="12" y1="3" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="3" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="21" y2="12"/>',
     'svg-phone': '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 5a2 2 0 012-2z"/>',
     'svg-camera': '<path d="M4 8h2v8H4z" fill="currentFill" opacity="0.3"/><rect x="6" y="7" width="4" height="10" rx="1"/><rect x="10" y="8.5" width="10" height="7" rx="3.5"/><circle cx="17" cy="12" r="2"/><circle cx="17" cy="12" r="0.8" fill="currentStroke"/>',
+    'svg-ups': '<rect x="6" y="4" width="12" height="18" rx="2"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/><path d="M13 10l-2 4h3l-2 4"/>',
     'svg-vpn': '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 6V5a4 4 0 018 0v1"/><circle cx="12" cy="13" r="2"/><line x1="12" y1="15" x2="12" y2="16.5"/>'
 };
 

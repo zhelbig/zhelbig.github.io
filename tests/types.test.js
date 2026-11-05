@@ -9,7 +9,7 @@ describe('device registry', () => {
     const expected = [
       'desktop', 'laptop', 'cellphone', 'tablet', 'otherendpoint',
       'server', 'nas', 'router', 'switch', 'firewall', 'ap',
-      'vmhost', 'vm', 'storage', 'printer', 'iot', 'phone', 'camera', 'vpn'
+      'vmhost', 'vm', 'storage', 'printer', 'iot', 'phone', 'camera', 'vpn', 'ups'
     ];
     expected.forEach(t => expect(types, `missing type: ${t}`).toHaveProperty(t));
   });
@@ -40,9 +40,17 @@ describe('device registry', () => {
 });
 
 describe('zone registry', () => {
-  it('covers the six zone kinds the palette offers', () => {
-    ['cloud', 'onprem', 'mdf', 'idf', 'ups', 'nvr']
+  it('covers the five zone kinds the palette offers', () => {
+    ['cloud', 'onprem', 'mdf', 'idf', 'nvr']
       .forEach(z => expect(zoneTypes).toHaveProperty(z));
+  });
+
+  it('no longer carries UPS, which is a device now', () => {
+    // A UPS protects named devices; it was never really a region of the
+    // canvas, and as a zone it only "protected" whatever happened to be
+    // dropped inside the box.
+    expect(zoneTypes).not.toHaveProperty('ups');
+    expect(types).toHaveProperty('ups');
   });
   it('gives every zone a name and a hex colour', () => {
     Object.entries(zoneTypes).forEach(([key, cfg]) => {
