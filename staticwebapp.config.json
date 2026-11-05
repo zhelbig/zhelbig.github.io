@@ -26,6 +26,14 @@
     {
       "route": "/network-mapper.html",
       "serve": "/network-mapper.html"
+    },
+    {
+      "route": "/i-tech-network-mapper.html",
+      "serve": "/i-tech-network-mapper.html"
+    },
+    {
+      "route": "/password-generator.html",
+      "serve": "/password-generator.html"
     }
   ],
   "responseOverrides": {
