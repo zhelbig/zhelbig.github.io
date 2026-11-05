@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createInitialState, serializeState, applySnapshot,
-  highestNameIndex, resolveCounters, SNAPSHOT_FIELDS
+  highestNameIndex, resolveCounters, SNAPSHOT_FIELDS, nextId
 } from '../js/core/state.js';
 
 describe('createInitialState', () => {
@@ -132,5 +132,29 @@ describe('resolveCounters', () => {
   it('tracks zones separately from devices', () => {
     const r = resolveCounters({ devices: [{ name: 'D 9' }], zones: [{ name: 'Z 2' }] });
     expect(r).toEqual({ counter: 9, zoneCounter: 2 });
+  });
+});
+
+describe('nextId', () => {
+  it('never repeats, even for ids minted in the same millisecond', () => {
+    // The old `prefix + Date.now()` collided here, and duplicate device ids
+    // make getElementById return the wrong box.
+    const ids = new Set();
+    for (let i = 0; i < 5000; i++) ids.add(nextId('dev'));
+    expect(ids.size).toBe(5000);
+  });
+  it('keeps the prefix', () => {
+    expect(nextId('zone')).toMatch(/^zone/);
+    expect(nextId('conn')).toMatch(/^conn/);
+  });
+  it('produces ids that are safe as DOM ids and CSS selectors', () => {
+    for (let i = 0; i < 50; i++) {
+      const id = nextId('dev');
+      expect(id).toMatch(/^[A-Za-z][\w-]*$/);
+    }
+  });
+  it('does not collide across prefixes', () => {
+    const a = new Set([nextId('dev'), nextId('zone'), nextId('conn')]);
+    expect(a.size).toBe(3);
   });
 });

@@ -4,7 +4,8 @@
   "description": "Personal site and browser-based IT tools",
   "scripts": {
     "test": "vitest run",
-    "test:browser": "node tests/browser/smoke.mjs"
+    "test:browser": "node tests/browser/smoke.mjs",
+    "test:render": "node tests/browser/render.mjs"
   },
   "repository": {
     "type": "git",

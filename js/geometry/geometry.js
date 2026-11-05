@@ -149,3 +149,23 @@ export function boundingBox(devices, zones, sizeOf) {
 export function formatCount(count, singular) {
     return count + ' ' + singular + (count !== 1 ? 's' : '');
 }
+
+/**
+ * html2canvas renders at `scale`, so the bitmap is (scale*w) x (scale*h).
+ * A diagram spread across the canvas could exceed the browser's maximum
+ * canvas area, where html2canvas yields a blank image with no error at all.
+ * Back the scale off rather than silently producing an empty PDF.
+ */
+const MAX_CANVAS_PX = 24e6;      // comfortably inside Safari's ~16-megapixel-ish cap doubled
+const MAX_CANVAS_SIDE = 12000;   // Chrome tops out near 16384
+
+export function safeExportScale(width, height, preferred = 2) {
+    let scale = preferred;
+    while (scale > 0.5 &&
+           (width * scale * height * scale > MAX_CANVAS_PX ||
+            width * scale > MAX_CANVAS_SIDE ||
+            height * scale > MAX_CANVAS_SIDE)) {
+        scale -= 0.25;
+    }
+    return Math.max(0.5, scale);
+}

@@ -8,7 +8,7 @@
 
 import {
     createInitialState, serializeState, applySnapshot,
-    highestNameIndex, resolveCounters
+    highestNameIndex, resolveCounters, nextId
 } from './core/state.js';
 import { createHistory } from './core/history.js';
 import {
@@ -20,12 +20,15 @@ import {
     DEFAULT_GRID_SIZE, CANVAS_ORIGIN, snapValue, connectionPoint,
     buildConnPath, buildOrthoPath, buildOrthoPathFromWaypoints,
     getDefaultWaypoints, nearestEdge, clampZoom, zoomPan,
-    dropPosition, boundingBox, formatCount
+    dropPosition, boundingBox, formatCount, safeExportScale
 } from './geometry/geometry.js';
 import {
     parseCSVLine, escapeCSVCell, parseCSVContent, normalizeStatus
 } from './io/csv.js';
 import { mountChrome } from './ui/layout.js';
+import { createSceneIndex } from './core/indexes.js';
+import { createFrameScheduler } from './render/scheduler.js';
+import { createConnectionLayer } from './render/connection-layer.js';
 
 // The chrome is injected before anything else runs: the element lookups
 // further down this file, and every getElementById inside the handlers,
@@ -127,6 +130,56 @@ const canvasGrid = document.getElementById('canvasGrid');
 const canvas = document.getElementById('canvas');
 const svg = document.getElementById('connections');
 const connHint = document.getElementById('connHint');
+
+const sceneIndex = createSceneIndex();
+const scheduler = createFrameScheduler();
+const connLayer = createConnectionLayer(svg);
+
+/**
+ * One listener for the whole layer, instead of three per connection
+ * re-attached on every redraw. The old eraser rebuilt the SVG on mouseleave,
+ * which destroyed the node under the cursor, re-fired mouseenter against its
+ * replacement and rebuilt again - a loop that ran for as long as the pointer
+ * rested on a line.
+ */
+svg.addEventListener('click', e => {
+    const g = e.target.closest('g[data-conn-id]');
+    if (!g) return;
+    const conn = state.connections.find(c => c.id === g.dataset.connId);
+    if (!conn) return;
+    e.stopPropagation();
+
+    if (eraserMode) {
+        saveState();
+        const idx = state.connections.indexOf(conn);
+        state.connections.splice(idx, 1);
+        sceneIndex.removeConnection(conn);
+        updateCounts();
+        if (state.selected) renderConnectedToList(state.selected);
+        drawConnections();
+        return;
+    }
+
+    if (editRouteMode && conn.routingStyle === 'orthogonal') {
+        editingConn = conn;
+        if (!conn.waypoints || conn.waypoints.length === 0) {
+            conn.waypoints = getDefaultWaypoints(
+                getConnectionPoint(conn.from, conn.fromPos),
+                getConnectionPoint(conn.to, conn.toPos),
+                conn.fromPos
+            );
+        }
+        drawConnections();
+    }
+});
+
+/** Interaction modes are a class on the layer, so switching one on costs
+ *  nothing and rebuilds nothing. */
+function setLayerMode() {
+    svg.classList.toggle('erasing', eraserMode);
+    svg.classList.toggle('route-edit', editRouteMode);
+    svg.style.pointerEvents = (eraserMode || editRouteMode) ? 'all' : 'none';
+}
 
 function openModal(id) { document.getElementById(id).classList.add('active'); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -250,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const el = document.getElementById(draggingDevice.id);
             el.style.left = draggingDevice.x + 'px';
             el.style.top = draggingDevice.y + 'px';
-            drawConnections();
+            scheduleDeviceRedraw(draggingDevice.id);
         }
         if (draggingZone) {
             const dx = (e.clientX - dragStart.x) / state.zoom;
@@ -275,7 +328,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Convert screen coords to canvas coords
             dragConnCurrent.x = (e.clientX - rect.left - state.panX) / state.zoom + 4000;
             dragConnCurrent.y = (e.clientY - rect.top - state.panY) / state.zoom + 4000;
-            drawConnectionsWithDrag();
+            scheduler.schedule('drag-preview', drawConnectionsWithDrag);
         }
     });
 
@@ -283,6 +336,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isPanning) {
             isPanning = false;
             canvasArea.classList.remove('panning');
+        }
+        if (draggingDevice || draggingZone || resizingZone || isDraggingConnection) {
+            scheduler.flushNow();
         }
         if (draggingDevice) {
             const d = draggingDevice;
@@ -334,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!exists) {
                     saveState();
                     state.connections.push({
-                        id: 'conn' + Date.now(),
+                        id: nextId('conn'),
                         from: dragConnStart.device.id,
                         fromPos: dragConnStart.pos,
                         to: targetDevice.device.id,
@@ -487,60 +543,58 @@ function toggleEditRoute() {
         btn.style.borderColor = 'rgba(124,58,237,0.5)';
         connHint.textContent = 'Click an orthogonal connection to edit its route';
         connHint.classList.add('active');
-        drawConnectionsForRouteEdit();
+        setLayerMode();
+        drawConnections();
     } else {
         btn.style.background = '';
         btn.style.borderColor = 'rgba(124,58,237,0.3)';
         connHint.classList.remove('active');
         editingConn = null;
         clearWaypointHandles();
+        setLayerMode();
         drawConnections();
-        // Deactivate waypointLayer pointer events
         waypointLayer.classList.remove('active');
     }
 }
 
 function drawConnectionsForRouteEdit() {
-    // Draw connections; orthogonal ones get a clickable hit area
-    let paths = '';
-    state.connections.forEach((conn, index) => {
-        const from = getConnectionPoint(conn.from, conn.fromPos);
-        const to = getConnectionPoint(conn.to, conn.toPos);
-        const path = buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
-        if (conn.routingStyle === 'orthogonal') {
-            const isEditing = editingConn && editingConn.id === conn.id;
-            paths += '<path d="' + path + '" stroke="transparent" stroke-width="10" fill="none" style="cursor:pointer;pointer-events:stroke;" data-edit-conn="' + index + '"/>';
-            if (conn.type === 'vpn') paths += '<path class="conn-vpn-outline" d="' + path + '" style="pointer-events:none;"/>';
-            paths += '<path class="conn-' + conn.type + '" d="' + path + '" style="pointer-events:none;"' + (isEditing ? ' stroke-dasharray="6,3" stroke-width="2.5"' : '') + '/>';
-        } else {
-            if (conn.type === 'vpn') paths += '<path class="conn-vpn-outline" d="' + path + '"/>';
-            paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
-        }
-    });
-    svg.innerHTML = paths;
-    svg.style.pointerEvents = 'all';
+    drawConnections();
+}
 
-    // Attach click handlers to orthogonal hit areas
-    svg.querySelectorAll('[data-edit-conn]').forEach(el => {
-        el.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const idx = parseInt(this.dataset.editConn);
-            const conn = state.connections[idx];
-            if (!conn || conn.routingStyle !== 'orthogonal') return;
-            editingConn = conn;
-            // Initialise waypoints if not set
-            if (!conn.waypoints || conn.waypoints.length === 0) {
-                const from = getConnectionPoint(conn.from, conn.fromPos);
-                const to = getConnectionPoint(conn.to, conn.toPos);
-                conn.waypoints = getDefaultWaypoints(from, to, conn.fromPos);
-            }
-            drawConnectionsForRouteEdit();
-            renderWaypointHandles(conn);
-        });
+/**
+ * Move the existing handles to match the connection's current geometry.
+ *
+ * Dragging a corner used to call renderWaypointHandles on every pointer
+ * move, which emptied the layer and recreated every midpoint, handle and
+ * listener. The handle count only changes when a corner is added or removed,
+ * so an ordinary drag just needs new coordinates.
+ */
+function repositionWaypointHandles(conn) {
+    if (!conn.waypoints) return;
+    const from = getConnectionPoint(conn.from, conn.fromPos);
+    const to   = getConnectionPoint(conn.to,   conn.toPos);
+    const points = [from, ...conn.waypoints, to];
+
+    waypointLayer.querySelectorAll('[data-waypoint]').forEach(el => {
+        const wp = conn.waypoints[Number(el.dataset.waypoint)];
+        if (!wp) return;
+        el.style.left = wp.x + 'px';
+        el.style.top = wp.y + 'px';
     });
 
-    // If already editing a conn, keep handles visible
-    if (editingConn) renderWaypointHandles(editingConn);
+    waypointLayer.querySelectorAll('[data-segment]').forEach(el => {
+        const i = Number(el.dataset.segment);
+        const a = points[i], b = points[i + 1];
+        if (!a || !b) return;
+        el.style.left = ((a.x + b.x) / 2) + 'px';
+        el.style.top = ((a.y + b.y) / 2) + 'px';
+    });
+
+    const reset = waypointLayer.querySelector('[data-reset-btn]');
+    if (reset) {
+        reset.style.left = ((from.x + to.x) / 2 - 28) + 'px';
+        reset.style.top = ((from.y + to.y) / 2 - 24) + 'px';
+    }
 }
 
 function renderWaypointHandles(conn) {
@@ -555,6 +609,7 @@ function renderWaypointHandles(conn) {
     function makeMidpoint(mx, my, insertIdx) {
         const mid = document.createElement('div');
         mid.className = 'seg-midpoint';
+        mid.dataset.segment = String(insertIdx);
         mid.style.left = mx + 'px';
         mid.style.top  = my + 'px';
         mid.title = 'Drag to add a new corner here';
@@ -565,7 +620,7 @@ function renderWaypointHandles(conn) {
             wpDragStart = { x: e.clientX, y: e.clientY };
             wpOriginal  = { x: mx, y: my };
             e.preventDefault();
-            drawConnectionsForRouteEdit();
+            connLayer.updatePaths([conn], connPath);
             renderWaypointHandles(conn);
         });
         waypointLayer.appendChild(mid);
@@ -586,6 +641,7 @@ function renderWaypointHandles(conn) {
     conn.waypoints.forEach((wp, i) => {
         const handle = document.createElement('div');
         handle.className = 'waypoint-handle';
+        handle.dataset.waypoint = String(i);
         handle.style.left = wp.x + 'px';
         handle.style.top  = wp.y + 'px';
         handle.title = 'Drag to move this corner';
@@ -602,6 +658,7 @@ function renderWaypointHandles(conn) {
 
     // Reset button
     const resetBtn = document.createElement('div');
+    resetBtn.dataset.resetBtn = '1';
     resetBtn.style.cssText = 'position:absolute;left:' + ((from.x + to.x)/2 - 28) + 'px;top:' + ((from.y + to.y)/2 - 24) + 'px;' +
         'background:#7c3aed;color:#fff;font-size:0.6rem;font-family:var(--font-body);font-weight:600;padding:3px 7px;' +
         'border-radius:6px;cursor:pointer;z-index:51;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.2);';
@@ -610,7 +667,7 @@ function renderWaypointHandles(conn) {
     resetBtn.addEventListener('click', function(e) {
         e.stopPropagation();
         conn.waypoints = [];
-        drawConnectionsForRouteEdit();
+        connLayer.updatePaths([conn], connPath);
         renderWaypointHandles(conn);
     });
     waypointLayer.appendChild(resetBtn);
@@ -632,13 +689,20 @@ document.addEventListener('mousemove', function(e) {
         x: snapToGridValue(wpOriginal.x + dx),
         y: snapToGridValue(wpOriginal.y + dy)
     };
-    drawConnectionsForRouteEdit();
-    renderWaypointHandles(conn);
+    // Reposition the existing handles instead of tearing the layer down and
+    // rebuilding every handle and listener on each pointer move.
+    scheduler.schedule('waypoints', () => {
+        connLayer.updatePaths([conn], connPath);
+        repositionWaypointHandles(conn);
+    });
 }, true);
 
 document.addEventListener('mouseup', function(e) {
     if (!draggingWaypoint) return;
+    const conn = draggingWaypoint.conn;
     draggingWaypoint = null;
+    scheduler.flushNow();
+    renderWaypointHandles(conn);
 }, true);
 
 // Connection eraser mode
@@ -651,66 +715,17 @@ function toggleEraser() {
 
     if (eraserMode) {
         // Make connections clickable
-        svg.style.pointerEvents = 'all';
-        svg.style.cursor = 'crosshair';
-        connHint.textContent = 'Click a connection line to delete it';
+            connHint.textContent = 'Click a connection line to delete it';
         connHint.classList.add('active');
-        drawConnectionsForEraser();
     } else {
-        svg.style.pointerEvents = 'none';
-        svg.style.cursor = '';
         connHint.classList.remove('active');
-        drawConnections();
     }
+    setLayerMode();
+    drawConnections();
 }
 
 function drawConnectionsForEraser() {
-    // Rebuild SVG with clickable paths for eraser mode
-    let paths = '';
-    state.connections.forEach((conn, index) => {
-        const from = getConnectionPoint(conn.from, conn.fromPos);
-        const to = getConnectionPoint(conn.to, conn.toPos);
-        const path = buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
-        paths += '<path d="' + path + '" stroke="transparent" stroke-width="12" fill="none" style="cursor:crosshair;pointer-events:stroke;" data-conn-index="' + index + '"/>';
-        if (conn.type === 'vpn') paths += '<path class="conn-vpn-outline" d="' + path + '" style="pointer-events:none;"/>';
-        paths += '<path class="conn-' + conn.type + '" d="' + path + '" style="pointer-events:none;"/>';
-    });
-    svg.innerHTML = paths;
-
-    // Add click handlers to hit areas
-    svg.querySelectorAll('[data-conn-index]').forEach(el => {
-        el.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const idx = parseInt(this.dataset.connIndex);
-            if (idx >= 0 && idx < state.connections.length) {
-                saveState();
-                const conn = state.connections[idx];
-                state.connections.splice(idx, 1);
-                updateCounts();
-                // Refresh connected to list if a device is selected
-                if (state.selected) {
-                    renderConnectedToList(state.selected);
-                }
-                if (eraserMode) {
-                    drawConnectionsForEraser();
-                } else {
-                    drawConnections();
-                }
-            }
-        });
-        el.addEventListener('mouseenter', function() {
-            const idx = parseInt(this.dataset.connIndex);
-            // Highlight the connection being hovered
-            const visiblePath = this.nextElementSibling;
-            if (visiblePath) {
-                visiblePath.setAttribute('stroke', '#ef4444');
-                visiblePath.setAttribute('stroke-width', '3');
-            }
-        });
-        el.addEventListener('mouseleave', function() {
-            if (eraserMode) drawConnectionsForEraser();
-        });
-    });
+    drawConnections();
 }
 
 function createDevice(type, x, y) {
@@ -718,7 +733,7 @@ function createDevice(type, x, y) {
     state.counter++;
     const cfg = types[type];
     const device = {
-        id: 'dev' + Date.now(),
+        id: nextId('dev'),
         type: type,
         name: cfg.name + ' ' + state.counter,
         ip: '', mac: '', status: 'online', vlan: '', notes: '',
@@ -727,6 +742,7 @@ function createDevice(type, x, y) {
         vms: type === 'vmhost' ? [] : null
     };
     state.devices.push(device);
+    sceneIndex.addDevice(device);
     renderDevice(device);
     updateCounts();
     document.getElementById('emptyState').style.display = 'none';
@@ -812,10 +828,13 @@ function renderDevice(d) {
     });
 
     canvas.appendChild(el);
+    // The element was just replaced, so any cached box size is stale.
+    sceneIndex.invalidateSize(d.id);
     if (d.type === 'vmhost' && d.vms) renderVMsOnDevice(d);
 }
 
 function renderVMsOnDevice(d) {
+    sceneIndex.invalidateSize(d.id);
     const container = document.getElementById('vms' + d.id);
     if (!container) return;
     container.innerHTML = d.vms.map(vm => '<div class="hosted-vm"><div class="dot status-' + vm.status + '"></div>' + vm.name + '</div>').join('');
@@ -827,7 +846,7 @@ function createZone(type, x, y) {
     state.zoneCounter++;
     const cfg = zoneTypes[type];
     const zone = {
-        id: 'zone' + Date.now(),
+        id: nextId('zone'),
         type: type,
         name: cfg.name + ' ' + state.zoneCounter,
         x: x, y: y,
@@ -1007,7 +1026,7 @@ function handleConnectionClick(device, position) {
             if (!exists) {
                 saveState();
                 state.connections.push({
-                    id: 'conn' + Date.now(),
+                    id: nextId('conn'),
                     from: state.connecting.device.id, fromPos: state.connecting.pos,
                     to: device.id, toPos: position, type: state.connType,
                     routingStyle: state.routingStyle
@@ -1033,45 +1052,76 @@ function cancelConnect() {
     connHint.classList.remove('active');
 }
 
-function getConnectionPoint(deviceId, position) {
-    const device = state.devices.find(d => d.id === deviceId);
-    if (!device) return { x: 0, y: 0 };
+/**
+ * Box size for a device, measured once and cached. Reading offsetWidth per
+ * endpoint per connection per frame was the single biggest cost on the drag
+ * path; the box is CSS-sized, so it only changes when content does.
+ */
+function deviceSize(deviceId) {
+    let size = sceneIndex.size(deviceId);
+    if (size) return size;
     const el = document.getElementById(deviceId);
-    if (!el) return { x: 0, y: 0 };
-    return connectionPoint(device, position, el.offsetWidth, el.offsetHeight);
+    if (!el) return null;
+    sceneIndex.setSize(deviceId, el.offsetWidth, el.offsetHeight);
+    return sceneIndex.size(deviceId);
 }
 
-function buildConnectionPaths() {
-    let paths = '';
-    state.connections.forEach(conn => {
-        const from = getConnectionPoint(conn.from, conn.fromPos);
-        const to = getConnectionPoint(conn.to, conn.toPos);
-        const path = buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
-        if (conn.type === 'vpn') {
-            paths += '<path class="conn-vpn-outline" d="' + path + '"/>';
-        }
-        paths += '<path class="conn-' + conn.type + '" d="' + path + '"/>';
-    });
-    return paths;
+function getConnectionPoint(deviceId, position) {
+    const device = sceneIndex.device(deviceId);
+    if (!device) return { x: 0, y: 0 };
+    const size = deviceSize(deviceId);
+    if (!size) return { x: 0, y: 0 };
+    return connectionPoint(device, position, size.width, size.height);
 }
 
+function connPath(conn) {
+    const from = getConnectionPoint(conn.from, conn.fromPos);
+    const to = getConnectionPoint(conn.to, conn.toPos);
+    return buildConnPath(from, to, conn.fromPos, conn.routingStyle || 'curved', conn.waypoints);
+}
+
+/** Re-index, then reconcile the layer. O(devices + connections); called on
+ *  structural change, never from within a drag. */
 function drawConnections() {
-    if (editRouteMode) { drawConnectionsForRouteEdit(); return; }
-    svg.innerHTML = buildConnectionPaths();
-    svg.style.pointerEvents = 'none';
+    sceneIndex.rebuild(state.devices, state.connections);
+    connLayer.render(state.connections, connPath);
+    connLayer.setEditing(editRouteMode && editingConn ? editingConn.id : null);
+    if (editRouteMode && editingConn) renderWaypointHandles(editingConn);
+}
+
+// Coalesced redraw. A full redraw wins over per-device ones queued in the
+// same frame, since it is a superset of their work.
+let pendingFullRedraw = false;
+const pendingDirtyDevices = new Set();
+
+function runPendingRedraw() {
+    if (pendingFullRedraw) {
+        drawConnections();
+    } else if (pendingDirtyDevices.size) {
+        connLayer.updatePaths(sceneIndex.connectionsForAny([...pendingDirtyDevices]), connPath);
+    }
+    pendingFullRedraw = false;
+    pendingDirtyDevices.clear();
+}
+
+function scheduleFullRedraw() {
+    pendingFullRedraw = true;
+    scheduler.schedule('connections', runPendingRedraw);
+}
+
+/** Only the edges touching this device need new paths. */
+function scheduleDeviceRedraw(deviceId) {
+    pendingDirtyDevices.add(deviceId);
+    scheduler.schedule('connections', runPendingRedraw);
 }
 
 function drawConnectionsWithDrag() {
-    let paths = buildConnectionPaths();
     if (isDraggingConnection && dragConnStart.device) {
-        const from = dragConnStart;
-        const to = dragConnCurrent;
-        const path = buildConnPath(from, to, from.pos, state.routingStyle);
-        const strokeColor = connColor(state.connType);
-        const sw = state.connType === 'vpn' ? '3.5' : '2';
-        paths += '<path d="' + path + '" stroke="' + strokeColor + '" stroke-width="' + sw + '" fill="none" stroke-dasharray="5,5" opacity="0.7"/>';
+        const d = buildConnPath(dragConnStart, dragConnCurrent, dragConnStart.pos, state.routingStyle);
+        connLayer.showOverlay(d, connColor(state.connType), state.connType === 'vpn' ? 3.5 : 2);
+    } else {
+        connLayer.hideOverlay();
     }
-    svg.innerHTML = paths;
 }
 
 function findDeviceAtPoint(clientX, clientY) {
@@ -1411,6 +1461,8 @@ function updateDeviceProp(key, value) {
     const el = document.getElementById(state.selected.id);
     if (key === 'name') el.querySelector('.device-name').textContent = value;
     if (key === 'ip') el.querySelector('.device-ip').textContent = value || 'No IP';
+    // Text changes can reflow the box, so drop the measurement.
+    if (key === 'name' || key === 'ip') sceneIndex.invalidateSize(state.selected.id);
 }
 
 function setStatus(status) {
@@ -1634,6 +1686,43 @@ function getVlanName(vlanId) {
 }
 
 
+/**
+ * html2canvas and jsPDF are ~550KB and only the export path needs them.
+ * They used to be parser-blocking <script> tags in every shell's <head>,
+ * paid for on every page load whether or not anyone exported anything.
+ */
+const EXPORT_LIBS = [
+    { url: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+      ready: () => typeof window.html2canvas === 'function' },
+    { url: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      ready: () => !!(window.jspdf && window.jspdf.jsPDF) }
+];
+
+let exportLibsPromise = null;
+
+function loadScript(url) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = url;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Could not load ' + url));
+        document.head.appendChild(s);
+    });
+}
+
+function loadExportLibs() {
+    if (EXPORT_LIBS.every(l => l.ready())) return Promise.resolve();
+    if (!exportLibsPromise) {
+        exportLibsPromise = Promise.all(
+            EXPORT_LIBS.filter(l => !l.ready()).map(l => loadScript(l.url))
+        ).catch(err => {
+            exportLibsPromise = null;   // allow a retry after a transient failure
+            throw err;
+        });
+    }
+    return exportLibsPromise;
+}
+
 function generatePDF() {
     const title = document.getElementById('pdfTitle').value || 'Network Diagram';
     const client = document.getElementById('clientName').value || '';
@@ -1753,15 +1842,14 @@ function generatePDF() {
     wrapper.appendChild(diagramArea);
     tempContainer.appendChild(wrapper);
 
-    // Render to canvas
-    html2canvas(wrapper, { 
-        backgroundColor: '#ffffff', 
-        scale: 2, 
-        useCORS: true, 
-        logging: false 
-    }).then(canvasImg => {
-        document.body.removeChild(tempContainer);
+    const exportScale = safeExportScale(contentWidth, contentHeight);
 
+    loadExportLibs().then(() => html2canvas(wrapper, {
+        backgroundColor: '#ffffff',
+        scale: exportScale,
+        useCORS: true,
+        logging: false
+    })).then(canvasImg => {
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
         const pageWidth = pdf.internal.pageSize.getWidth();
@@ -1790,7 +1878,13 @@ function generatePDF() {
         drawPageHeader('Network Diagram');
 
         // Calculate image dimensions to fit and center
-        const imgData = canvasImg.toDataURL('image/png');
+        // PNG is lossless and a large diagram's data URL is held in memory
+        // alongside the source canvas; JPEG keeps the peak well down.
+        const megapixels = (canvasImg.width * canvasImg.height) / 1e6;
+        const imgData = megapixels > 8
+            ? canvasImg.toDataURL('image/jpeg', 0.92)
+            : canvasImg.toDataURL('image/png');
+        const imgFormat = megapixels > 8 ? 'JPEG' : 'PNG';
         const availableWidth = pageWidth - 10;
         const availableHeight = pageHeight - 21;
 
@@ -1809,7 +1903,7 @@ function generatePDF() {
         const imgX = (pageWidth - finalWidth) / 2;
         const imgY = 20 + (availableHeight - finalHeight) / 2;
 
-        pdf.addImage(imgData, 'PNG', imgX, imgY, finalWidth, finalHeight);
+        pdf.addImage(imgData, imgFormat, imgX, imgY, finalWidth, finalHeight);
 
         // Add device inventory pages if checked
         if (includeInventory && (state.devices.length > 0 || state.zones.length > 0)) {
@@ -2368,6 +2462,11 @@ function generatePDF() {
     }).catch(err => {
         console.error('PDF export error:', err);
         alert('PDF export failed: ' + err.message);
+    }).finally(() => {
+        // The offscreen container holds a full clone of the diagram. It was
+        // only removed on success, so every failed export leaked one - and a
+        // failure is exactly what a very large diagram produced.
+        if (tempContainer.parentNode) tempContainer.parentNode.removeChild(tempContainer);
     });
 }
 
@@ -2657,7 +2756,7 @@ function importCSVDevices() {
         const deviceType = row.type.toLowerCase();
 
         const device = {
-            id: 'dev' + Date.now() + '_' + index,
+            id: nextId('dev'),
             type: deviceType,
             name: row.name || (types[deviceType]?.name || 'Device') + ' ' + state.counter,
             ip: row.ipaddress || '',
@@ -2739,5 +2838,8 @@ window.mapper = {
     createDevice, createZone, deleteSelected, deleteSelectedZone, clearAll,
     selectDevice, selectZone, deselectAll,
     drawConnections, updateCounts, setConnType, setRoutingStyle,
-    connColor, GRID_SIZE
+    connColor, GRID_SIZE,
+    // Render internals, for debugging and for the benchmark harness.
+    sceneIndex, scheduler, connLayer,
+    redrawDeviceEdges: (id) => connLayer.updatePaths(sceneIndex.connectionsFor(id), connPath)
 };

@@ -44,6 +44,24 @@ describe('shared stylesheet', () => {
     expect(literals, `brand literals leaked: ${[...new Set(literals)].join(', ')}`).toEqual([]);
   });
 
+  it('is brace-balanced', () => {
+    // A stray brace makes the parser skip to recover, silently dropping the
+    // next rule - which is how an over-greedy edit once removed the canvas
+    // transform without any error anywhere.
+    let depth = 0, unbalanced = 0;
+    for (const ch of CSS) {
+      if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth < 0) { unbalanced++; depth = 0; } }
+    }
+    expect(unbalanced, 'stray closing brace(s)').toBe(0);
+    expect(depth, 'unclosed block(s)').toBe(0);
+  });
+
+  it('keeps the rules the canvas depends on', () => {
+    ['#canvasWrapper', '#canvas', '#connections', '.canvas-grid', '.network-device', '.app']
+      .forEach(sel => expect(CSS.includes(sel + '{'), `missing rule: ${sel}`).toBe(true));
+  });
+
   it('declares no :root tokens of its own', () => {
     expect(/:root\s*\{/.test(CSS), 'mapper.css must not define tokens').toBe(false);
   });

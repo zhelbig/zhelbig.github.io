@@ -11,6 +11,24 @@ export const SNAPSHOT_FIELDS = [
     'counter', 'zoneCounter'
 ];
 
+/**
+ * Unique element id.
+ *
+ * Ids used to be `prefix + Date.now()`, which collides whenever two objects
+ * are created inside the same millisecond - dragging devices out quickly, or
+ * any bulk creation. Duplicate ids are not cosmetic: getElementById returns
+ * the wrong box, and connections then anchor to it.
+ *
+ * The sequence restarts at load, but the timestamp component differs across
+ * sessions, so ids stay unique against anything already saved.
+ */
+let idSequence = 0;
+
+export function nextId(prefix) {
+    idSequence += 1;
+    return prefix + Date.now().toString(36) + '_' + idSequence.toString(36);
+}
+
 export function createInitialState() {
     return {
         devices: [],

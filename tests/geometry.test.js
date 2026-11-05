@@ -3,7 +3,7 @@ import {
   DEFAULT_GRID_SIZE, MIN_ZOOM, MAX_ZOOM, CANVAS_ORIGIN,
   snapValue, connectionPoint, buildConnPath, buildOrthoPath,
   buildOrthoPathFromWaypoints, getDefaultWaypoints, nearestEdge,
-  clampZoom, zoomPan, dropPosition, boundingBox, formatCount
+  clampZoom, zoomPan, dropPosition, boundingBox, formatCount, safeExportScale
 } from '../js/geometry/geometry.js';
 
 const box = { x: 100, y: 200 };
@@ -153,5 +153,35 @@ describe('formatCount', () => {
     expect(formatCount(0, 'device')).toBe('0 devices');
     expect(formatCount(1, 'device')).toBe('1 device');
     expect(formatCount(2, 'device')).toBe('2 devices');
+  });
+});
+
+describe('safeExportScale', () => {
+  it('uses the preferred scale when the bitmap fits comfortably', () => {
+    expect(safeExportScale(1000, 800)).toBe(2);
+  });
+  it('backs off when the area would exceed the canvas cap', () => {
+    // 5000x5000 at 2x is 100 megapixels - far past what browsers allow.
+    const s = safeExportScale(5000, 5000);
+    expect(s).toBeLessThan(2);
+    expect(5000 * s * 5000 * s).toBeLessThanOrEqual(24e6);
+  });
+  it('backs off when a single side would be too long', () => {
+    const s = safeExportScale(9000, 200);
+    expect(9000 * s).toBeLessThanOrEqual(12000);
+  });
+  it('never returns a useless scale, even for an absurd diagram', () => {
+    expect(safeExportScale(100000, 100000)).toBe(0.5);
+  });
+  it('honours a caller-supplied preference', () => {
+    expect(safeExportScale(500, 500, 1)).toBe(1);
+  });
+  it('is monotonic: a bigger diagram never gets a bigger scale', () => {
+    let prev = Infinity;
+    for (const side of [500, 1500, 3000, 6000, 12000]) {
+      const s = safeExportScale(side, side);
+      expect(s).toBeLessThanOrEqual(prev);
+      prev = s;
+    }
   });
 });
