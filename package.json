@@ -1,19 +1,24 @@
 {
   "name": "zhelbig.github.io",
   "version": "1.0.0",
-  "description": "Test",
-  "main": "index.js",
+  "description": "Personal site and browser-based IT tools",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:browser": "node tests/browser/smoke.mjs",
+    "test:render": "node tests/browser/render.mjs",
+    "test:ux": "node tests/browser/ux.mjs",
+    "test:selection": "node tests/browser/selection.mjs",
+    "test:zones": "node tests/browser/zones-search.mjs"
   },
   "repository": {
     "type": "git",
-    "url": "http://local_proxy@127.0.0.1:57309/git/zhelbig/zhelbig.github.io"
+    "url": "https://github.com/zhelbig/zhelbig.github.io.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "vitest": "^4.0.18"
-  }
+  },
+  "type": "module"
 }
