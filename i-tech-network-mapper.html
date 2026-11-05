@@ -821,11 +821,50 @@
             });
         }
 
-        function saveState() {
-            undoStack.push(getStateSnapshot());
+        function pushSnapshot(snap) {
+            undoStack.push(snap);
             if (undoStack.length > MAX_UNDO) undoStack.shift();
             redoStack.length = 0;
             updateUndoRedoBtns();
+        }
+
+        function saveState() {
+            commitPendingSnapshot();
+            pushSnapshot(getStateSnapshot());
+        }
+
+        // Property edits fire once per keystroke. Capture the state as it was
+        // before the burst began and commit it once typing settles, so a field
+        // edit is one undo step instead of none.
+        let pendingSnapshot = null;
+        let pendingSnapshotTimer = null;
+        const SNAPSHOT_DEBOUNCE_MS = 600;
+
+        function saveStateDebounced() {
+            if (pendingSnapshot === null) pendingSnapshot = getStateSnapshot();
+            clearTimeout(pendingSnapshotTimer);
+            pendingSnapshotTimer = setTimeout(commitPendingSnapshot, SNAPSHOT_DEBOUNCE_MS);
+        }
+
+        function commitPendingSnapshot() {
+            clearTimeout(pendingSnapshotTimer);
+            pendingSnapshotTimer = null;
+            if (pendingSnapshot === null) return;
+            const snap = pendingSnapshot;
+            pendingSnapshot = null;
+            // Discard if the burst left the state unchanged (e.g. type then undo the typing).
+            if (snap !== getStateSnapshot()) pushSnapshot(snap);
+        }
+
+        // Records an undo step for an in-place geometry change (drag, resize)
+        // without paying for a snapshot on every mousedown: revert to the old
+        // values, snapshot, then put the new values back.
+        function pushUndoForGeometryChange(revert, reapply) {
+            commitPendingSnapshot();
+            revert();
+            const snap = getStateSnapshot();
+            reapply();
+            pushSnapshot(snap);
         }
 
         function restoreSnapshot(snapshot) {
@@ -852,6 +891,7 @@
         }
 
         function undo() {
+            commitPendingSnapshot();
             if (undoStack.length === 0) return;
             redoStack.push(getStateSnapshot());
             restoreSnapshot(undoStack.pop());
@@ -859,6 +899,7 @@
         }
 
         function redo() {
+            commitPendingSnapshot();
             if (redoStack.length === 0) return;
             undoStack.push(getStateSnapshot());
             restoreSnapshot(redoStack.pop());
@@ -963,13 +1004,6 @@
             return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + processed + '</svg>';
         }
 
-        function getSvgIconForExport(name) {
-            // Generates SVG group for use inside exported SVG, centered around x=60
-            const paths = svgDefs[name];
-            if (!paths) return '';
-            const processed = paths.replace(/currentStroke/g, '#333').replace(/currentFill/g, '#ccc');
-            return '<g transform="translate(48, 10)"><g transform="scale(1.2)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#333" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + processed + '</svg></g></g>';
-        }
 
         const canvasArea = document.getElementById('canvasArea');
         const canvasWrapper = document.getElementById('canvasWrapper');
@@ -1013,7 +1047,7 @@
         let resizeStart = { x: 0, y: 0, w: 0, h: 0 };
         
         // Grid snapping
-        const GRID_SIZE = 10; // Match the background grid size
+        const GRID_SIZE = 20; // Matches .canvas-grid background-size (20px dots)
         let snapToGrid = true;
         
         function snapToGridValue(value) {
@@ -1136,13 +1170,40 @@
                     canvasArea.classList.remove('panning');
                 }
                 if (draggingDevice) {
+                    const d = draggingDevice;
+                    const ox = deviceStart.x, oy = deviceStart.y;
+                    if (d.x !== ox || d.y !== oy) {
+                        const nx = d.x, ny = d.y;
+                        pushUndoForGeometryChange(
+                            () => { d.x = ox; d.y = oy; },
+                            () => { d.x = nx; d.y = ny; }
+                        );
+                    }
                     draggingDevice = null;
                     canvasArea.classList.remove('dragging-device');
                 }
                 if (draggingZone) {
+                    const z = draggingZone;
+                    const ox = zoneStart.x, oy = zoneStart.y;
+                    if (z.x !== ox || z.y !== oy) {
+                        const nx = z.x, ny = z.y;
+                        pushUndoForGeometryChange(
+                            () => { z.x = ox; z.y = oy; },
+                            () => { z.x = nx; z.y = ny; }
+                        );
+                    }
                     draggingZone = null;
                 }
                 if (resizingZone) {
+                    const z = resizingZone;
+                    const ow = resizeStart.w, oh = resizeStart.h;
+                    if (z.width !== ow || z.height !== oh) {
+                        const nw = z.width, nh = z.height;
+                        pushUndoForGeometryChange(
+                            () => { z.width = ow; z.height = oh; },
+                            () => { z.width = nw; z.height = nh; }
+                        );
+                    }
                     resizingZone = null;
                 }
                 if (isDraggingConnection) {
@@ -1242,16 +1303,35 @@
             document.getElementById('propManufacturer').onchange = e => updateDeviceProp('manufacturer', e.target.value);
             document.getElementById('propOS').onchange = e => updateDeviceProp('os', e.target.value);
 
+            function isTextEntry(el) {
+                if (!el) return false;
+                if (el.isContentEditable) return true;
+                const tag = el.tagName;
+                return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+            }
+
             document.addEventListener('keydown', e => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
-                if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+                const inTextEntry = isTextEntry(e.target);
+
                 if (e.key === 'Escape') {
+                    // Inside a field, Escape just leaves the field.
+                    if (inTextEntry) { e.target.blur(); return; }
                     cancelConnect();
                     deselectAll();
                     if (eraserMode) toggleEraser();
                     if (editRouteMode) toggleEditRoute();
+                    return;
                 }
-                if (e.key === 'Delete') {
+
+                // Text fields keep their native editing keys - most importantly
+                // Delete/Backspace, which would otherwise destroy the device.
+                if (inTextEntry) return;
+
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+
+                if (e.key === 'Delete' || e.key === 'Backspace') {
+                    e.preventDefault();
                     if (state.selected) deleteSelected();
                     if (state.selectedZone) deleteSelectedZone();
                 }
@@ -1622,7 +1702,8 @@
             el.addEventListener('mousedown', function(e) {
                 if (e.target.classList.contains('conn-point')) return;
                 e.stopPropagation();
-                saveState();
+                // No snapshot here - a plain click to select is not an edit.
+                // The undo step is recorded on mouseup, only if the thing moved.
                 draggingDevice = d;
                 dragStart.x = e.clientX;
                 dragStart.y = e.clientY;
@@ -1832,6 +1913,8 @@
 
         function updateZoneProp(key, value) {
             if (!state.selectedZone) return;
+            if (state.selectedZone[key] === value) return;
+            saveStateDebounced();
             state.selectedZone[key] = value;
             const el = document.getElementById(state.selectedZone.id);
             if (key === 'name') el.querySelector('.zone-name').textContent = value;
@@ -2191,6 +2274,8 @@
         function updateParentPort(parentId, portValue) {
             if (!state.selected) return;
             if (!state.selected.parentPorts) state.selected.parentPorts = {};
+            if (state.selected.parentPorts[parentId] === portValue) return;
+            saveStateDebounced();
             state.selected.parentPorts[parentId] = portValue;
         }
         
@@ -2216,6 +2301,7 @@
         
         function toggleSwitchVLAN(vlanId) {
             if (!state.selected || state.selected.type !== 'switch') return;
+            saveState();
             if (!state.selected.assignedVlans) state.selected.assignedVlans = [];
             
             const index = state.selected.assignedVlans.indexOf(vlanId);
@@ -2249,6 +2335,7 @@
         
         function toggleAPSSID(ssidName) {
             if (!state.selected || state.selected.type !== 'ap') return;
+            saveState();
             if (!state.selected.ssids) state.selected.ssids = [];
             
             const index = state.selected.ssids.indexOf(ssidName);
@@ -2268,6 +2355,7 @@
 
         function removeVM(index) {
             if (state.selected && state.selected.vms) {
+                saveState();
                 state.selected.vms.splice(index, 1);
                 renderVMsOnDevice(state.selected);
                 renderVMList(state.selected);
@@ -2276,6 +2364,8 @@
 
         function updateDeviceProp(key, value) {
             if (!state.selected) return;
+            if (state.selected[key] === value) return;
+            saveStateDebounced();
             state.selected[key] = value;
             const el = document.getElementById(state.selected.id);
             if (key === 'name') el.querySelector('.device-name').textContent = value;
@@ -2284,6 +2374,8 @@
 
         function setStatus(status) {
             if (!state.selected) return;
+            if (state.selected.status === status) return;
+            saveState();
             state.selected.status = status;
             document.getElementById(state.selected.id).querySelector('.device-status').className = 'device-status status-' + status;
             document.querySelectorAll('.status-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.status === status));
@@ -2354,7 +2446,9 @@
         }
         
         function deleteSSID(index) {
+            if (!state.ssids[index]) return;
             const ssidName = state.ssids[index].name;
+            saveState();
             state.ssids.splice(index, 1);
             // Remove this SSID from all access points
             state.devices.forEach(d => {
@@ -2376,6 +2470,7 @@
                     alert('An SSID with this name already exists.');
                     return;
                 }
+                saveState();
                 state.ssids.push({ name, security, vlan });
                 renderSSIDList();
                 closeModal('ssidModal');
@@ -2386,8 +2481,24 @@
         }
 
         function deleteVlan(index) {
+            const vlan = state.vlans[index];
+            if (!vlan) return;
+            saveState();
             state.vlans.splice(index, 1);
+            // Clear references, or devices keep pointing at a VLAN that is gone.
+            const gone = String(vlan.id);
+            state.devices.forEach(d => {
+                if (String(d.vlan) === gone) d.vlan = '';
+                if (d.assignedVlans) {
+                    d.assignedVlans = d.assignedVlans.filter(v => String(v) !== gone);
+                }
+            });
+            state.ssids.forEach(s => {
+                if (String(s.vlan) === gone) s.vlan = '';
+            });
+            if (state.selected) showProps(state.selected);
             renderVlanList();
+            renderSSIDList();
             updateVlanSelect();
             updateNetworkInfoBox();
         }
@@ -2398,6 +2509,7 @@
             const subnet = document.getElementById('newVlanSubnet').value;
             const gateway = document.getElementById('newVlanGateway').value;
             if (id && name && subnet) {
+                saveState();
                 state.vlans.push({ id, name, subnet, gateway });
                 renderVlanList();
                 updateVlanSelect();
@@ -2431,6 +2543,7 @@
         }
 
         function saveConfig() {
+            saveState();
             state.config.dnsProvider = document.getElementById('dnsProvider').value;
             state.config.dnsPrimary = document.getElementById('dnsPrimary').value;
             state.config.dnsSecondary = document.getElementById('dnsSecondary').value;
@@ -2445,6 +2558,7 @@
             const name = document.getElementById('newVMName').value;
             const status = document.getElementById('newVMStatus').value;
             if (name) {
+                saveState();
                 state.selected.vms.push({ name, status });
                 renderVMsOnDevice(state.selected);
                 renderVMList(state.selected);
@@ -2454,12 +2568,16 @@
         }
 
         function clearAll() {
-            if (confirm('Clear all devices and connections?')) {
+            if (state.devices.length === 0 && state.zones.length === 0) return;
+            if (confirm('Clear all devices, connections and zones? This can be undone with Ctrl+Z.')) {
                 saveState();
                 state.devices = [];
                 state.connections = [];
+                state.zones = [];
                 state.counter = 0;
+                state.zoneCounter = 0;
                 document.querySelectorAll('.network-device').forEach(el => el.remove());
+                document.querySelectorAll('.network-zone').forEach(el => el.remove());
                 svg.innerHTML = '';
                 clearWaypointHandles();
                 editingConn = null;
@@ -2474,147 +2592,6 @@
             return vlan ? `VLAN ${vlan.id} - ${vlan.name}` : 'None';
         }
 
-        function generateSVG() {
-            const title = document.getElementById('pdfTitle').value || 'Network Diagram';
-            const client = document.getElementById('pdfClient').value || '';
-            const includeInventory = document.getElementById('includeInventory').checked;
-            closeModal('exportModal');
-            
-            if (state.devices.length === 0) {
-                alert('No devices to export. Add some devices first.');
-                return;
-            }
-            
-            // Calculate bounding box
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            state.devices.forEach(d => {
-                const el = document.getElementById(d.id);
-                const w = el ? el.offsetWidth : 120;
-                const h = el ? el.offsetHeight : 100;
-                minX = Math.min(minX, d.x);
-                minY = Math.min(minY, d.y);
-                maxX = Math.max(maxX, d.x + w);
-                maxY = Math.max(maxY, d.y + h);
-            });
-            
-            const padding = 50;
-            minX -= padding;
-            minY -= padding;
-            maxX += padding;
-            maxY += padding;
-            
-            const contentWidth = maxX - minX;
-            const contentHeight = maxY - minY;
-            
-            // Build inventory data
-            let inventoryHeight = 0;
-            let inventoryContent = '';
-            if (includeInventory && state.devices.length > 0) {
-                inventoryHeight = 60 + (state.devices.length * 22);
-                inventoryContent = `
-                    <rect x="0" y="${contentHeight + 20}" width="${Math.max(contentWidth, 900)}" height="${inventoryHeight}" fill="#0a0a0a" stroke="#333" rx="10"/>
-                    <text x="15" y="${contentHeight + 45}" fill="#ff3b3b" font-size="14" font-weight="bold" font-family="Arial, sans-serif">Device Inventory</text>
-                    <text x="15" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">Name</text>
-                    <text x="130" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">Manufacturer</text>
-                    <text x="230" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">OS</text>
-                    <text x="350" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">IP Address</text>
-                    <text x="470" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">MAC Address</text>
-                    <text x="610" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">VLAN</text>
-                    <text x="720" y="${contentHeight + 65}" fill="#888" font-size="10" font-family="Arial, sans-serif">Notes</text>
-                `;
-                state.devices.forEach((d, i) => {
-                    const y = contentHeight + 85 + (i * 22);
-                    const cfg = types[d.type];
-                    inventoryContent += `
-                        <text x="15" y="${y}" fill="#e4e4e7" font-size="11" font-family="Arial, sans-serif">${cfg.icon} ${d.name.substring(0, 12)}</text>
-                        <text x="130" y="${y}" fill="#a1a1a1" font-size="11" font-family="Arial, sans-serif">${(d.manufacturer || '-').substring(0, 12)}</text>
-                        <text x="230" y="${y}" fill="#a1a1a1" font-size="11" font-family="Arial, sans-serif">${(d.os || '-').substring(0, 15)}</text>
-                        <text x="350" y="${y}" fill="#a1a1a1" font-size="11" font-family="monospace">${d.ip || '-'}</text>
-                        <text x="470" y="${y}" fill="#a1a1a1" font-size="11" font-family="monospace">${d.mac || '-'}</text>
-                        <text x="610" y="${y}" fill="#a1a1a1" font-size="11" font-family="Arial, sans-serif">${getVlanName(d.vlan).substring(0, 12)}</text>
-                        <text x="720" y="${y}" fill="#888" font-size="11" font-family="Arial, sans-serif">${(d.notes || '-').substring(0, 25)}${d.notes && d.notes.length > 25 ? '...' : ''}</text>
-                    `;
-                });
-            }
-            
-            const totalHeight = contentHeight + (includeInventory ? inventoryHeight + 40 : 0);
-            
-            // Build SVG
-            let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${contentWidth}" height="${totalHeight + 60}" viewBox="0 0 ${contentWidth} ${totalHeight + 60}">
-    <defs>
-        <style>
-            .title { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #e4e4e7; }
-            .subtitle { font-family: Arial, sans-serif; font-size: 12px; fill: #a1a1a1; }
-            .device-box { fill: #0a0a0a; stroke: #333; stroke-width: 2; rx: 10; }
-            .device-name { font-family: Arial, sans-serif; font-size: 11px; fill: #e4e4e7; font-weight: 600; }
-            .device-ip { font-family: monospace; font-size: 10px; fill: #666; }
-            .device-badge { font-family: Arial, sans-serif; font-size: 9px; fill: #ff6b6b; }
-            .device-icon { font-size: 20px; }
-            .conn-wired { stroke: #ff3b3b; stroke-width: 2; fill: none; }
-            .conn-wireless { stroke: #c084fc; stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
-            .conn-vpn { stroke: #d4a017; stroke-width: 3.5; fill: none; opacity: 0.85; }
-            .conn-vpn-outline { stroke: rgba(212,160,23,0.25); stroke-width: 8; fill: none; }
-        </style>
-    </defs>
-    <rect width="100%" height="100%" fill="#050505"/>
-    <text x="15" y="25" class="title">${title}</text>
-    ${client ? `<text x="15" y="45" class="subtitle">Client: ${client}</text>` : ''}
-    <text x="${contentWidth - 15}" y="25" class="subtitle" text-anchor="end">${new Date().toLocaleDateString()}</text>
-    <g transform="translate(0, 60)">`;
-            
-            // Add connections
-            state.connections.forEach(conn => {
-                const from = getConnectionPoint(conn.from, conn.fromPos);
-                const to = getConnectionPoint(conn.to, conn.toPos);
-                // Offset into bounding box coordinate space
-                const offsetFrom = { x: from.x - minX, y: from.y - minY };
-                const offsetTo   = { x: to.x   - minX, y: to.y   - minY };
-                // Offset any custom waypoints too
-                const offsetWaypoints = (conn.waypoints || []).map(wp => ({ x: wp.x - minX, y: wp.y - minY }));
-                const path = buildConnPath(offsetFrom, offsetTo, conn.fromPos, conn.routingStyle || 'curved', offsetWaypoints);
-                if (conn.type === 'vpn') svgContent += `<path d="${path}" class="conn-vpn-outline"/>`;
-                svgContent += `<path d="${path}" class="conn-${conn.type}"/>`;
-            });
-            
-            // Add devices
-            state.devices.forEach(d => {
-                const cfg = types[d.type];
-                const x = d.x - minX;
-                const y = d.y - minY;
-                const statusColors = { online: '#22c55e', offline: '#555', warning: '#f97316', retired: '#555', decommissioned: '#555' };
-                
-                let iconContent;
-                if (cfg.svgIcon) {
-                    iconContent = getSvgIconForExport(cfg.icon);
-                } else {
-                    iconContent = `<text x="60" y="30" text-anchor="middle" class="device-icon">${cfg.icon}</text>`;
-                }
-                
-                svgContent += `
-                    <g transform="translate(${x}, ${y})">
-                        <rect class="device-box" width="120" height="90"/>
-                        <circle cx="105" cy="12" r="4" fill="${statusColors[d.status] || '#555'}"/>
-                        ${iconContent}
-                        <text x="60" y="50" text-anchor="middle" class="device-name">${d.name}</text>
-                        <text x="60" y="65" text-anchor="middle" class="device-ip">${d.ip || 'No IP'}</text>
-                        <text x="60" y="82" text-anchor="middle" class="device-badge">${cfg.name}</text>
-                    </g>`;
-            });
-            
-            svgContent += inventoryContent;
-            svgContent += `
-    </g>
-    <text x="15" y="${totalHeight + 55}" fill="#666" font-size="10" font-family="Arial, sans-serif">Generated by NetMap Pro</text>
-</svg>`;
-            
-            // Download SVG
-            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = title.toLowerCase().replace(/\s+/g, '-') + '-' + new Date().toISOString().split('T')[0] + '.svg';
-            a.click();
-        }
 
         function generatePDF() {
             const title = document.getElementById('pdfTitle').value || 'Network Diagram';
@@ -3362,6 +3339,8 @@
                 vlans: state.vlans,
                 ssids: state.ssids,
                 config: state.config,
+                counter: state.counter,
+                zoneCounter: state.zoneCounter,
                 clientName: document.getElementById('clientName').value || '',
                 siteName: document.getElementById('siteName').value || '',
                 view: { zoom: state.zoom, panX: state.panX, panY: state.panY }
@@ -3422,14 +3401,35 @@
             a.click();
         }
 
+        // Highest trailing integer across generated names, so loading a project
+        // doesn't restart numbering and collide with existing device names.
+        function highestNameIndex(items) {
+            let max = 0;
+            (items || []).forEach(it => {
+                const m = /(\d+)\s*$/.exec(it && it.name ? it.name : '');
+                if (m) max = Math.max(max, parseInt(m[1], 10));
+            });
+            return max;
+        }
+
         function handleJsonLoad(event) {
             const file = event.target.files[0];
-            if (!file) return;
-            
+            if (!file) {
+                event.target.value = '';
+                return;
+            }
+
+            const hasWork = state.devices.length > 0 || state.zones.length > 0;
+            if (hasWork && !confirm('Loading a project replaces everything on the canvas. Continue?')) {
+                event.target.value = '';
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = evt => {
                 try {
                     const data = JSON.parse(evt.target.result);
+                    saveState();
                     state.devices = data.devices || [];
                     state.connections = data.connections || [];
                     state.vlans = data.vlans || state.vlans;
@@ -3449,6 +3449,16 @@
                     document.querySelectorAll('.network-device').forEach(el => el.remove());
                     document.querySelectorAll('.network-zone').forEach(el => el.remove());
                     state.zones = data.zones || [];
+                    state.counter = Math.max(
+                        data.counter || 0,
+                        state.devices.length,
+                        highestNameIndex(state.devices)
+                    );
+                    state.zoneCounter = Math.max(
+                        data.zoneCounter || 0,
+                        state.zones.length,
+                        highestNameIndex(state.zones)
+                    );
                     state.devices.forEach(d => renderDevice(d));
                     state.zones.forEach(z => renderZone(z));
                     drawConnections();
@@ -3457,13 +3467,13 @@
                     updateCounts();
                     applyTransform();
                     closeModal('loadProjectModal');
-                    if (state.devices.length > 0 || state.zones.length > 0) {
-                        document.getElementById('emptyState').style.display = 'none';
-                    }
-                    // Reset file input
-                    document.getElementById('jsonFileInput').value = '';
+                    document.getElementById('emptyState').style.display =
+                        (state.devices.length > 0 || state.zones.length > 0) ? 'none' : 'block';
                 } catch (err) {
                     alert('Error loading project: ' + err.message);
+                } finally {
+                    // Always clear, so re-selecting the same filename still fires change.
+                    document.getElementById('jsonFileInput').value = '';
                 }
             };
             reader.readAsText(file);
