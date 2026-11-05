@@ -554,41 +554,45 @@ document.addEventListener('DOMContentLoaded', function() {
             resizingZone = null;
         }
         if (isDraggingConnection) {
-            // Check if we're over a device (or its connection point)
-            const targetDevice = findDeviceAtPoint(e.clientX, e.clientY);
+            const source = dragConnStart.device;
+            const sourcePos = dragConnStart.pos;
+            const target = findDeviceAtPoint(e.clientX, e.clientY);
 
-            if (targetDevice && targetDevice.device.id !== dragConnStart.device.id) {
-                // Create connection
+            // Tear the drag down before anything else, so the preview goes
+            // whether the release landed on a device, on the source, or on
+            // empty canvas.
+            endConnectionDrag();
+
+            if (target && target.device.id !== source.id) {
                 const exists = state.connections.some(c =>
-                    (c.from === dragConnStart.device.id && c.to === targetDevice.device.id) ||
-                    (c.from === targetDevice.device.id && c.to === dragConnStart.device.id)
+                    (c.from === source.id && c.to === target.device.id) ||
+                    (c.from === target.device.id && c.to === source.id)
                 );
-                if (!exists) {
+                if (exists) {
+                    // Previously this did nothing at all, which read as the
+                    // drag having failed.
+                    toast.show(source.name + ' and ' + target.device.name +
+                        ' are already connected.', { type: 'warn' });
+                } else {
                     saveState();
-                    state.connections.push({
+                    const conn = {
                         id: nextId('conn'),
-                        from: dragConnStart.device.id,
-                        fromPos: dragConnStart.pos,
-                        to: targetDevice.device.id,
-                        toPos: targetDevice.pos,
+                        from: source.id,
+                        fromPos: sourcePos,
+                        to: target.device.id,
+                        toPos: target.pos,
                         type: state.connType,
                         routingStyle: state.routingStyle
-                    });
+                    };
+                    state.connections.push(conn);
+                    sceneIndex.addConnection(conn);
                     updateCounts();
-                    // Refresh connected to list if either device is selected
-                    if (state.selected && (state.selected.id === targetDevice.device.id || state.selected.id === dragConnStart.device.id)) {
+                    if (state.selected &&
+                        (state.selected.id === target.device.id || state.selected.id === source.id)) {
                         renderConnectedToList(state.selected);
                     }
                 }
             }
-
-            // Cleanup
-            const el = document.getElementById(dragConnStart.device.id);
-            if (el) el.classList.remove('connecting');
-            isDraggingConnection = false;
-            dragConnStart = { device: null, pos: null, x: 0, y: 0 };
-            connHint.classList.remove('active');
-            connHint.textContent = 'Click another connection point to complete';
             drawConnections();
         }
     });
@@ -1316,7 +1320,30 @@ function handleConnectionClick(device, position) {
     }
 }
 
+/**
+ * End an in-flight connection drag and clear its preview line.
+ *
+ * The preview used to disappear by accident: drawConnections() rebuilt
+ * svg.innerHTML from a string, which wiped every node including the dashed
+ * line. The layer now keeps persistent nodes and re-appends the overlay, so
+ * releasing over empty space left the line stranded on the canvas. Every
+ * way a drag can end routes through here.
+ */
+function endConnectionDrag() {
+    if (!isDraggingConnection) return;
+    // Drop any queued preview frame, or it would redraw the line we just hid.
+    scheduler.cancel('drag-preview');
+    connLayer.hideOverlay();
+    const el = dragConnStart.device && document.getElementById(dragConnStart.device.id);
+    if (el) el.classList.remove('connecting');
+    isDraggingConnection = false;
+    dragConnStart = { device: null, pos: null, x: 0, y: 0 };
+    connHint.classList.remove('active');
+    connHint.textContent = 'Click another connection point to complete';
+}
+
 function cancelConnect() {
+    endConnectionDrag();
     if (state.connecting) {
         const el = document.getElementById(state.connecting.device.id);
         if (el) el.classList.remove('connecting');

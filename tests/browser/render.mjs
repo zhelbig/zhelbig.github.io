@@ -124,6 +124,77 @@ check('export libraries are not fetched on page load',
       libsAtLoad.h2c==='undefined' && libsAtLoad.jspdf==='undefined' && libsAtLoad.tags===0,
       JSON.stringify(libsAtLoad));
 
+// ── 5. A connection drag must never strand its preview line ──
+// The preview used to vanish only as a side effect of rebuilding the whole
+// SVG from a string; with persistent nodes, releasing over empty canvas
+// left the dashed line behind.
+await p.evaluate(() => {
+  mapper.state.connections.length = 0;
+  mapper.drawConnections();
+});
+const ghostCount = () => p.evaluate(() =>
+  document.querySelectorAll('#connections .conn-overlay').length);
+
+const devBox = await p.locator('.network-device').first().boundingBox();
+const dot = await p.evaluate((id) => {
+  const el = document.querySelector('.network-device .conn-point.right');
+  const r = el.getBoundingClientRect();
+  return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+});
+
+// (a) release over empty canvas
+await p.mouse.move(dot.x, dot.y);
+await p.mouse.down();
+await p.mouse.move(dot.x + 120, dot.y + 260, { steps: 10 });
+const duringDrag = await ghostCount();
+const area = await p.locator('#canvasArea').boundingBox();
+await p.mouse.move(area.x + area.width - 120, area.y + area.height - 120, { steps: 8 });
+await p.mouse.up();
+await p.waitForTimeout(120);
+check('the preview line is drawn while dragging', duringDrag === 1, String(duringDrag));
+check('releasing over empty canvas leaves no ghost line',
+      (await ghostCount()) === 0, String(await ghostCount()));
+
+// (b) release back on the device it started from
+await p.mouse.move(dot.x, dot.y);
+await p.mouse.down();
+await p.mouse.move(dot.x + 60, dot.y + 40, { steps: 6 });
+await p.mouse.move(dot.x, dot.y, { steps: 6 });
+await p.mouse.up();
+await p.waitForTimeout(120);
+check('releasing back on the source leaves no ghost line',
+      (await ghostCount()) === 0, String(await ghostCount()));
+
+// (c) a real connection, then the same pair again
+const second = await p.evaluate(() => {
+  const els = [...document.querySelectorAll('.network-device')];
+  const el = els[1];
+  const r = el.querySelector('.conn-point.left').getBoundingClientRect();
+  return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+});
+const connsBefore = await p.evaluate(() => mapper.state.connections.length);
+await p.mouse.move(dot.x, dot.y);
+await p.mouse.down();
+await p.mouse.move(second.x, second.y, { steps: 12 });
+await p.mouse.up();
+await p.waitForTimeout(150);
+const connsAfter = await p.evaluate(() => mapper.state.connections.length);
+check('dragging onto another device makes a connection',
+      connsAfter === connsBefore + 1, `${connsBefore} -> ${connsAfter}`);
+check('and leaves no ghost line', (await ghostCount()) === 0);
+
+await p.mouse.move(dot.x, dot.y);
+await p.mouse.down();
+await p.mouse.move(second.x, second.y, { steps: 12 });
+await p.mouse.up();
+await p.waitForTimeout(200);
+check('a duplicate is refused without adding a connection',
+      (await p.evaluate(() => mapper.state.connections.length)) === connsAfter);
+check('and the refusal is explained rather than silent',
+      await p.evaluate(() => [...document.querySelectorAll('#toastHost .toast')]
+        .some(t => /already connected/i.test(t.textContent))));
+check('still no ghost line after a refused duplicate', (await ghostCount()) === 0);
+
 check('no JS errors', errs.length===0, errs.join(' | '));
 console.log(fail? `\n${fail} failed` : '\nall checks passed');
 await b.close(); s.close(); process.exit(fail?1:0);
